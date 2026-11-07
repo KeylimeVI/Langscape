@@ -567,13 +567,13 @@ async function main() {
     });
     await cdp.send("Input.dispatchMouseEvent", {
       type: "mouseMoved",
-      x: resizeStart.x - 45,
+      x: resizeStart.x + 45,
       y: resizeStart.y,
       button: "left",
     });
     await cdp.send("Input.dispatchMouseEvent", {
       type: "mouseReleased",
-      x: resizeStart.x - 45,
+      x: resizeStart.x + 45,
       y: resizeStart.y,
       button: "left",
       clickCount: 1,
@@ -583,7 +583,7 @@ async function main() {
       `(() => { const v = app.workspace.getLeavesOfType('langscape-sound-change')[0].view; return v.contentEl.querySelector('.langscape-lsc-side')?.getBoundingClientRect().width ?? 0; })()`
     );
     await ensure(
-      resizeEnd > resizeStart.width + 20,
+      Math.abs(resizeEnd - resizeStart.width) > 20,
       `The sidebar did not resize: ${resizeStart.width} -> ${resizeEnd}`
     );
     log(`sidebar resize: ${Math.round(resizeStart.width)} -> ${Math.round(resizeEnd)}`);

@@ -385,8 +385,26 @@ export class SoundChangeTestPanel {
     const card = this.traceOutEl.createDiv({ cls: "langscape-trace-card" });
     const header = card.createDiv({ cls: "langscape-trace-head" });
     header.createSpan({ cls: "langscape-trace-title", text: "Trace" });
+    const nav = header.createDiv({ cls: "langscape-trace-nav" });
+    const scrollLeft = nav.createEl("button", {
+      cls: "langscape-trace-nav-button",
+      attr: { "aria-label": "Scroll trace left", type: "button" },
+    });
+    setIcon(scrollLeft, "chevron-left");
+    const scrollRight = nav.createEl("button", {
+      cls: "langscape-trace-nav-button",
+      attr: { "aria-label": "Scroll trace right", type: "button" },
+    });
+    setIcon(scrollRight, "chevron-right");
 
-    const scroll = card.createDiv({ cls: "langscape-trace-scroll" });
+    const scroll = card.createDiv({
+      cls: "langscape-trace-scroll",
+      attr: {
+        tabindex: "0",
+        "aria-label": "Trace table; scroll sideways to see more words",
+        title: "Scroll sideways to see more words",
+      },
+    });
     const table = scroll.createEl("table", { cls: "langscape-trace-table" });
     const head = table.createTHead().insertRow();
     head.createEl("th", { text: "Iteration" });
@@ -412,6 +430,35 @@ export class SoundChangeTestPanel {
         row.insertCell().textContent = current[index];
       });
     }
+
+    const updateScrollButtons = (): void => {
+      const max = scroll.scrollWidth - scroll.clientWidth;
+      scrollLeft.disabled = max <= 1 || scroll.scrollLeft <= 0;
+      scrollRight.disabled = max <= 1 || scroll.scrollLeft >= max - 1;
+      nav.toggleClass("is-hidden", max <= 1);
+      scroll.toggleClass("has-overflow", max > 1);
+    };
+    const scrollStep = (): number => Math.max(120, Math.round(scroll.clientWidth * 0.7));
+    scrollLeft.addEventListener("click", () => {
+      scroll.scrollBy({ left: -scrollStep(), behavior: "smooth" });
+    });
+    scrollRight.addEventListener("click", () => {
+      scroll.scrollBy({ left: scrollStep(), behavior: "smooth" });
+    });
+    scroll.addEventListener("scroll", updateScrollButtons, { passive: true });
+    scroll.addEventListener(
+      "wheel",
+      (event) => {
+        if (scroll.scrollWidth <= scroll.clientWidth) return;
+        if (!event.shiftKey && Math.abs(event.deltaX) <= Math.abs(event.deltaY)) return;
+        const delta = event.deltaX || event.deltaY;
+        if (!delta) return;
+        event.preventDefault();
+        scroll.scrollLeft += delta;
+      },
+      { passive: false }
+    );
+    requestAnimationFrame(updateScrollButtons);
   }
 
   private showError(message: string, line?: number): void {
