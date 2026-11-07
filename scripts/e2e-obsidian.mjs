@@ -531,7 +531,7 @@ async function main() {
     );
     await ensure(inlineSpans === 1, `Expected exactly one inline font span in Live Preview, got ${inlineSpans}.`);
     const rawCode = await cdp.eval(
-      "document.querySelector('.markdown-source-view .cm-content')?.innerText.includes('{font:Noto Sans Gothic') ?? false"
+      "document.querySelector('.markdown-source-view .cm-content')?.innerText.includes(\"'''Noto-Sans-Gothic\") ?? false"
     );
     await ensure(rawCode, "Inline code containing font markup was decorated instead of left literal.");
     log("inline font spans render in Live Preview (code stays literal)");
@@ -684,6 +684,9 @@ async function main() {
     );
     await ensure(settingsText.includes("Install Lexurgy"), "Settings is missing the Lexurgy installer.");
     await ensure(!settingsText.includes("Canvas pipelines"), "Settings still has the old pipeline section.");
+    await ensure(!settingsText.includes("Discover fonts automatically"), "Settings still has the old font discovery toggle.");
+    await ensure(!settingsText.includes("Add a font"), "Settings still has the old Add a font section.");
+    await ensure(!settingsText.includes("Starter vault"), "Settings still has the old demo section.");
     await cdp.eval("app.setting?.close?.(); true");
 
     cdp.close();

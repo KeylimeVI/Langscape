@@ -652,6 +652,16 @@ body.langscape-resizing * {
   font-weight: 600;
 }
 
+.langscape-font-setting-nickname,
+.langscape-font-nickname {
+  color: var(--text-accent);
+  font-family: var(--font-monospace);
+  font-size: var(--font-ui-smaller);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .langscape-font-setting-source {
   font-size: var(--font-ui-smaller);
   color: var(--text-faint);

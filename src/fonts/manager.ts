@@ -19,8 +19,7 @@ export interface CustomFontConfig {
 }
 
 export interface FontManagerSettings {
-  autoDiscoverFonts: boolean;
-  fontFolder: string;
+  fontNicknames: Record<string, string>;
   fontAliases: Record<string, string>;
   customFonts: CustomFontConfig[];
 }
@@ -62,10 +61,12 @@ export class FontManager {
       const className = record.className.replace(/^langscape-font-/, "");
       return (
         record.id.toLowerCase() === needle ||
+        (record.nickname ?? "").toLowerCase() === needle ||
         record.displayName.toLowerCase() === needle ||
         record.family.toLowerCase() === needle ||
         className === needle ||
-        stripSpaces(record.displayName) === stripSpaces(needle)
+        stripSpaces(record.displayName) === stripSpaces(needle) ||
+        stripSpaces(record.nickname ?? "") === stripSpaces(needle)
       );
     });
   }
@@ -102,16 +103,12 @@ export class FontManager {
       records.push(record);
     };
 
-    if (settings.autoDiscoverFonts) {
-      const files = this.app.vault.getFiles().filter((file) => isFontFile(file.path));
-      const folder = settings.fontFolder.trim().replace(/^\/+|\/+$/g, "");
-      for (const file of files) {
-        if (folder && !isInFolder(file.path, folder)) continue;
-        if (seenPaths.has(file.path)) continue;
-        seenPaths.add(file.path);
-        const record = await this.recordForVaultFile(file, settings, warnings);
-        if (record) addRecord(record);
-      }
+    const files = this.app.vault.getFiles().filter((file) => isFontFile(file.path));
+    for (const file of files) {
+      if (seenPaths.has(file.path)) continue;
+      seenPaths.add(file.path);
+      const record = await this.recordForVaultFile(file, settings, warnings);
+      if (record) addRecord(record);
     }
 
     for (const config of settings.customFonts) {
@@ -144,6 +141,7 @@ export class FontManager {
           source: "url",
           url: config.url,
           format: fontFormatFromPath(config.url),
+          nickname: settings.fontNicknames[config.id]?.trim() || undefined,
         });
       }
     }
@@ -231,12 +229,9 @@ export class FontManager {
       source: "vault",
       path: file.path,
       format: fontFormatFromPath(file.path),
+      nickname: settings.fontNicknames[file.path]?.trim() || undefined,
     };
   }
-}
-
-function isInFolder(filePath: string, folder: string): boolean {
-  return filePath === folder || filePath.startsWith(folder + "/");
 }
 
 function stripSpaces(value: string): string {

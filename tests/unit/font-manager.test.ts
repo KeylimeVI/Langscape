@@ -31,8 +31,7 @@ class Vault {
 
 function settings(overrides: Partial<FontManagerSettings> = {}): FontManagerSettings {
   return {
-    autoDiscoverFonts: true,
-    fontFolder: "",
+    fontNicknames: {},
     fontAliases: {},
     customFonts: [],
     ...overrides,
@@ -51,7 +50,7 @@ describe("FontManager", () => {
     document.head.innerHTML = "";
   });
 
-  it("discovers TTF files, reads their family, and injects CSS", async () => {
+  it("discovers TTF files in any vault folder and injects CSS", async () => {
     const vault = new Vault();
     vault.files.push(file("Fonts/NotoSansGothic-Regular.ttf"));
     const manager = new FontManager({ vault } as any, () => settings());
@@ -63,58 +62,35 @@ describe("FontManager", () => {
       source: "vault",
       path: "Fonts/NotoSansGothic-Regular.ttf",
     });
-    expect(document.getElementById("langscape-font-faces")?.textContent).toContain(
-      '@font-face'
-    );
-    expect(document.getElementById("langscape-font-faces")?.textContent).toContain(
-      "Noto Sans Gothic"
-    );
+    expect(document.getElementById("langscape-font-faces")?.textContent).toContain('@font-face');
+    expect(document.getElementById("langscape-font-faces")?.textContent).toContain("Noto Sans Gothic");
     expect(manager.find("noto sans gothic")?.path).toBe("Fonts/NotoSansGothic-Regular.ttf");
     expect(manager.find("missing")).toBeUndefined();
   });
 
-  it("honours the font folder and aliases", async () => {
+  it("scans every folder, honours aliases, and exposes nicknames", async () => {
     const vault = new Vault();
     vault.files.push(file("Fonts/A.ttf"), file("Other/B.ttf"));
     const manager = new FontManager({ vault } as any, () =>
       settings({
-        fontFolder: "Fonts",
         fontAliases: { "Fonts/A.ttf": "Tengwar" },
+        fontNicknames: { "Fonts/A.ttf": "teng" },
       })
     );
     const fonts = await manager.refresh();
-    expect(fonts).toHaveLength(1);
-    expect(fonts[0].displayName).toBe("Tengwar");
+    expect(fonts).toHaveLength(2);
+    const tengwar = fonts.find((font) => font.path === "Fonts/A.ttf");
+    expect(tengwar?.displayName).toBe("Tengwar");
+    expect(tengwar?.nickname).toBe("teng");
     expect(manager.find("tengwar")?.path).toBe("Fonts/A.ttf");
-  });
-
-  it("loads pinned fonts when auto-discovery is off", async () => {
-    const vault = new Vault();
-    vault.files.push(file("Elsewhere/Script.ttf"));
-    const manager = new FontManager({ vault } as any, () =>
-      settings({
-        autoDiscoverFonts: false,
-        customFonts: [
-          {
-            id: "pinned",
-            name: "Script",
-            path: "Elsewhere/Script.ttf",
-            enabled: true,
-          },
-        ],
-      })
-    );
-    const fonts = await manager.refresh();
-    expect(fonts).toHaveLength(1);
-    expect(fonts[0].path).toBe("Elsewhere/Script.ttf");
-    expect(fonts[0].displayName).toBe("Script");
+    expect(manager.find("teng")?.path).toBe("Fonts/A.ttf");
+    expect(manager.find("other")).toBeUndefined();
   });
 
   it("adds web fonts by URL and builds their @font-face", async () => {
     const vault = new Vault();
     const manager = new FontManager({ vault } as any, () =>
       settings({
-        autoDiscoverFonts: false,
         customFonts: [
           {
             id: "web",

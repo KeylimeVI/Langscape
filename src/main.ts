@@ -144,7 +144,7 @@ export default class LangscapePlugin extends Plugin {
       return;
     }
     if (this.fontManager.list().length === 0) {
-      new Notice("No fonts are loaded. Add a font file in Langscape settings.");
+      new Notice("No fonts are loaded. Drop a font file anywhere in the vault.");
       this.openSettings();
       return;
     }
@@ -156,11 +156,15 @@ export default class LangscapePlugin extends Plugin {
       onChoose: (markup) => {
         const from = editor.getCursor("from");
         editor.replaceSelection(markup);
+        const triple = /^'''\S+\s+/.exec(markup);
         const pipe = markup.indexOf("|");
-        if (pipe >= 0) {
-          const offset = editor.posToOffset(from) + pipe + 1;
-          editor.setCursor(editor.offsetToPos(offset));
-        }
+        const contentOffset = triple
+          ? triple[0].length
+          : pipe >= 0
+            ? pipe + 1
+            : 0;
+        const offset = editor.posToOffset(from) + contentOffset;
+        editor.setCursor(editor.offsetToPos(offset));
         editor.focus();
       },
     }).open();

@@ -2,8 +2,7 @@ import type { CustomFontConfig } from "./fonts/manager";
 
 export interface LangscapeSettings {
   // Fonts
-  autoDiscoverFonts: boolean;
-  fontFolder: string;
+  fontNicknames: Record<string, string>;
   fontAliases: Record<string, string>;
   customFonts: CustomFontConfig[];
 
@@ -17,8 +16,7 @@ export interface LangscapeSettings {
 }
 
 export const DEFAULT_SETTINGS: LangscapeSettings = {
-  autoDiscoverFonts: true,
-  fontFolder: "",
+  fontNicknames: {},
   fontAliases: {},
   customFonts: [],
 
@@ -35,6 +33,7 @@ export function mergeSettings(
   return {
     ...DEFAULT_SETTINGS,
     ...(loaded ?? {}),
+    fontNicknames: { ...DEFAULT_SETTINGS.fontNicknames, ...(loaded?.fontNicknames ?? {}) },
     fontAliases: { ...DEFAULT_SETTINGS.fontAliases, ...(loaded?.fontAliases ?? {}) },
     testWords: { ...DEFAULT_SETTINGS.testWords, ...(loaded?.testWords ?? {}) },
     customFonts: Array.isArray(loaded?.customFonts)

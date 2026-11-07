@@ -14,9 +14,9 @@ main.ts
 
 ### Fonts
 
-- `FontManager.refresh()` scans `app.vault.getFiles()` for font extensions, reads each file, parses the OpenType `name` table, and caches the result by path + mtime + size.
+- `FontManager.refresh()` always scans the whole vault for font extensions, reads each file, parses the OpenType `name` table, and caches the result by path + mtime + size. Vault paths can have a user-defined nickname; lookup matches the nickname, family, display name, and filename-derived name.
 - `buildFontCss()` emits `@font-face` and per-font classes. The CSS is injected into a single `<style>` element and regenerated on refresh. Reading view uses a Markdown post-processor that walks text nodes; Live Preview uses CodeMirror decorations. A separate editor extension handles note-level `langscape-font` frontmatter by marking the document text.
-- Font markup is intentionally parsed without touching the Markdown AST: `{font:Name|text}` survives Markdown rendering and is rewritten in text nodes, so links/emphasis outside the span keep working.
+- Font markup is intentionally parsed without touching the Markdown AST: the preferred `'''nickname text'''` form (and the legacy `{font:Name|text}` form) survives Markdown rendering and is rewritten in text nodes, so links/emphasis outside the span keep working. Spans stay inline and cannot cross a line break.
 
 ### Lexurgy
 

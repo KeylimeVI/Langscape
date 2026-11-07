@@ -8,11 +8,11 @@ describe("settings", () => {
 
   it("merges nested maps without losing defaults", () => {
     const settings = mergeSettings({
-      fontFolder: "Fonts",
+      fontNicknames: { "Fonts/a.ttf": "a" },
       fontAliases: { "Fonts/a.ttf": "A" },
       testWords: { "Changes/a.lsc": "apa" },
     });
-    expect(settings.fontFolder).toBe("Fonts");
+    expect(settings.fontNicknames["Fonts/a.ttf"]).toBe("a");
     expect(settings.fontAliases["Fonts/a.ttf"]).toBe("A");
     expect(settings.testWords["Changes/a.lsc"]).toBe("apa");
     expect(settings.traceByDefault).toBe(DEFAULT_SETTINGS.traceByDefault);

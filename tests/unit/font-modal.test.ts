@@ -7,6 +7,7 @@ const record: FontRecord = {
   id: "gothic",
   family: "Noto Sans Gothic",
   displayName: "Noto Sans Gothic",
+  nickname: "gothic",
   className: "langscape-font-gothic",
   source: "vault",
   path: "Fonts/gothic.ttf",
@@ -24,8 +25,9 @@ describe("FontPickerModal", () => {
     modal.open();
     expect(modal.contentEl.querySelector(".langscape-font-row")).toBeTruthy();
     expect(modal.contentEl.querySelector(".langscape-font-preview")?.textContent).toBe("𐌰𐍆𐌰");
+    expect(modal.contentEl.querySelector(".langscape-font-nickname")?.textContent).toContain("gothic");
     (modal.contentEl.querySelector(".langscape-font-row button") as HTMLButtonElement).click();
-    expect(onChoose).toHaveBeenCalledWith("{font:Noto Sans Gothic|text}", record);
+    expect(onChoose).toHaveBeenCalledWith("'''gothic text'''", record);
   });
 
   it("uses the selected text when provided", () => {
@@ -37,6 +39,6 @@ describe("FontPickerModal", () => {
     });
     modal.open();
     (modal.contentEl.querySelector(".langscape-font-row button") as HTMLButtonElement).click();
-    expect(onChoose).toHaveBeenCalledWith("{font:Noto Sans Gothic|hello}", record);
+    expect(onChoose).toHaveBeenCalledWith("'''gothic hello'''", record);
   });
 });

@@ -65,7 +65,7 @@ export class FontPickerModal extends Modal {
         cls: "langscape-empty",
         text: this.options.manager.list().length
           ? "No fonts match that search."
-          : "No fonts found yet. Add a .ttf/.otf/.woff2 to your font folder, or add one in settings.",
+          : "No fonts found yet. Drop a .ttf/.otf/.woff/.woff2 file anywhere in the vault.",
       });
       return;
     }
@@ -76,6 +76,12 @@ export class FontPickerModal extends Modal {
       preview.textContent = this.options.manager.sampleFor(font);
       const meta = row.createDiv({ cls: "langscape-font-meta" });
       meta.createDiv({ cls: "langscape-font-name", text: font.displayName });
+      if (font.nickname) {
+        meta.createDiv({
+          cls: "langscape-font-nickname",
+          text: `'''${font.nickname} text'''`,
+        });
+      }
       meta.createDiv({
         cls: "langscape-font-source",
         text: font.source === "vault" ? font.path ?? "vault font" : font.url ?? "web font",
@@ -91,7 +97,7 @@ export class FontPickerModal extends Modal {
 
   private choose(font: FontRecord): void {
     const content = this.options.initialText?.trim() || "text";
-    this.options.onChoose(formatFontSpan(font.displayName, content), font);
+    this.options.onChoose(formatFontSpan(font.nickname || font.displayName, content), font);
     this.close();
   }
 }

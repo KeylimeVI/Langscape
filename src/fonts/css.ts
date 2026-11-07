@@ -6,6 +6,8 @@ export interface FontRecord {
   family: string;
   /** Name shown in the picker / settings. */
   displayName: string;
+  /** Optional short code used by the inline font syntax. */
+  nickname?: string;
   /** Generated CSS class carrying the font-family rule. */
   className: string;
   source: FontSourceKind;

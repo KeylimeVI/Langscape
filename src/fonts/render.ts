@@ -9,13 +9,17 @@ import {
   type ViewUpdate,
 } from "@codemirror/view";
 import type { FontManager } from "./manager";
-import { findFontSpans, parseFontSpanSegments } from "./spans";
+import { findFontSpans, formatFontSpan, parseFontSpanSegments } from "./spans";
 
 /**
- * Reading view / exported HTML: rewrite `{font:Name|text}` in text nodes.
+ * Reading view / exported HTML: rewrite inline font spans in text nodes.
  * Markdown already turned everything around it into elements, so walking text
  * nodes is safer than regexing HTML and preserves links, emphasis, etc.
  */
+function hasFontMarkup(text: string): boolean {
+  return text.includes("{font:") || text.includes("'''") || text.includes("\\'''");
+}
+
 export function decorateFontSpans(
   root: HTMLElement,
   manager: FontManager,
@@ -28,7 +32,7 @@ export function decorateFontSpans(
       if (parent.closest("code, pre, script, style, textarea, .langscape-font")) {
         return NodeFilter.FILTER_REJECT;
       }
-      return node.nodeValue?.includes("{font:") || node.nodeValue?.includes("\\{font:")
+      return hasFontMarkup(node.nodeValue ?? "")
         ? NodeFilter.FILTER_ACCEPT
         : NodeFilter.FILTER_REJECT;
     },
@@ -39,7 +43,7 @@ export function decorateFontSpans(
 
   for (const node of nodes) {
     const text = node.nodeValue ?? "";
-    if (!text.includes("{font:")) continue;
+    if (!hasFontMarkup(text)) continue;
     const segments = parseFontSpanSegments(text, (name) => Boolean(manager.find(name)));
     if (segments.length === 1 && segments[0].type === "text") {
       if (segments[0].text !== text) node.nodeValue = segments[0].text;
@@ -53,7 +57,7 @@ export function decorateFontSpans(
       }
       const record = segment.name ? manager.find(segment.name) : undefined;
       if (!record) {
-        fragment.appendChild(doc.createTextNode(`{font:${segment.name}|${segment.text}}`));
+        fragment.appendChild(doc.createTextNode(formatFontSpan(segment.name ?? "", segment.text)));
         continue;
       }
       const span = doc.createElement("span");
