@@ -1,0 +1,19 @@
+# A tiny Lexurgy file used by Langscape's tests and demo.
+Feature +vowel, +consonant, +voice, +labial, +alveolar, +velar, +high, +mid, +low
+Symbol a [+vowel +low]
+Symbol e [+vowel +mid]
+Symbol i [+vowel +high]
+Symbol p [-voice +consonant +labial]
+Symbol b [+voice +consonant +labial]
+Symbol t [-voice +consonant +alveolar]
+Symbol d [+voice +consonant +alveolar]
+Symbol k [-voice +consonant +velar]
+Symbol g [+voice +consonant +velar]
+
+Lenition:
+ p => b / [+vowel] _ [+vowel]
+ t => d / [+vowel] _ [+vowel]
+ k => g / [+vowel] _ [+vowel]
+
+Raising:
+ e => i / _ $

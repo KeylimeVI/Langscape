@@ -1,0 +1,5 @@
+Feature +vowel
+Symbol a [+vowel]
+
+Broken rule here
+ a =>

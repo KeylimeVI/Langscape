@@ -1,0 +1,9 @@
+{
+  "id": "langscape",
+  "name": "Langscape",
+  "version": "0.1.0",
+  "minAppVersion": "1.5.0",
+  "description": "A conlanger's workbench: custom writing-system fonts, a Lexurgy sound-change editor, and canvas-based sound-change pipelines.",
+  "author": "Langscape contributors",
+  "isDesktopOnly": true
+}

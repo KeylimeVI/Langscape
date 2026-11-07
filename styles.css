@@ -1,0 +1,1062 @@
+/* ==========================================================================
+   Langscape
+   Shared layout, sound-change workbench, fonts, and canvas pipeline panel.
+   ========================================================================== */
+
+.langscape-muted {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+}
+
+.langscape-empty {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  padding: 10px 0;
+}
+
+.langscape-error {
+  color: var(--text-error);
+}
+
+.langscape-ok {
+  color: var(--text-success);
+}
+
+.langscape-bad {
+  color: var(--text-error);
+}
+
+.langscape-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.langscape-prompt-input {
+  width: 100%;
+  margin-top: 8px;
+}
+
+/* ==========================================================================
+   Sound-change view
+   ========================================================================== */
+
+.langscape-lsc-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+  container-type: inline-size;
+}
+
+.langscape-validation-status {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: var(--font-ui-smaller);
+  font-weight: 600;
+  border: 1px solid var(--background-modifier-border);
+  color: var(--text-muted);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.langscape-validation-status::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-faint);
+}
+
+.langscape-validation-status.is-valid {
+  color: var(--text-success);
+  border-color: rgba(var(--color-green-rgb), 0.35);
+}
+
+.langscape-validation-status.is-valid::before {
+  background: var(--color-green);
+}
+
+.langscape-validation-status.is-error {
+  color: var(--text-error);
+  border-color: rgba(var(--color-red-rgb), 0.4);
+}
+
+.langscape-validation-status.is-error::before {
+  background: var(--color-red);
+}
+
+.langscape-validation-status.is-checking::before {
+  background: var(--color-yellow);
+  animation: langscape-pulse 1s ease-in-out infinite;
+}
+
+@keyframes langscape-pulse {
+  50% {
+    opacity: 0.25;
+  }
+}
+
+.langscape-error-bar {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  padding: 7px 12px;
+  background: rgba(var(--color-red-rgb), 0.09);
+  border-bottom: 1px solid rgba(var(--color-red-rgb), 0.25);
+  color: var(--text-error);
+  font-size: var(--font-ui-smaller);
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+
+.langscape-error-label {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.langscape-lsc-main {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+.langscape-lsc-editor-pane {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  border-right: 1px solid var(--background-modifier-border);
+}
+
+.langscape-pane-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 12px;
+  font-size: var(--font-ui-smaller);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  background: var(--background-secondary);
+  border-bottom: 1px solid var(--background-modifier-border);
+  flex: 0 0 auto;
+}
+
+.langscape-lsc-editor {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.langscape-lsc-editor .cm-editor {
+  height: 100%;
+}
+
+.langscape-lsc-side {
+  display: flex;
+  flex-direction: column;
+  flex: 0 1 390px;
+  width: 390px;
+  min-width: 300px;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: var(--background-primary);
+}
+
+/* Test bench */
+
+.langscape-test-panel {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.langscape-test-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.langscape-test-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+}
+
+.langscape-run-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 11px;
+  height: auto;
+}
+
+.langscape-run-button.is-loading svg {
+  animation: langscape-spin 1s linear infinite;
+}
+
+@keyframes langscape-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.langscape-lexurgy-status {
+  font-size: var(--font-ui-smaller);
+  font-weight: 500;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--background-modifier-hover);
+  color: var(--text-muted);
+}
+
+.langscape-lexurgy-status.is-ready {
+  color: var(--text-success);
+  background: rgba(var(--color-green-rgb), 0.1);
+}
+
+.langscape-lexurgy-status.is-missing {
+  color: var(--text-error);
+  background: rgba(var(--color-red-rgb), 0.1);
+}
+
+.langscape-setup-banner {
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-secondary);
+  border-radius: var(--radius-m);
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.langscape-setup-title {
+  font-weight: 700;
+}
+
+.langscape-setup-text {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+}
+
+.langscape-setup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.langscape-panel-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.langscape-field-label {
+  font-size: var(--font-ui-smaller);
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.langscape-field-hint {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-faint);
+}
+
+.langscape-words-input {
+  width: 100%;
+  resize: vertical;
+  font-family: var(--font-monospace);
+  font-size: var(--font-ui-small);
+  min-height: 90px;
+}
+
+.langscape-range-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.langscape-select-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.langscape-select-field select {
+  width: 100%;
+  max-width: 100%;
+}
+
+.langscape-options-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.langscape-checkbox-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+}
+
+.langscape-test-stats {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+}
+
+.langscape-results-summary {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.langscape-results-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-ui-small);
+  font-family: var(--font-monospace);
+}
+
+.langscape-results-table th {
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--background-modifier-border);
+  padding: 4px 6px;
+  font-family: var(--font-interface);
+  font-size: var(--font-ui-smaller);
+}
+
+.langscape-results-table td {
+  padding: 3px 6px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  vertical-align: top;
+  word-break: break-word;
+}
+
+.langscape-results-table tr.is-changed td:nth-child(3) {
+  color: var(--text-accent);
+  font-weight: 600;
+}
+
+.langscape-results-table tr.is-clickable {
+  cursor: pointer;
+}
+
+.langscape-results-table tr.is-clickable:hover {
+  background: var(--background-modifier-hover);
+}
+
+.langscape-results-table tr.is-selected {
+  background: var(--background-modifier-hover);
+}
+
+.langscape-trace-cell {
+  width: 48px;
+  text-align: center;
+}
+
+.langscape-trace-check {
+  margin: 0;
+}
+
+.langscape-test-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.langscape-trace {
+  margin-top: 8px;
+  border-top: 1px solid var(--background-modifier-border);
+  padding-top: 8px;
+}
+
+.langscape-trace-card {
+  overflow: hidden;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+}
+
+.langscape-trace-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  background: var(--background-secondary);
+}
+
+.langscape-trace-title {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.langscape-trace-word {
+  color: var(--text-accent);
+  font-family: var(--font-monospace);
+  font-size: var(--font-ui-small);
+  font-weight: 600;
+}
+
+.langscape-trace-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-ui-smaller);
+}
+
+.langscape-trace-table th {
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  background: var(--background-primary-alt);
+  color: var(--text-muted);
+  font-family: var(--font-interface);
+  font-size: var(--font-ui-smaller);
+  font-weight: 600;
+  text-align: left;
+}
+
+.langscape-trace-table td {
+  padding: 4px 8px;
+  border-top: 1px solid var(--background-modifier-border);
+  vertical-align: top;
+}
+
+.langscape-trace-table tbody tr:nth-child(even) {
+  background: var(--background-primary-alt);
+}
+
+.langscape-trace-table td:first-child {
+  width: 45%;
+  color: var(--text-muted);
+}
+
+.langscape-trace-table td:last-child {
+  font-family: var(--font-monospace);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.langscape-trace-table tr.is-input td {
+  color: var(--text-normal);
+  font-weight: 600;
+}
+
+.langscape-error {
+  border-radius: var(--radius-s);
+  padding: 8px;
+  background: rgba(var(--color-red-rgb), 0.1);
+  color: var(--text-error);
+  font-size: var(--font-ui-smaller);
+  white-space: pre-wrap;
+}
+
+.is-hidden {
+  display: none !important;
+}
+
+/* ==========================================================================
+   Fonts
+   ========================================================================== */
+
+.langscape-font-picker .langscape-font-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 420px;
+  overflow-y: auto;
+  margin-top: 10px;
+}
+
+.langscape-font-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  background: var(--background-secondary);
+}
+
+.langscape-font-preview {
+  flex: 0 0 45%;
+  font-size: 20px;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.langscape-font-meta {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.langscape-font-name {
+  font-weight: 600;
+  font-size: var(--font-ui-small);
+}
+
+.langscape-font-source {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.langscape-font-list .langscape-font-row button {
+  flex: 0 0 auto;
+}
+
+.langscape-font-settings-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 8px 0 18px;
+}
+
+.langscape-font-setting {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+}
+
+.langscape-font-setting-preview {
+  flex: 0 0 38%;
+  font-size: 18px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.langscape-font-setting-info {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.langscape-font-setting-name {
+  font-weight: 600;
+}
+
+.langscape-font-setting-source {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.langscape-font-setting-actions {
+  display: flex;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+
+.langscape-note-font {
+  /* The actual font-family comes from the generated .langscape-font-<id> rule. */
+}
+
+/* ==========================================================================
+   Settings
+   ========================================================================== */
+
+.langscape-settings h3 {
+  margin-top: 26px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  padding-bottom: 4px;
+}
+
+.langscape-lexurgy-setting-status {
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-secondary);
+  border-radius: var(--radius-m);
+  padding: 10px;
+  margin: 10px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.langscape-status-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.langscape-status-row {
+  display: flex;
+  gap: 10px;
+  font-size: var(--font-ui-small);
+}
+
+.langscape-status-label {
+  color: var(--text-muted);
+  width: 70px;
+  flex: 0 0 auto;
+}
+
+.langscape-license-note {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+  margin-top: 8px;
+  line-height: 1.5;
+}
+
+.langscape-code-snippet {
+  background: var(--background-secondary);
+  border-radius: var(--radius-s);
+  padding: 10px;
+  font-size: var(--font-ui-smaller);
+  overflow-x: auto;
+}
+
+.langscape-version {
+  margin-top: 24px;
+}
+
+.langscape-settings-details {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  padding: 8px 10px;
+  margin: 10px 0;
+}
+
+.langscape-settings-details summary {
+  cursor: pointer;
+  font-size: var(--font-ui-small);
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.langscape-settings-details-body {
+  padding-top: 8px;
+}
+
+/* Canvas card rendering for ```langscape blocks */
+
+.langscape-node-card {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  background: var(--background-secondary);
+  padding: 7px 9px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--font-ui-small);
+}
+
+.langscape-node-card.is-invalid {
+  border-color: var(--text-error);
+}
+
+.langscape-node-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.langscape-node-icon {
+  display: inline-flex;
+  color: var(--text-accent);
+}
+
+.langscape-node-label {
+  font-weight: 600;
+}
+
+.langscape-node-detail {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  overflow-wrap: anywhere;
+}
+
+.langscape-node-path {
+  border-radius: var(--radius-s);
+  cursor: pointer;
+  margin: 0 -3px;
+  padding: 1px 3px;
+}
+
+.langscape-node-path:hover {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
+.langscape-node-title-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: auto;
+  padding: 1px 3px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-s);
+  background: transparent;
+  color: var(--text-normal);
+  font-family: inherit;
+  font-size: var(--font-ui-small);
+  font-weight: 600;
+}
+
+.langscape-node-title-input:hover {
+  border-color: var(--background-modifier-border);
+}
+
+.langscape-node-title-input:focus {
+  border-color: var(--interactive-accent);
+  background: var(--background-primary);
+  box-shadow: 0 0 0 1px var(--interactive-accent);
+}
+
+.langscape-node-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 1px;
+}
+
+.langscape-node-field-label {
+  color: var(--text-faint);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.langscape-node-field-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 24px;
+  padding: 1px 6px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-size: var(--font-ui-smaller);
+}
+
+.langscape-node-field-input:focus {
+  border-color: var(--interactive-accent);
+}
+
+.langscape-node-issue.is-warning {
+  color: var(--color-yellow);
+  font-size: var(--font-ui-smaller);
+}
+
+.langscape-node-issue.is-error,
+.langscape-node-error {
+  color: var(--text-error);
+  font-size: var(--font-ui-smaller);
+}
+
+.langscape-node-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.langscape-node-actions button {
+  font-size: var(--font-ui-smaller);
+  padding: 2px 8px;
+  height: auto;
+}
+
+.langscape-node-hint {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-faint);
+}
+
+/* ==========================================================================
+   Responsive
+   ========================================================================== */
+
+@container (max-width: 760px) {
+  .langscape-lsc-main {
+    flex-direction: column;
+  }
+
+  .langscape-lsc-side {
+    flex: 1 1 55%;
+    width: 100%;
+    min-width: 0;
+    max-height: 58%;
+    border-top: 1px solid var(--background-modifier-border);
+  }
+
+  .langscape-lsc-editor-pane {
+    flex: 1 1 45%;
+    min-height: 240px;
+    border-right: none;
+    border-bottom: 1px solid var(--background-modifier-border);
+  }
+
+  .langscape-test-header {
+    align-items: flex-start;
+  }
+
+  .langscape-range-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 900px) {
+  .langscape-lsc-main {
+    flex-direction: column;
+  }
+
+  .langscape-lsc-side {
+    flex: 0 0 auto;
+    width: 100%;
+    min-width: 0;
+    max-height: 55%;
+  }
+
+  .langscape-lsc-editor-pane {
+    border-right: none;
+    border-bottom: 1px solid var(--background-modifier-border);
+  }
+
+  .langscape-range-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+/* Anchored canvas path picker, modelled on the Bases "in folder" dropdown. */
+.langscape-path-popover {
+  position: fixed;
+  z-index: var(--layer-popover, 1000);
+  display: flex;
+  flex-direction: column;
+  width: 340px;
+  max-height: 380px;
+  overflow: hidden;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  background: var(--background-secondary);
+  box-shadow: var(--shadow-l);
+}
+
+.langscape-path-search-row {
+  padding: 6px;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.langscape-path-search {
+  width: 100%;
+  height: 32px;
+  padding: 4px 8px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-size: var(--font-ui-small);
+}
+
+.langscape-path-search:focus {
+  border-color: var(--interactive-accent);
+}
+
+.langscape-path-results {
+  overflow-y: auto;
+  padding: 4px;
+}
+
+.langscape-path-item {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  width: 100%;
+  height: auto;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: var(--radius-s);
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-normal);
+  font-size: var(--font-ui-small);
+  text-align: left;
+}
+
+.langscape-path-item:hover,
+.langscape-path-item.is-active {
+  background: var(--background-modifier-hover);
+}
+
+.langscape-path-icon {
+  display: inline-flex;
+  flex: 0 0 16px;
+  color: var(--text-muted);
+}
+
+.langscape-path-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.langscape-path-item.is-create .langscape-path-label {
+  color: var(--text-accent);
+}
+
+.langscape-path-empty {
+  padding: 12px;
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  text-align: center;
+}
+
+.langscape-lsc-view .cm-selectionBackground,
+.langscape-lsc-view.cm-focused .cm-selectionBackground,
+.langscape-lsc-view .cm-content::selection,
+.langscape-lsc-view .cm-line::selection,
+.langscape-lsc-view ::selection {
+  background-color: color-mix(in srgb, var(--text-normal) 16%, var(--background-primary)) !important;
+}
+
+/* Lexurgy syntax highlighting. Colours are deliberately muted so they stay
+   readable for long editing sessions in both Obsidian themes. */
+body {
+  --langscape-syntax-comment: #8e8e8e;
+  --langscape-syntax-keyword: var(--color-purple);
+  --langscape-syntax-rule: #7dd4cf;
+  --langscape-syntax-feature: var(--color-blue);
+  --langscape-syntax-value: var(--color-green);
+  --langscape-syntax-element: #e0ab7d;
+  --langscape-syntax-capture: #e37979;
+  --langscape-syntax-operator: #e56f6f;
+  --langscape-syntax-punctuation: #9a9a9a;
+  --langscape-syntax-number: #dcc46f;
+}
+
+body.theme-light {
+  --langscape-syntax-comment: #6d6d6d;
+  --langscape-syntax-keyword: var(--color-purple);
+  --langscape-syntax-rule: #2c7874;
+  --langscape-syntax-feature: var(--color-blue);
+  --langscape-syntax-value: var(--color-green);
+  --langscape-syntax-element: #8c5c31;
+  --langscape-syntax-capture: #a85a5a;
+  --langscape-syntax-operator: #a85a5a;
+  --langscape-syntax-punctuation: #666666;
+  --langscape-syntax-number: #7c6822;
+}
+
+.langscape-syntax-comment {
+  color: var(--langscape-syntax-comment);
+  font-style: italic;
+}
+
+.langscape-syntax-keyword {
+  color: var(--langscape-syntax-keyword);
+  font-weight: 600;
+}
+
+.langscape-syntax-ruleName {
+  color: var(--langscape-syntax-rule);
+  font-weight: 600;
+}
+
+.langscape-syntax-featureName {
+  color: var(--langscape-syntax-feature);
+}
+
+.langscape-syntax-featureValue {
+  color: var(--langscape-syntax-value);
+}
+
+.langscape-syntax-elementName,
+.langscape-syntax-elementRef {
+  color: var(--langscape-syntax-element);
+}
+
+.langscape-syntax-capture {
+  color: var(--langscape-syntax-capture);
+}
+
+.langscape-syntax-operator {
+  color: var(--langscape-syntax-operator);
+}
+
+.langscape-syntax-punctuation {
+  color: var(--langscape-syntax-punctuation);
+}
+
+.langscape-syntax-symbol {
+  color: var(--text-normal);
+}
+
+.langscape-syntax-number {
+  color: var(--langscape-syntax-number);
+}
+
+/* Lint popovers need explicit Obsidian colours; the CodeMirror defaults are
+   near-white on near-white in dark themes. */
+.cm-tooltip.cm-tooltip-lint,
+.langscape-lsc-view .cm-tooltip.cm-tooltip-lint {
+  background: var(--background-primary) !important;
+  color: var(--text-normal) !important;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  box-shadow: var(--shadow-s);
+}
+
+.cm-tooltip-lint .cm-diagnostic,
+.langscape-lsc-view .cm-tooltip-lint .cm-diagnostic {
+  color: var(--text-normal) !important;
+  padding: 6px 8px;
+}
+
+.cm-tooltip-lint .cm-diagnosticText,
+.langscape-lsc-view .cm-tooltip-lint .cm-diagnosticText {
+  color: var(--text-normal) !important;
+}
+
+.cm-tooltip-lint .cm-diagnosticSource,
+.langscape-lsc-view .cm-tooltip-lint .cm-diagnosticSource {
+  color: var(--text-muted);
+}
+
+.cm-tooltip-lint .cm-diagnostic-error,
+.langscape-lsc-view .cm-tooltip-lint .cm-diagnostic-error {
+  border-left: 4px solid var(--text-error);
+}
+
+/* The output-card action is the primary action in a canvas pipeline. */
+.langscape-node-actions .langscape-node-run {
+  width: 100%;
+  min-height: 36px;
+  padding: 7px 12px;
+  font-size: var(--font-ui-medium);
+  font-weight: 600;
+}

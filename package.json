@@ -1,0 +1,49 @@
+{
+  "name": "langscape",
+  "version": "0.1.0",
+  "description": "A conlanger's workbench for Obsidian: custom writing-system fonts, a Lexurgy sound-change editor, and canvas pipelines.",
+  "main": "main.js",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "tsc --noEmit && node esbuild.config.mjs production",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:integration": "vitest run tests/integration",
+    "verify": "npm run typecheck && npm run test && npm run build",
+    "test:unit": "vitest run tests/unit",
+    "test:e2e": "node scripts/e2e-obsidian.mjs",
+    "package:release": "node scripts/package.mjs"
+  },
+  "keywords": [
+    "obsidian",
+    "plugin",
+    "conlang",
+    "conlanging",
+    "lexurgy",
+    "sound-change",
+    "font"
+  ],
+  "author": "Langscape contributors",
+  "license": "MIT",
+  "dependencies": {
+    "@codemirror/commands": "^6.8.1",
+    "@codemirror/language": "^6.11.0",
+    "@codemirror/lint": "^6.8.5",
+    "@codemirror/search": "^6.5.11",
+    "@codemirror/state": "^6.5.2",
+    "@codemirror/view": "^6.38.1",
+    "fflate": "^0.8.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "esbuild": "^0.25.5",
+    "jsdom": "^26.1.0",
+    "obsidian": "^1.14.4",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.4"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

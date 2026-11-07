@@ -1,0 +1,9 @@
+node_modules/
+.npm-cache/
+.tools/
+*.log
+.DS_Store
+demo-vault/.obsidian/plugins/langscape/
+demo-vault/.obsidian/workspace*.json
+demo-vault/.obsidian/cache/
+coverage/
