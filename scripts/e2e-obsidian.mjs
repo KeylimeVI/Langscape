@@ -531,14 +531,14 @@ async function main() {
     );
     await ensure(inlineSpans === 1, `Expected exactly one inline font span in Live Preview, got ${inlineSpans}.`);
     const rawCode = await cdp.eval(
-      "document.querySelector('.markdown-source-view .cm-content')?.innerText.includes(\"'''Noto-Sans-Gothic\") ?? false"
+      "document.querySelector('.markdown-source-view .cm-content')?.innerText.includes('{Noto-Sans-Gothic:') ?? false"
     );
     await ensure(rawCode, "Inline code containing font markup was decorated instead of left literal.");
     log("inline font spans render in Live Preview (code stays literal)");
     await saveScreenshot(cdp, "font-demo.png");
 
     await cdp.eval(
-      `(async () => { const f = app.vault.getAbstractFileByPath('Langscape Demo/Changes/Demo.lsc'); for (const old of app.workspace.getLeavesOfType('langscape-sound-change')) old.detach(); const leaf = app.workspace.getLeaf('tab'); await leaf.openFile(f); app.workspace.setActiveLeaf(leaf, { focus: true }); return true; })()`
+      `(async () => { const f = app.vault.getAbstractFileByPath('Langscape Demo/Changes/Demo.lsc'); window.localStorage.setItem('langscape-lsc-side-width', '390'); for (const old of app.workspace.getLeavesOfType('langscape-sound-change')) old.detach(); const leaf = app.workspace.getLeaf('tab'); await leaf.openFile(f); app.workspace.setActiveLeaf(leaf, { focus: true }); return true; })()`
     );
     await new Promise((resolve) => setTimeout(resolve, 1500));
     const lsc = JSON.parse(
@@ -688,6 +688,21 @@ async function main() {
     await ensure(!settingsText.includes("Add a font"), "Settings still has the old Add a font section.");
     await ensure(!settingsText.includes("Starter vault"), "Settings still has the old demo section.");
     await cdp.eval("app.setting?.close?.(); true");
+
+    await cdp.eval(
+      `(async () => { const file = app.vault.getAbstractFileByPath('Langscape Demo/Changes/Demo.lsc'); const explorer = app.workspace.getLeavesOfType('file-explorer')[0]; await explorer?.view?.revealInFolder?.(file); await new Promise((resolve) => setTimeout(resolve, 500)); return true; })()`
+    );
+    const navDebug = await cdp.eval(
+      "JSON.stringify([...document.querySelectorAll('.nav-file-title')].map((el) => ({ path: el.getAttribute('data-path'), text: el.textContent, tag: el.querySelector('.nav-file-tag')?.textContent })).slice(0, 20))"
+    );
+    log(`nav files: ${navDebug}`);
+    const lscTag = JSON.parse(
+      await cdp.eval(
+        `(() => { const titles = [...document.querySelectorAll('.nav-file-title')]; const title = titles.find((el) => (el.getAttribute('data-path') || el.dataset.path || '').toLowerCase().endsWith('.lsc')) || titles.find((el) => /Demo\.lsc$/i.test(el.textContent || '')); const tag = title?.querySelector('.nav-file-tag'); return JSON.stringify({ path: title?.getAttribute('data-path') || null, text: tag?.textContent ?? null, after: tag ? getComputedStyle(tag, '::after').content : null }); })()`
+      )
+    );
+    await ensure(lscTag.after?.includes("LEXURGY"), `The .lsc file tag was not changed: ${JSON.stringify(lscTag)}`);
+    log(`lsc file tag: ${JSON.stringify(lscTag)}`);
 
     cdp.close();
     console.log("\nE2E PASS");

@@ -19,7 +19,7 @@ Langscape is a conlanger's workbench for [Obsidian](https://obsidian.md). It bri
 
 ## Features
 
-- **Custom fonts everywhere** — drop `.ttf`, `.otf`, `.woff`, or `.woff2` files anywhere in the vault. Use `'''nickname text'''` inline, or set a font for an entire note with `langscape-font` frontmatter. Fonts render in Live Preview, Reading view, and exported HTML/PDF.
+- **Custom fonts everywhere** — drop `.ttf`, `.otf`, `.woff`, or `.woff2` files anywhere in the vault. Use `{nickname: text}` inline, or set a font for an entire note with `langscape-font` frontmatter. Fonts render in Live Preview, Reading view, and exported HTML/PDF.
 - **Sound-change workbench** — `.lsc` files open in a dedicated editor with Lexurgy syntax highlighting, live validation, and a test bench with rule-by-rule traces.
 - **Lexurgy integration** — Langscape runs the official Lexurgy CLI as a persistent local server, so applying changes is fast. Install or update the official CLI from settings, or point at an existing installation.
 - **Canvas pipelines** — the canvas header has a Langscape menu for adding sources, sound changes, and outputs. Connect the cards with arrows, then press **Run** on an output card. **Run all** is in the same canvas menu.
@@ -92,19 +92,19 @@ npm run dev
 ### Inline
 
 ```markdown
-The inscription reads '''tengwar elen síla'''.
+The inscription reads {tengwar: elen síla}.
 ```
 
-The first token after `'''` is the font nickname; the rest is the text to style. Nicknames are set with the pencil button next to each font in **Settings → Langscape → Fonts**. They are case-insensitive.
+The text before the colon is the font nickname; the text after it is styled. Nicknames are set with the pencil button next to each font in **Settings → Langscape → Fonts**. They are case-insensitive.
 
-If a font has no nickname, use its display name with spaces replaced by hyphens, for example `'''Noto-Sans-Gothic text'''`.
+If a font has no nickname, use its display name with spaces replaced by hyphens, for example `{Noto-Sans-Gothic: text}`.
 
-The legacy `{font:Name|text}` syntax is still supported for existing notes.
+The earlier `'''nickname text'''` and legacy `{font:Name|text}` forms are still supported for existing notes.
 
 To show the markup literally, escape the opening delimiter:
 
 ```markdown
-\'''tengwar elen síla'''
+\{tengwar: elen síla}
 ```
 
 ### Whole note
@@ -124,7 +124,7 @@ All text in this note uses the font. Inline spans can still override it.
 - Font spans are processed per Markdown block. A span cannot cross a paragraph break; use the frontmatter font for whole-note styling.
 - Fonts are injected with `@font-face` from the vault's local resource URL. This works for desktop Obsidian and exported HTML. Mobile Obsidian is not supported in this version.
 
-Use **Langscape: Insert custom-font text** or the ribbon type icon to pick a font visually. It inserts the `'''nickname text'''` syntax for you.
+Use **Langscape: Insert custom-font text** or the ribbon type icon to pick a font visually. It inserts the `{nickname: text}` syntax for you.
 
 ## Sound-change editor
 

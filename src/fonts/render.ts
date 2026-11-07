@@ -17,7 +17,12 @@ import { findFontSpans, formatFontSpan, parseFontSpanSegments } from "./spans";
  * nodes is safer than regexing HTML and preserves links, emphasis, etc.
  */
 function hasFontMarkup(text: string): boolean {
-  return text.includes("{font:") || text.includes("'''") || text.includes("\\'''");
+  return (
+    text.includes("{font:") ||
+    /\{\s*[^{}:\n]+\s*:/.test(text) ||
+    text.includes("'''") ||
+    text.includes("\\'''")
+  );
 }
 
 export function decorateFontSpans(

@@ -38,6 +38,15 @@ describe("font post-processing", () => {
     expect(root.textContent).toBe("Say 𐌰𐍆𐌰 now.");
   });
 
+  it("rewrites inline brace spans", () => {
+    const root = document.createElement("div");
+    root.innerHTML = "<p>Say {gothic: 𐌰𐍆𐌰} now.</p>";
+    decorateFontSpans(root, manager);
+    const span = root.querySelector("span.langscape-font");
+    expect(span?.textContent).toBe("𐌰𐍆𐌰");
+    expect(root.textContent).toBe("Say 𐌰𐍆𐌰 now.");
+  });
+
   it("rewrites inline triple-quote spans", () => {
     const root = document.createElement("div");
     root.innerHTML = "<p>Say '''Noto-Sans-Gothic 𐌰𐍆𐌰''' now.</p>";

@@ -1,14 +1,13 @@
 /**
  * Inline custom-font syntax:
  *
- *   '''tengwar elen síla'''
+ *   {tengwar: elen síla}
  *
- * The nickname is the first whitespace-delimited token, followed by the text
- * that should use the font. The legacy `{font:Name|text}` syntax is still
- * accepted so existing notes keep working.
+ * The nickname is the token before the colon. The legacy `{font:Name|text}`
+ * syntax and the earlier `'''nickname text'''` form are still accepted so
+ * existing notes keep working.
  *
- * Both forms avoid characters Obsidian already gives meaning to ([[wikilinks]],
- * %%comments%%, $math$, ==highlight==), and neither spans a line break.
+ * All forms stay inline and cannot span a line break.
  */
 
 export interface FontSpan {
@@ -38,15 +37,19 @@ export function findFontSpans(text: string): FontSpan[] {
   const spans: FontSpan[] = [];
   let cursor = 0;
   while (cursor < text.length) {
-    const brace = text.indexOf(BRACE_OPEN, cursor);
+    const brace = text.indexOf("{", cursor);
     const triple = text.indexOf(TRIPLE_OPEN, cursor);
     if (brace < 0 && triple < 0) break;
 
     let parsed: FontSpan | undefined;
     let next: number;
     if (brace >= 0 && (triple < 0 || brace < triple)) {
-      next = brace + BRACE_OPEN.length;
-      if (!isEscaped(text, brace)) parsed = parseBraceSpan(text, brace);
+      next = brace + 1;
+      if (!isEscaped(text, brace)) {
+        parsed = text.startsWith(BRACE_OPEN, brace)
+          ? parseBraceSpan(text, brace)
+          : parseNamedBraceSpan(text, brace);
+      }
     } else {
       next = triple + TRIPLE_OPEN.length;
       if (!isEscaped(text, triple)) parsed = parseTripleSpan(text, triple);
@@ -62,6 +65,28 @@ export function findFontSpans(text: string): FontSpan[] {
   return spans;
 }
 
+function parseNamedBraceSpan(text: string, open: number): FontSpan | undefined {
+  const colon = text.indexOf(":", open + 1);
+  if (colon < 0) return undefined;
+  const close = text.indexOf("}", colon + 1);
+  if (close < 0) return undefined;
+  const name = text.slice(open + 1, colon).trim();
+  if (!name || /[{}|\r\n"']/.test(name)) return undefined;
+  let contentStart = colon + 1;
+  while (contentStart < close && /\s/.test(text[contentStart])) contentStart++;
+  const content = text.slice(contentStart, close);
+  if (!content || /[\r\n]/.test(content)) return undefined;
+  return {
+    start: open,
+    end: close + 1,
+    contentStart,
+    contentEnd: close,
+    name,
+    content,
+  };
+}
+
+/** Legacy `{font:Name|text}` span. */
 function parseBraceSpan(text: string, open: number): FontSpan | undefined {
   const pipe = text.indexOf("|", open + BRACE_OPEN.length);
   if (pipe < 0) return undefined;
@@ -81,6 +106,7 @@ function parseBraceSpan(text: string, open: number): FontSpan | undefined {
   };
 }
 
+/** Earlier `'''nickname text'''` span. */
 function parseTripleSpan(text: string, open: number): FontSpan | undefined {
   const close = text.indexOf(TRIPLE_OPEN, open + TRIPLE_OPEN.length);
   if (close < 0) return undefined;
@@ -138,9 +164,10 @@ export function formatFontSpan(name: string, content: string): string {
     name
       .trim()
       .replace(/\s+/g, "-")
-      .replace(/[{}|'\r\n]/g, "") || "font";
-  const safeContent = content.replace(/'''/g, "'").replace(/\r?\n/g, " ").trim() || "text";
-  return `'''${safeName} ${safeContent}'''`;
+      .replace(/[{}|'":\r\n]/g, "") || "font";
+  const safeContent =
+    content.replace(/[}\r\n]/g, " ").replace(/\s+/g, " ").trim() || "text";
+  return `{${safeName}: ${safeContent}}`;
 }
 
 export function isEscaped(text: string, index: number): boolean {
@@ -150,5 +177,8 @@ export function isEscaped(text: string, index: number): boolean {
 }
 
 function unescapeOpeners(text: string): string {
-  return text.replace(/\\(\{font:|''')/g, "$1");
+  return text
+    .replace(/\\(\{font:)/g, "$1")
+    .replace(/\\(\{[^{}\n]+:)/g, "$1")
+    .replace(/\\'''/g, "'''");
 }

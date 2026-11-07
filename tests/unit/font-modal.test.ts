@@ -27,7 +27,7 @@ describe("FontPickerModal", () => {
     expect(modal.contentEl.querySelector(".langscape-font-preview")?.textContent).toBe("𐌰𐍆𐌰");
     expect(modal.contentEl.querySelector(".langscape-font-nickname")?.textContent).toContain("gothic");
     (modal.contentEl.querySelector(".langscape-font-row button") as HTMLButtonElement).click();
-    expect(onChoose).toHaveBeenCalledWith("'''gothic text'''", record);
+    expect(onChoose).toHaveBeenCalledWith("{gothic: text}", record);
   });
 
   it("uses the selected text when provided", () => {
@@ -39,6 +39,6 @@ describe("FontPickerModal", () => {
     });
     modal.open();
     (modal.contentEl.querySelector(".langscape-font-row button") as HTMLButtonElement).click();
-    expect(onChoose).toHaveBeenCalledWith("'''gothic hello'''", record);
+    expect(onChoose).toHaveBeenCalledWith("{gothic: hello}", record);
   });
 });

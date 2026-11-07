@@ -1163,3 +1163,20 @@ body.theme-light {
   font-size: var(--font-ui-medium);
   font-weight: 600;
 }
+
+/* Obsidian shows the raw extension in the file explorer; Langscape's .lsc
+   files read better as a named format tag. */
+.nav-file-title[data-path$=".lsc" i] .nav-file-tag,
+.nav-file[data-path$=".lsc" i] .nav-file-tag,
+.tree-item[data-path$=".lsc" i] .nav-file-tag {
+  font-size: 0;
+  letter-spacing: 0;
+}
+
+.nav-file-title[data-path$=".lsc" i] .nav-file-tag::after,
+.nav-file[data-path$=".lsc" i] .nav-file-tag::after,
+.tree-item[data-path$=".lsc" i] .nav-file-tag::after {
+  content: "LEXURGY";
+  font-size: 9px;
+  letter-spacing: 0.04em;
+}

@@ -79,7 +79,7 @@ export class FontPickerModal extends Modal {
       if (font.nickname) {
         meta.createDiv({
           cls: "langscape-font-nickname",
-          text: `'''${font.nickname} text'''`,
+          text: `{${font.nickname}: text}`,
         });
       }
       meta.createDiv({

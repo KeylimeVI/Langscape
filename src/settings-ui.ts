@@ -34,7 +34,7 @@ export class LangscapeSettingTab extends PluginSettingTab {
     );
     containerEl.createEl("p", {
       cls: "langscape-muted",
-      text: "Fonts are discovered everywhere in the vault. Set a short nickname to use '''nickname text''' in notes.",
+      text: "Fonts are discovered everywhere in the vault. Set a short nickname to use {nickname: text} in notes.",
     });
 
     const fonts = this.plugin.fontManager.list();
@@ -58,7 +58,7 @@ export class LangscapeSettingTab extends PluginSettingTab {
       const code = font.nickname?.trim() || font.displayName.replace(/\s+/g, "-");
       info.createDiv({
         cls: "langscape-font-setting-nickname",
-        text: `'''${code} text'''`,
+        text: `{${code}: text}`,
       });
       info.createDiv({
         cls: "langscape-font-setting-source",
@@ -74,7 +74,7 @@ export class LangscapeSettingTab extends PluginSettingTab {
         const value = await promptText(this.app, {
           title: "Font nickname",
           description:
-            "A short code for '''nickname text'''. Use letters, numbers, underscores, or hyphens; leave blank to use the font name.",
+            "A short code for {nickname: text}. Use letters, numbers, underscores, or hyphens; leave blank to use the font name.",
           value: font.nickname ?? "",
           placeholder: "tengwar",
           cta: "Save",

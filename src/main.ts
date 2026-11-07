@@ -156,13 +156,16 @@ export default class LangscapePlugin extends Plugin {
       onChoose: (markup) => {
         const from = editor.getCursor("from");
         editor.replaceSelection(markup);
+        const brace = /^\{[^:{}]+:\s*/.exec(markup);
         const triple = /^'''\S+\s+/.exec(markup);
         const pipe = markup.indexOf("|");
-        const contentOffset = triple
-          ? triple[0].length
-          : pipe >= 0
-            ? pipe + 1
-            : 0;
+        const contentOffset = brace
+          ? brace[0].length
+          : triple
+            ? triple[0].length
+            : pipe >= 0
+              ? pipe + 1
+              : 0;
         const offset = editor.posToOffset(from) + contentOffset;
         editor.setCursor(editor.offsetToPos(offset));
         editor.focus();
