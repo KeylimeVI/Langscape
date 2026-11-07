@@ -43,6 +43,38 @@ A ready-to-install bundle is produced by `npm run package:release` at `dist/lang
    - Put `lexurgy` on your `PATH`.
 4. Java 8 or newer is required for Lexurgy. Langscape checks for Java and shows the detected version.
 
+### Build and install into a vault
+
+`npm run install:vault` builds the plugin, finds the newest `dist/langscape-*.zip`, and replaces the installed Langscape build in your vault:
+
+```bash
+npm run install:vault
+```
+
+It defaults to `/home/keylime/Documents/Obsidian Vault`; use `--vault` for another vault:
+
+```bash
+npm run install:vault -- --vault "/path/to/vault"
+```
+
+The script:
+
+- runs `npm run build` and `npm run package:release`
+- installs to `<vault>/.obsidian/plugins/langscape`
+- preserves `data.json` and the managed `lexurgy/` installation
+- removes old versioned folders such as `langscape-0.1.0/` and old zips in the plugins folder
+- ensures `langscape` is enabled in `community-plugins.json`
+
+Useful flags:
+
+```bash
+npm run install:vault -- --dry-run      # show the plan without changing anything
+npm run install:vault -- --no-build     # install the newest existing dist zip
+npm run install:vault -- --no-preserve  # don't carry over data.json/lexurgy
+```
+
+Reload Obsidian, or disable/enable the plugin, after installing.
+
 ### From source
 
 ```bash
