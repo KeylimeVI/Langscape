@@ -552,10 +552,45 @@ async function main() {
       !(await cdp.eval("Boolean(document.querySelector('.langscape-pane-header, .langscape-test-stats, .langscape-results-summary, .langscape-test-actions'))")),
       "A removed editor/test-bench element is still present."
     );
-    const paneWords = await cdp.eval(
-      "(async () => { const v = app.workspace.getLeavesOfType('langscape-sound-change')[0].view; const ta = v.contentEl.querySelector('.langscape-words-input'); ta.value = 'apa\\neke\\npataka'; ta.dispatchEvent(new Event('input', { bubbles: true })); v.contentEl.querySelector('.langscape-run-button').click(); await new Promise((resolve) => setTimeout(resolve, 2200)); return [...v.contentEl.querySelectorAll('.langscape-results-table tbody tr')].map((tr) => [...tr.cells].map((td) => td.textContent).join('|')); })()"
+    const resizeStart = JSON.parse(
+      await cdp.eval(
+        `(() => { const v = app.workspace.getLeavesOfType('langscape-sound-change')[0].view; const side = v.contentEl.querySelector('.langscape-lsc-side'); const handle = v.contentEl.querySelector('.langscape-lsc-resizer'); if (!side || !handle) return 'null'; const rect = handle.getBoundingClientRect(); return JSON.stringify({ width: side.getBoundingClientRect().width, x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 }); })()`
+      )
     );
-    await ensure(paneWords.length === 3, `Test bench produced ${paneWords.length} rows.`);
+    await ensure(resizeStart, "The sidebar resize handle was not found.");
+    await cdp.send("Input.dispatchMouseEvent", {
+      type: "mousePressed",
+      x: resizeStart.x,
+      y: resizeStart.y,
+      button: "left",
+      clickCount: 1,
+    });
+    await cdp.send("Input.dispatchMouseEvent", {
+      type: "mouseMoved",
+      x: resizeStart.x - 45,
+      y: resizeStart.y,
+      button: "left",
+    });
+    await cdp.send("Input.dispatchMouseEvent", {
+      type: "mouseReleased",
+      x: resizeStart.x - 45,
+      y: resizeStart.y,
+      button: "left",
+      clickCount: 1,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    const resizeEnd = await cdp.eval(
+      `(() => { const v = app.workspace.getLeavesOfType('langscape-sound-change')[0].view; return v.contentEl.querySelector('.langscape-lsc-side')?.getBoundingClientRect().width ?? 0; })()`
+    );
+    await ensure(
+      resizeEnd > resizeStart.width + 20,
+      `The sidebar did not resize: ${resizeStart.width} -> ${resizeEnd}`
+    );
+    log(`sidebar resize: ${Math.round(resizeStart.width)} -> ${Math.round(resizeEnd)}`);
+    const paneWords = await cdp.eval(
+      "(async () => { const v = app.workspace.getLeavesOfType('langscape-sound-change')[0].view; const ta = v.contentEl.querySelector('.langscape-words-input'); ta.value = 'apa\\neke\\npataka\\nkata\\npata'; ta.dispatchEvent(new Event('input', { bubbles: true })); v.contentEl.querySelector('.langscape-run-button').click(); await new Promise((resolve) => setTimeout(resolve, 2200)); return [...v.contentEl.querySelectorAll('.langscape-results-table tbody tr')].map((tr) => [...tr.cells].map((td) => td.textContent).join('|')); })()"
+    );
+    await ensure(paneWords.length === 5, `Test bench produced ${paneWords.length} rows.`);
     await ensure(
       paneWords[0].includes("ebe"),
       `Unexpected test bench output: ${paneWords[0]}`
@@ -569,15 +604,26 @@ async function main() {
     await ensure(!traceState.pre, "The old trace <pre> is still rendered.");
     await ensure(traceState.rows.length >= 2, `The trace table has no iterations: ${JSON.stringify(traceState)}`);
     await ensure(traceState.rows[0][0] === "Input", `The trace table is missing its input row: ${JSON.stringify(traceState)}`);
-    await ensure(traceState.checks === 3, "The trace checkbox column is missing.");
+    await ensure(traceState.checks === 5, "The trace checkbox column is missing.");
     const multiTrace = JSON.parse(
       await cdp.eval(
         `(async () => { const v = app.workspace.getLeavesOfType('langscape-sound-change')[0].view; for (const box of v.contentEl.querySelectorAll('.langscape-trace-check')) { box.checked = true; box.dispatchEvent(new Event('change', { bubbles: true })); } await new Promise((resolve) => setTimeout(resolve, 250)); const table = v.contentEl.querySelector('.langscape-trace-table'); return JSON.stringify({ headers: [...table.querySelectorAll('thead th')].map((th) => th.textContent.trim()), rows: [...table.querySelectorAll('tbody tr')].map((tr) => [...tr.cells].map((td) => td.textContent.trim())), checked: [...v.contentEl.querySelectorAll('.langscape-trace-check')].filter((box) => box.checked).length }); })()`
       )
     );
-    await ensure(multiTrace.checked === 3, "Tracing did not keep multiple words selected.");
-    await ensure(multiTrace.headers.length === 4, `Expected three word columns: ${JSON.stringify(multiTrace)}`);
-    await ensure(multiTrace.rows.every((row) => row.length === 4), "Trace rows do not have one cell per word.");
+    await ensure(multiTrace.checked === 5, "Tracing did not keep multiple words selected.");
+    await ensure(multiTrace.headers.length === 6, `Expected five word columns: ${JSON.stringify(multiTrace)}`);
+    await ensure(multiTrace.rows.every((row) => row.length === 6), "Trace rows do not have one cell per word.");
+    const traceScroll = JSON.parse(
+      await cdp.eval(
+        `(() => { const v = app.workspace.getLeavesOfType('langscape-sound-change')[0].view; const scroller = v.contentEl.querySelector('.langscape-trace-scroll'); if (!scroller) return 'null'; const before = scroller.scrollLeft; scroller.scrollLeft = 120; return JSON.stringify({ clientWidth: scroller.clientWidth, scrollWidth: scroller.scrollWidth, scrollLeft: scroller.scrollLeft, before, background: getComputedStyle(scroller).overflowX }); })()`
+      )
+    );
+    await ensure(
+      traceScroll.scrollWidth > traceScroll.clientWidth,
+      `The trace table does not overflow horizontally: ${JSON.stringify(traceScroll)}`
+    );
+    await ensure(traceScroll.scrollLeft > traceScroll.before, "The trace table could not scroll sideways.");
+    log(`trace horizontal scroll: ${JSON.stringify(traceScroll)}`);
     log(`multi-word trace: ${JSON.stringify(multiTrace.headers)}`);
     const traceOff = await cdp.eval(
       `(async () => { const v = app.workspace.getLeavesOfType('langscape-sound-change')[0].view; const box = v.contentEl.querySelector('.langscape-options-row input[type="checkbox"]'); box.checked = false; box.dispatchEvent(new Event('change', { bubbles: true })); await new Promise((resolve) => setTimeout(resolve, 250)); return v.contentEl.querySelector('.langscape-trace')?.classList.contains('is-hidden'); })()`

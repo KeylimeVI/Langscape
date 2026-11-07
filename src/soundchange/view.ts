@@ -104,9 +104,20 @@ export class SoundChangeView extends TextFileView {
     const main = root.createDiv({ cls: "langscape-lsc-main" });
     const editorPane = main.createDiv({ cls: "langscape-lsc-editor-pane" });
     this.editorHost = editorPane.createDiv({ cls: "langscape-lsc-editor" });
+    const resizer = main.createDiv({
+      cls: "langscape-lsc-resizer",
+      attr: {
+        role: "separator",
+        "aria-orientation": "vertical",
+        "aria-label": "Resize the test bench",
+        tabindex: "0",
+        title: "Drag to resize the test bench · double-click to reset",
+      },
+    });
 
     const side = main.createDiv({ cls: "langscape-lsc-side" });
     this.testHost = side.createDiv({ cls: "langscape-test-host" });
+    this.setupSideResize(main, resizer, side);
 
     // The panel is created here rather than in onOpen so it exists before the
     // first setViewData call.
@@ -125,6 +136,72 @@ export class SoundChangeView extends TextFileView {
       traceDefault: this.plugin.settings.traceByDefault,
     });
     this.panel.refreshOutline(this.outline);
+  }
+
+  private setupSideResize(main: HTMLElement, handle: HTMLElement, side: HTMLElement): void {
+    const win = main.ownerDocument.defaultView ?? window;
+    const body = main.ownerDocument.body;
+    const storageKey = "langscape-lsc-side-width";
+    const minSide = 280;
+    const minEditor = 320;
+    const defaultSide = 390;
+
+    const apply = (width: number, save = false): void => {
+      const bounded = Math.round(
+        Math.max(minSide, Math.min(width, Math.max(minSide, main.clientWidth - minEditor)))
+      );
+      side.style.flex = `0 0 ${bounded}px`;
+      side.style.width = `${bounded}px`;
+      handle.setAttribute("aria-valuenow", String(bounded));
+      if (save) {
+        try {
+          win.localStorage.setItem(storageKey, String(bounded));
+        } catch {
+          // Storage can be unavailable in restricted renderer contexts.
+        }
+      }
+    };
+
+    let saved = defaultSide;
+    try {
+      const stored = Number(win.localStorage.getItem(storageKey));
+      if (Number.isFinite(stored) && stored >= minSide) saved = stored;
+    } catch {
+      // Use the default width.
+    }
+    win.requestAnimationFrame(() => apply(saved));
+
+    handle.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0 || main.clientWidth <= 760) return;
+      event.preventDefault();
+      const startX = event.clientX;
+      const startWidth = side.getBoundingClientRect().width;
+      const move = (moveEvent: PointerEvent): void => {
+        apply(startWidth + (startX - moveEvent.clientX));
+      };
+      const finish = (): void => {
+        win.removeEventListener("pointermove", move);
+        win.removeEventListener("pointerup", finish);
+        win.removeEventListener("pointercancel", finish);
+        body.removeClass("langscape-resizing");
+        apply(side.getBoundingClientRect().width, true);
+      };
+      win.addEventListener("pointermove", move);
+      win.addEventListener("pointerup", finish);
+      win.addEventListener("pointercancel", finish);
+      body.addClass("langscape-resizing");
+    });
+
+    handle.addEventListener("dblclick", () => {
+      apply(defaultSide, true);
+    });
+
+    handle.addEventListener("keydown", (event) => {
+      if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+      event.preventDefault();
+      const current = side.getBoundingClientRect().width;
+      apply(current + (event.key === "ArrowLeft" ? 24 : -24), true);
+    });
   }
 
   private handleChange(doc: string): void {

@@ -133,7 +133,39 @@
   flex: 1 1 auto;
   min-width: 0;
   min-height: 0;
-  border-right: 1px solid var(--background-modifier-border);
+}
+
+.langscape-lsc-resizer {
+  flex: 0 0 6px;
+  position: relative;
+  cursor: col-resize;
+  background: transparent;
+}
+
+.langscape-lsc-resizer::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  background: var(--background-modifier-border);
+}
+
+.langscape-lsc-resizer:hover::after,
+.langscape-lsc-resizer:focus-visible::after {
+  width: 2px;
+  background: var(--interactive-accent);
+}
+
+.langscape-lsc-resizer:focus-visible {
+  outline: none;
+}
+
+body.langscape-resizing,
+body.langscape-resizing * {
+  cursor: col-resize !important;
+  user-select: none !important;
 }
 
 .langscape-lsc-editor {
@@ -416,7 +448,26 @@
 }
 
 .langscape-trace-scroll {
+  width: 100%;
+  max-width: 100%;
   overflow-x: auto;
+  overflow-y: hidden;
+  display: block;
+  scrollbar-gutter: stable;
+  padding-bottom: 2px;
+}
+
+.langscape-trace-scroll::-webkit-scrollbar {
+  height: 10px;
+}
+
+.langscape-trace-scroll::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: var(--background-modifier-border);
+}
+
+.langscape-trace-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--text-faint);
 }
 
 .langscape-trace-table {
@@ -788,11 +839,15 @@
   }
 
   .langscape-lsc-side {
-    flex: 1 1 55%;
-    width: 100%;
+    flex: 1 1 55% !important;
+    width: 100% !important;
     min-width: 0;
     max-height: 58%;
     border-top: 1px solid var(--background-modifier-border);
+  }
+
+  .langscape-lsc-resizer {
+    display: none;
   }
 
   .langscape-lsc-editor-pane {
@@ -817,10 +872,14 @@
   }
 
   .langscape-lsc-side {
-    flex: 0 0 auto;
-    width: 100%;
+    flex: 0 0 auto !important;
+    width: 100% !important;
     min-width: 0;
     max-height: 55%;
+  }
+
+  .langscape-lsc-resizer {
+    display: none;
   }
 
   .langscape-lsc-editor-pane {

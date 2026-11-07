@@ -123,7 +123,7 @@ Click any `.lsc` file in the vault. Langscape opens a custom view:
 - **Left:** a CodeMirror editor with Lexurgy syntax highlighting and a live error underline.
 - **Right:** the test bench.
 
-The test bench remembers the last words used for each file. Press **Run** (or `Mod+Enter`) to apply the changes. **Trace applied rules** asks Lexurgy for a rule-by-rule trace. When it is on, each result row gets a checkbox; select one or more words and their forms appear as columns across the top of the trace table, with the applied rules as rows. Turning tracing off hides the trace UI entirely.
+The test bench remembers the last words used for each file. Press **Run** (or `Mod+Enter`) to apply the changes. Drag the divider between the editor and the test bench to resize the sidebar; double-click it to reset, or use the arrow keys while it is focused. **Trace applied rules** asks Lexurgy for a rule-by-rule trace. When it is on, each result row gets a checkbox; select one or more words and their forms appear as columns across the top of the trace table, with the applied rules as rows. The trace table scrolls sideways when more words are selected than fit. Turning tracing off hides the trace UI entirely.
 
 The **From rule** / **Stop before** selectors map to Lexurgy's `startAt` and `stopBefore` options, which is useful for inspecting intermediate stages.
 
