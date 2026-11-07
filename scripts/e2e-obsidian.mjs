@@ -547,7 +547,11 @@ async function main() {
       )
     );
     await ensure(lsc.type === "langscape-sound-change", "The .lsc file did not open in the editor.");
-    await ensure(lsc.status === "Valid Lexurgy", `Unexpected validation status: ${lsc.status}`);
+    await ensure(lsc.status === "Compiles", `Unexpected validation status: ${lsc.status}`);
+    await ensure(
+      !(await cdp.eval("Boolean(document.querySelector('.langscape-pane-header, .langscape-test-stats, .langscape-results-summary, .langscape-test-actions'))")),
+      "A removed editor/test-bench element is still present."
+    );
     const paneWords = await cdp.eval(
       "(async () => { const v = app.workspace.getLeavesOfType('langscape-sound-change')[0].view; const ta = v.contentEl.querySelector('.langscape-words-input'); ta.value = 'apa\\neke\\npataka'; ta.dispatchEvent(new Event('input', { bubbles: true })); v.contentEl.querySelector('.langscape-run-button').click(); await new Promise((resolve) => setTimeout(resolve, 2200)); return [...v.contentEl.querySelectorAll('.langscape-results-table tbody tr')].map((tr) => [...tr.cells].map((td) => td.textContent).join('|')); })()"
     );
@@ -566,6 +570,15 @@ async function main() {
     await ensure(traceState.rows.length >= 2, `The trace table has no iterations: ${JSON.stringify(traceState)}`);
     await ensure(traceState.rows[0][0] === "Input", `The trace table is missing its input row: ${JSON.stringify(traceState)}`);
     await ensure(traceState.checks === 3, "The trace checkbox column is missing.");
+    const multiTrace = JSON.parse(
+      await cdp.eval(
+        `(async () => { const v = app.workspace.getLeavesOfType('langscape-sound-change')[0].view; for (const box of v.contentEl.querySelectorAll('.langscape-trace-check')) { box.checked = true; box.dispatchEvent(new Event('change', { bubbles: true })); } await new Promise((resolve) => setTimeout(resolve, 250)); const table = v.contentEl.querySelector('.langscape-trace-table'); return JSON.stringify({ headers: [...table.querySelectorAll('thead th')].map((th) => th.textContent.trim()), rows: [...table.querySelectorAll('tbody tr')].map((tr) => [...tr.cells].map((td) => td.textContent.trim())), checked: [...v.contentEl.querySelectorAll('.langscape-trace-check')].filter((box) => box.checked).length }); })()`
+      )
+    );
+    await ensure(multiTrace.checked === 3, "Tracing did not keep multiple words selected.");
+    await ensure(multiTrace.headers.length === 4, `Expected three word columns: ${JSON.stringify(multiTrace)}`);
+    await ensure(multiTrace.rows.every((row) => row.length === 4), "Trace rows do not have one cell per word.");
+    log(`multi-word trace: ${JSON.stringify(multiTrace.headers)}`);
     const traceOff = await cdp.eval(
       `(async () => { const v = app.workspace.getLeavesOfType('langscape-sound-change')[0].view; const box = v.contentEl.querySelector('.langscape-options-row input[type="checkbox"]'); box.checked = false; box.dispatchEvent(new Event('change', { bubbles: true })); await new Promise((resolve) => setTimeout(resolve, 250)); return v.contentEl.querySelector('.langscape-trace')?.classList.contains('is-hidden'); })()`
     );
@@ -597,7 +610,7 @@ async function main() {
     log(`syntax colours: ${JSON.stringify(tokenColors)}`);
     const editorAppearance = JSON.parse(
       await cdp.eval(
-        `(async () => { const v = app.workspace.getLeavesOfType('langscape-sound-change')[0].view; v.editor.focus(); await new Promise((resolve) => setTimeout(resolve, 150)); const cursor = v.contentEl.querySelector('.cm-cursor'); const line = v.contentEl.querySelector('.cm-line'); return JSON.stringify({ cursor: cursor ? getComputedStyle(cursor).borderLeftColor : null, text: line ? getComputedStyle(line).color : null, dark: document.body.classList.contains('theme-dark') }); })()`
+        `(async () => { const v = app.workspace.getLeavesOfType('langscape-sound-change')[0].view; v.editor.focus(); const side = v.contentEl.querySelector('.langscape-lsc-side'); if (side) side.scrollTop = 0; v.editor.view.dispatch({ selection: { anchor: 0, head: 12 } }); await new Promise((resolve) => setTimeout(resolve, 180)); const cursor = v.contentEl.querySelector('.cm-cursor'); const line = v.contentEl.querySelector('.cm-line'); const active = v.contentEl.querySelector('.cm-activeLine'); return JSON.stringify({ cursor: cursor ? getComputedStyle(cursor).borderLeftColor : null, text: line ? getComputedStyle(line).color : null, hasSelectionClass: v.contentEl.querySelector('.cm-editor')?.classList.contains('has-selection'), activeLine: active ? getComputedStyle(active).backgroundColor : null, dark: document.body.classList.contains('theme-dark') }); })()`
       )
     );
     await ensure(editorAppearance.cursor, "The editor cursor was not found.");
@@ -608,6 +621,11 @@ async function main() {
     await ensure(
       editorAppearance.text && editorAppearance.text !== "rgb(0, 0, 0)",
       `Editor text is not using the theme colour: ${editorAppearance.text}`
+    );
+    await ensure(editorAppearance.hasSelectionClass, "The editor did not mark an active selection.");
+    await ensure(
+      editorAppearance.activeLine === "rgba(0, 0, 0, 0)" || editorAppearance.activeLine === "transparent",
+      `The current-line highlight stayed visible during selection: ${editorAppearance.activeLine}`
     );
     log(`editor appearance: ${JSON.stringify(editorAppearance)}`);
     await saveScreenshot(cdp, "sound-change-editor.png");

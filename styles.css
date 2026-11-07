@@ -53,7 +53,6 @@
 }
 
 .langscape-validation-status {
-  margin-left: auto;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -137,22 +136,6 @@
   border-right: 1px solid var(--background-modifier-border);
 }
 
-.langscape-pane-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 7px 12px;
-  font-size: var(--font-ui-smaller);
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  background: var(--background-secondary);
-  border-bottom: 1px solid var(--background-modifier-border);
-  flex: 0 0 auto;
-}
-
 .langscape-lsc-editor {
   flex: 1 1 auto;
   min-height: 0;
@@ -161,6 +144,11 @@
 
 .langscape-lsc-editor .cm-editor {
   height: 100%;
+}
+
+.langscape-lsc-view .cm-editor.has-selection .cm-activeLine,
+.langscape-lsc-view .cm-editor.has-selection .cm-activeLineGutter {
+  background-color: transparent !important;
 }
 
 .langscape-lsc-side {
@@ -196,6 +184,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
   font-weight: 700;
 }
 
@@ -274,11 +263,6 @@
   color: var(--text-muted);
 }
 
-.langscape-field-hint {
-  font-size: var(--font-ui-smaller);
-  color: var(--text-faint);
-}
-
 .langscape-words-input {
   width: 100%;
   resize: vertical;
@@ -317,19 +301,6 @@
   gap: 5px;
   font-size: var(--font-ui-smaller);
   color: var(--text-muted);
-}
-
-.langscape-test-stats {
-  font-size: var(--font-ui-smaller);
-  color: var(--text-muted);
-}
-
-.langscape-results-summary {
-  display: flex;
-  justify-content: space-between;
-  font-size: var(--font-ui-smaller);
-  color: var(--text-muted);
-  margin-bottom: 4px;
 }
 
 .langscape-results-table {
@@ -382,12 +353,6 @@
   margin: 0;
 }
 
-.langscape-test-actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
 .langscape-trace {
   margin-top: 8px;
   border-top: 1px solid var(--background-modifier-border);
@@ -425,7 +390,6 @@
 }
 
 .langscape-trace-table {
-  width: 100%;
   border-collapse: collapse;
   font-size: var(--font-ui-smaller);
 }
@@ -451,15 +415,34 @@
   background: var(--background-primary-alt);
 }
 
+.langscape-trace-scroll {
+  overflow-x: auto;
+}
+
+.langscape-trace-table {
+  width: max-content;
+  min-width: 100%;
+}
+
+.langscape-trace-table th:not(:first-child),
+.langscape-trace-table td:not(:first-child) {
+  min-width: 70px;
+  white-space: nowrap;
+}
+
 .langscape-trace-table td:first-child {
-  width: 45%;
+  min-width: 120px;
+  width: 34%;
   color: var(--text-muted);
 }
 
-.langscape-trace-table td:last-child {
+.langscape-trace-table td:not(:first-child) {
   font-family: var(--font-monospace);
-  white-space: pre-wrap;
-  word-break: break-word;
+}
+
+.langscape-trace-table th.langscape-trace-word {
+  color: var(--text-accent);
+  font-family: var(--font-monospace);
 }
 
 .langscape-trace-table tr.is-input td {

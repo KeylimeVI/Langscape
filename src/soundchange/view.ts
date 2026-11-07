@@ -14,7 +14,6 @@ export class SoundChangeView extends TextFileView {
   private outline: LexurgyOutline = parseOutline("");
   private editorHost!: HTMLElement;
   private testHost!: HTMLElement;
-  private statusEl!: HTMLElement;
   private errorBar!: HTMLElement;
   private lastValidation: ValidationResult | null = null;
 
@@ -58,7 +57,7 @@ export class SoundChangeView extends TextFileView {
         doc: data,
         onChange: (doc) => this.handleChange(doc),
         validate: (doc) => this.plugin.lexurgy.validate(doc),
-        onValidationStarted: () => this.setStatus("checking", "Checking…"),
+        onValidationStarted: () => this.panel?.setCompileStatus("checking", "Checking…"),
         onValidation: (result) => this.handleValidation(result),
         onSave: () => {
           void this.save();
@@ -88,7 +87,7 @@ export class SoundChangeView extends TextFileView {
     this.panel?.setWords("", true);
     this.outline = parseOutline("");
     this.clearError();
-    this.setStatus("unknown", "Not checked");
+    this.panel?.setCompileStatus("unknown", "Not checked");
   }
 
   private buildLayout(): void {
@@ -104,12 +103,6 @@ export class SoundChangeView extends TextFileView {
 
     const main = root.createDiv({ cls: "langscape-lsc-main" });
     const editorPane = main.createDiv({ cls: "langscape-lsc-editor-pane" });
-    const editorHeader = editorPane.createDiv({ cls: "langscape-pane-header" });
-    editorHeader.createSpan({ text: "Lexurgy source" });
-    this.statusEl = editorHeader.createSpan({
-      cls: "langscape-validation-status is-unknown",
-      text: "Not checked",
-    });
     this.editorHost = editorPane.createDiv({ cls: "langscape-lsc-editor" });
 
     const side = main.createDiv({ cls: "langscape-lsc-side" });
@@ -143,12 +136,12 @@ export class SoundChangeView extends TextFileView {
   private handleValidation(result: ValidationResult): void {
     this.lastValidation = result;
     if (result.valid) {
-      this.setStatus("valid", "Valid Lexurgy");
+      this.panel?.setCompileStatus("valid", "Compiles", "Valid Lexurgy");
       this.clearError();
       return;
     }
     const line = result.line;
-    this.setStatus("error", line ? `Error · line ${line}` : "Error");
+    this.panel?.setCompileStatus("error", line ? `Error · line ${line}` : "Error");
     const message = cleanLexurgyMessage(result.error?.message ?? "Invalid Lexurgy file");
     this.errorBar.removeClass("is-hidden");
     this.errorBar.empty();
@@ -161,12 +154,6 @@ export class SoundChangeView extends TextFileView {
     this.lastValidation = null;
     this.errorBar?.addClass("is-hidden");
     this.errorBar?.empty();
-  }
-
-  private setStatus(kind: "unknown" | "checking" | "valid" | "error", text: string): void {
-    if (!this.statusEl) return;
-    this.statusEl.className = `langscape-validation-status is-${kind}`;
-    this.statusEl.setText(text);
   }
 
   private refreshOutline(): void {

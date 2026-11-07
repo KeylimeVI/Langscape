@@ -155,6 +155,10 @@ export class SoundChangeEditor {
             if (!this.suppressChange) this.options.onChange(update.state.doc.toString());
           }
           if (update.selectionSet || update.docChanged) {
+            update.view.dom.classList.toggle(
+              "has-selection",
+              !update.state.selection.main.empty
+            );
             const line = update.state.doc.lineAt(update.state.selection.main.head).number;
             this.options.onCursorLine?.(line);
           }

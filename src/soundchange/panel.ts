@@ -31,17 +31,15 @@ export class SoundChangeTestPanel {
   private readonly stopEl: HTMLSelectElement;
   private readonly traceEl: HTMLInputElement;
   private readonly runButton: HTMLButtonElement;
+  private readonly compileEl: HTMLElement;
   private readonly statusEl: HTMLElement;
-  private readonly statsEl: HTMLElement;
   private readonly errorEl: HTMLElement;
   private readonly resultsEl: HTMLElement;
   private readonly traceOutEl: HTMLElement;
-  private readonly actionsEl: HTMLElement;
   private readonly setupEl: HTMLElement;
   private lastResult: LexurgyApplyResult | null = null;
   private lastWords: string[] = [];
-  private lastElapsed = 0;
-  private lastTraceWord: string | undefined;
+  private lastTraceWords = new Set<string>();
   private busy = false;
   private dirty = false;
 
@@ -54,6 +52,10 @@ export class SoundChangeTestPanel {
     const header = this.root.createDiv({ cls: "langscape-test-header" });
     const title = header.createDiv({ cls: "langscape-test-title" });
     title.createSpan({ text: "Test bench" });
+    this.compileEl = title.createSpan({
+      cls: "langscape-validation-status is-unknown",
+      text: "Not checked",
+    });
     this.statusEl = title.createSpan({ cls: "langscape-lexurgy-status is-unknown", text: "Lexurgy" });
     this.runButton = header.createEl("button", {
       cls: "mod-cta langscape-run-button",
@@ -67,10 +69,6 @@ export class SoundChangeTestPanel {
 
     const wordsSetting = this.root.createDiv({ cls: "langscape-panel-field" });
     wordsSetting.createEl("label", { text: "Words", cls: "langscape-field-label" });
-    wordsSetting.createSpan({
-      cls: "langscape-field-hint",
-      text: "one per line · Mod+Enter to run",
-    });
     this.wordsEl = wordsSetting.createEl("textarea", {
       cls: "langscape-words-input",
       attr: {
@@ -102,19 +100,27 @@ export class SoundChangeTestPanel {
     traceLabel.createSpan({ text: "Trace applied rules" });
     this.traceEl.addEventListener("change", () => {
       if (this.lastResult) {
-        this.renderResults(this.lastResult, this.lastWords, this.lastElapsed);
+        this.renderResults(this.lastResult, this.lastWords);
       }
     });
 
     this.errorEl = this.root.createDiv({ cls: "langscape-error is-hidden" });
-    this.statsEl = this.root.createDiv({ cls: "langscape-test-stats" });
     this.resultsEl = this.root.createDiv({ cls: "langscape-results" });
     this.traceOutEl = this.root.createDiv({ cls: "langscape-trace is-hidden" });
-    this.actionsEl = this.root.createDiv({ cls: "langscape-test-actions is-hidden" });
   }
 
   get words(): string {
     return this.wordsEl.value;
+  }
+
+  setCompileStatus(
+    kind: "unknown" | "checking" | "valid" | "error",
+    text: string,
+    title?: string
+  ): void {
+    this.compileEl.className = `langscape-validation-status is-${kind}`;
+    this.compileEl.setText(text);
+    this.compileEl.title = title ?? "";
   }
 
   setWords(words: string, force = false): void {
@@ -177,21 +183,17 @@ export class SoundChangeTestPanel {
     const traced = this.traceEl.checked ? words.slice(0, MAX_TRACED_WORDS) : [];
     this.setBusy(true);
     this.hideError();
-    const started = performance.now();
     try {
       const result = await this.options.run(changes, words, {
         startAt: this.fromEl.value || undefined,
         stopBefore: this.stopEl.value || undefined,
         traceWords: traced,
       });
-      const elapsed = Math.round(performance.now() - started);
       this.lastResult = result;
       this.lastWords = words;
-      this.lastTraceWord = traced.length ? words[0] : undefined;
-      this.renderResults(result, words, elapsed);
-      this.statsEl.setText(
-        `${words.length} ${words.length === 1 ? "word" : "words"}`
-      );
+      this.lastTraceWords.clear();
+      if (traced.length) this.lastTraceWords.add(words[0]);
+      this.renderResults(result, words);
     } catch (error) {
       const message =
         error instanceof LexurgyError
@@ -200,10 +202,8 @@ export class SoundChangeTestPanel {
             ? error.message
             : String(error);
       this.showError(message, error instanceof LexurgyError ? error.line : undefined);
-      this.statsEl.setText("");
       this.resultsEl.empty();
       this.traceOutEl.empty();
-      this.actionsEl.addClass("is-hidden");
       this.lastResult = null;
       if (/java|install|not found|not installed/i.test(message)) {
         void this.refreshEnvironment();
@@ -265,38 +265,24 @@ export class SoundChangeTestPanel {
     link.setAttr("rel", "noopener");
   }
 
-  private renderResults(
-    result: LexurgyApplyResult,
-    inputs: string[],
-    elapsed: number
-  ): void {
+  private selectedTraceWords(): string[] {
+    return this.lastWords.filter((word) => this.lastTraceWords.has(word));
+  }
+
+  private renderResults(result: LexurgyApplyResult, inputs: string[]): void {
     this.lastResult = result;
     this.lastWords = inputs;
-    this.lastElapsed = elapsed;
     this.resultsEl.empty();
     this.traceOutEl.empty();
-    this.actionsEl.removeClass("is-hidden");
-    this.actionsEl.empty();
 
     const traceEnabled = this.traceEl.checked && result.traceLines.length > 0;
-    if (traceEnabled) {
-      const selected =
-        this.lastTraceWord &&
-        traceStagesForWord(result.traceLines, this.lastTraceWord)
-          ? this.lastTraceWord
-          : inputs.find((input) => traceStagesForWord(result.traceLines, input));
-      this.lastTraceWord = selected ?? inputs[0];
+    for (const word of [...this.lastTraceWords]) {
+      if (!inputs.includes(word)) this.lastTraceWords.delete(word);
     }
-
-    const changedCount = result.words.reduce(
-      (count, word, index) => count + (word !== inputs[index] ? 1 : 0),
-      0
-    );
-    const summary = this.resultsEl.createDiv({ cls: "langscape-results-summary" });
-    summary.createSpan({
-      text: `${changedCount} of ${inputs.length} changed`,
-    });
-    summary.createSpan({ cls: "langscape-muted", text: ` · ${elapsed} ms` });
+    if (traceEnabled && this.selectedTraceWords().length === 0) {
+      const first = inputs.find((word) => traceStagesForWord(result.traceLines, word));
+      if (first) this.lastTraceWords.add(first);
+    }
 
     const table = this.resultsEl.createEl("table", { cls: "langscape-results-table" });
     const head = table.createTHead().insertRow();
@@ -306,12 +292,15 @@ export class SoundChangeTestPanel {
     if (traceEnabled) head.createEl("th", { text: "Trace" });
     const body = table.createTBody();
 
+    const selectedWords = (): string[] =>
+      inputs.filter((word) => this.lastTraceWords.has(word));
+
     const syncSelection = (): void => {
       body.querySelectorAll<HTMLInputElement>(".langscape-trace-check").forEach((box, index) => {
-        box.checked = inputs[index] === this.lastTraceWord;
+        box.checked = this.lastTraceWords.has(inputs[index]);
       });
       body.querySelectorAll("tr").forEach((row, index) => {
-        row.toggleClass("is-selected", inputs[index] === this.lastTraceWord);
+        row.toggleClass("is-selected", this.lastTraceWords.has(inputs[index]));
       });
     };
 
@@ -329,45 +318,29 @@ export class SoundChangeTestPanel {
           cls: "langscape-trace-check",
           attr: { "aria-label": `Show trace for ${inputs[index]}` },
         });
-        box.checked = inputs[index] === this.lastTraceWord;
+        box.checked = this.lastTraceWords.has(inputs[index]);
         box.addEventListener("click", (event) => event.stopPropagation());
         box.addEventListener("change", () => {
-          this.lastTraceWord = box.checked ? inputs[index] : undefined;
+          if (box.checked) this.lastTraceWords.add(inputs[index]);
+          else this.lastTraceWords.delete(inputs[index]);
           syncSelection();
-          this.renderTrace(this.lastTraceWord);
+          this.renderTrace(selectedWords());
         });
         row.addClass("is-clickable");
         row.addEventListener("click", () => {
-          this.lastTraceWord = inputs[index];
+          if (this.lastTraceWords.has(inputs[index])) this.lastTraceWords.delete(inputs[index]);
+          else this.lastTraceWords.add(inputs[index]);
           syncSelection();
-          this.renderTrace(inputs[index]);
+          this.renderTrace(selectedWords());
         });
-        if (inputs[index] === this.lastTraceWord) row.addClass("is-selected");
+        if (this.lastTraceWords.has(inputs[index])) row.addClass("is-selected");
       }
     });
 
-    const copy = this.actionsEl.createEl("button", { text: "Copy outputs" });
-    copy.addEventListener("click", async () => {
-      try {
-        await navigator.clipboard.writeText(result.words.join("\n"));
-        new Notice("Copied evolved words.");
-      } catch {
-        new Notice("Could not copy to the clipboard.");
-      }
-    });
-
-    const useOutputs = this.actionsEl.createEl("button", { text: "Use outputs as input" });
-    useOutputs.addEventListener("click", () => {
-      this.wordsEl.value = result.words.join("\n");
-      this.dirty = true;
-      this.options.onWordsChange(this.wordsEl.value);
-      this.wordsEl.focus();
-    });
-
-    this.renderTrace(this.traceEl.checked ? this.lastTraceWord : undefined);
+    this.renderTrace(this.traceEl.checked ? selectedWords() : []);
   }
 
-  private renderTrace(word: string | undefined): void {
+  private renderTrace(words: string[]): void {
     this.traceOutEl.empty();
     if (!this.traceEl.checked) {
       this.traceOutEl.addClass("is-hidden");
@@ -385,37 +358,59 @@ export class SoundChangeTestPanel {
       });
       return;
     }
-    if (!word) {
+    if (words.length === 0) {
       this.traceOutEl.addClass("is-hidden");
       return;
     }
-    const trace = traceStagesForWord(this.lastResult.traceLines, word);
-    if (!trace || trace.stages.length === 0) {
+
+    const traces = words.map((word) => ({
+      word,
+      trace: traceStagesForWord(this.lastResult!.traceLines, word),
+    }));
+    if (!traces.some((entry) => entry.trace && entry.trace.stages.length > 0)) {
       this.traceOutEl.createDiv({
         cls: "langscape-muted",
-        text: "No rules changed this word.",
+        text: "No rules changed the selected words.",
       });
       return;
+    }
+
+    const rules: string[] = [];
+    for (const entry of traces) {
+      for (const stage of entry.trace?.stages ?? []) {
+        if (!rules.includes(stage.rule)) rules.push(stage.rule);
+      }
     }
 
     const card = this.traceOutEl.createDiv({ cls: "langscape-trace-card" });
     const header = card.createDiv({ cls: "langscape-trace-head" });
     header.createSpan({ cls: "langscape-trace-title", text: "Trace" });
-    header.createSpan({ cls: "langscape-trace-word", text: word });
 
-    const table = card.createEl("table", { cls: "langscape-trace-table" });
+    const scroll = card.createDiv({ cls: "langscape-trace-scroll" });
+    const table = scroll.createEl("table", { cls: "langscape-trace-table" });
     const head = table.createTHead().insertRow();
     head.createEl("th", { text: "Iteration" });
-    head.createEl("th", { text: "Form" });
+    for (const entry of traces) {
+      head.createEl("th", { text: entry.word, cls: "langscape-trace-word" });
+    }
+
     const body = table.createTBody();
     const inputRow = body.insertRow();
     inputRow.addClass("is-input");
     inputRow.insertCell().textContent = "Input";
-    inputRow.insertCell().textContent = trace.input || word;
-    for (const stage of trace.stages) {
+    const current = traces.map((entry) => entry.trace?.input || entry.word);
+    traces.forEach((entry, index) => {
+      inputRow.insertCell().textContent = current[index];
+    });
+
+    for (const rule of rules) {
       const row = body.insertRow();
-      row.insertCell().textContent = stage.rule;
-      row.insertCell().textContent = stage.form;
+      row.insertCell().textContent = rule;
+      traces.forEach((entry, index) => {
+        const stage = entry.trace?.stages.find((candidate) => candidate.rule === rule);
+        if (stage) current[index] = stage.form;
+        row.insertCell().textContent = current[index];
+      });
     }
   }
 
