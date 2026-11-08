@@ -14,7 +14,6 @@ import { FontPickerModal } from "./fonts/modal";
 import {
   createFontLivePreviewExtension,
   createFontPostProcessor,
-  createFontSpellcheckExtension,
   createNoteFontExtension,
 } from "./fonts/render";
 import { LexurgyService } from "./lexurgy/service";
@@ -70,7 +69,6 @@ export default class LangscapePlugin extends Plugin {
     this.registerMarkdownPostProcessor(createFontPostProcessor(this.fontManager, this.app));
     this.registerEditorExtension(createFontLivePreviewExtension(this.fontManager));
     this.registerEditorExtension(createNoteFontExtension(this.fontManager));
-    this.registerEditorExtension(createFontSpellcheckExtension());
     this.registerMarkdownCodeBlockProcessor("langscape", createPipelineCodeBlockProcessor(this));
 
     await this.fontManager.refresh();

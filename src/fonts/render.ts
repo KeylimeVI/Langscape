@@ -1,6 +1,6 @@
 import type { App, MarkdownPostProcessorContext } from "obsidian";
 import { syntaxTree } from "@codemirror/language";
-import { RangeSetBuilder, type EditorState } from "@codemirror/state";
+import type { EditorState } from "@codemirror/state";
 import {
   Decoration,
   type DecorationSet,
@@ -127,9 +127,17 @@ export function createNoteFontExtension(manager: FontManager) {
           this.decorations = Decoration.none;
           return;
         }
-        this.decorations = Decoration.set([
+        const decorations = [
           Decoration.mark({ class: record.className }).range(0, view.state.doc.length),
-        ]);
+        ];
+        for (let line = 1; line <= view.state.doc.lines; line++) {
+          decorations.push(
+            Decoration.line({ attributes: { spellcheck: "false" } }).range(
+              view.state.doc.line(line).from
+            )
+          );
+        }
+        this.decorations = Decoration.set(decorations, true);
       }
     },
     {
@@ -173,7 +181,8 @@ function isInCode(state: EditorState, position: number): boolean {
 }
 
 function build(view: EditorView, manager: FontManager): DecorationSet {
-  const builder = new RangeSetBuilder<Decoration>();
+  const decorations: Array<{ from: number; to: number; decoration: Decoration }> = [];
+  const fontLines = new Set<number>();
   const { state } = view;
   const selection = state.selection.ranges;
 
@@ -187,84 +196,54 @@ function build(view: EditorView, manager: FontManager): DecorationSet {
       const contentStart = from + span.contentStart;
       const contentEnd = from + span.contentEnd;
       const end = from + span.end;
+      const lineStart = state.doc.lineAt(start).from;
+      fontLines.add(lineStart);
 
       const cursorInside = selection.some(
         (range) => range.from <= end && range.to >= start
       );
 
       if (!cursorInside && contentStart > start) {
-        builder.add(start, contentStart, Decoration.replace({}));
+        decorations.push({
+          from: start,
+          to: contentStart,
+          decoration: Decoration.replace({}),
+        });
       }
       if (contentEnd > contentStart) {
-        builder.add(
-          contentStart,
-          contentEnd,
-          Decoration.mark({
+        decorations.push({
+          from: contentStart,
+          to: contentEnd,
+          decoration: Decoration.mark({
             class: `langscape-font ${record.className}`,
             attributes: {
               "data-langscape-font": record.displayName,
               spellcheck: "false",
             },
-          })
-        );
+          }),
+        });
       }
       if (!cursorInside && end > contentEnd) {
-        builder.add(contentEnd, end, Decoration.replace({}));
+        decorations.push({
+          from: contentEnd,
+          to: end,
+          decoration: Decoration.replace({}),
+        });
       }
     }
   }
 
-  return builder.finish();
-}
-
-/**
- * Notes using Langscape font markup contain conlang text that the system
- * dictionary will never know. Turn off native spellcheck for those notes so
- * the browser stops painting red squiggles through the custom script.
- */
-export function createFontSpellcheckExtension() {
-  return ViewPlugin.fromClass(
-    class {
-      private readonly original: string | null;
-      private readonly observer: MutationObserver;
-
-      constructor(private readonly editorView: EditorView) {
-        this.original = editorView.contentDOM.getAttribute("spellcheck");
-        this.observer = new MutationObserver(() => this.apply(editorView));
-        this.observer.observe(editorView.contentDOM, {
-          attributes: true,
-          attributeFilter: ["spellcheck"],
-        });
-        this.apply(editorView);
-        requestAnimationFrame(() => this.apply(editorView));
-      }
-
-      update(update: ViewUpdate): void {
-        if (update.docChanged) this.apply(update.view);
-      }
-
-      destroy(): void {
-        this.observer.disconnect();
-      }
-
-      private apply(view: EditorView): void {
-        const desired = documentUsesFonts(view.state.doc.toString())
-          ? "false"
-          : this.original;
-        const current = view.contentDOM.getAttribute("spellcheck");
-        if (current === desired) return;
-        if (desired === null) view.contentDOM.removeAttribute("spellcheck");
-        else view.contentDOM.setAttribute("spellcheck", desired);
-      }
-    }
-  );
-}
-
-function documentUsesFonts(doc: string): boolean {
-  const frontmatter = /^---\r?\n([\s\S]*?)\r?\n---/.exec(doc)?.[1] ?? "";
-  return (
-    /^langscape-font:\s*\S/m.test(frontmatter) ||
-    /(?:\{font:|\{\s*[^{}:\n]+\s*:|''')/.test(doc)
+  for (const from of fontLines) {
+    decorations.push({
+      from,
+      to: from,
+      decoration: Decoration.line({ attributes: { spellcheck: "false" } }),
+    });
+  }
+  decorations.sort((a, b) => a.from - b.from || a.to - b.to);
+  return Decoration.set(
+    decorations.map((entry) => entry.decoration.range(entry.from, entry.to)),
+    true
   );
 }
 

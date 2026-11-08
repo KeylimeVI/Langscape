@@ -534,16 +534,30 @@ async function main() {
       "document.querySelector('.markdown-source-view .cm-content')?.innerText.includes('{Noto-Sans-Gothic:') ?? false"
     );
     await ensure(rawCode, "Inline code containing font markup was decorated instead of left literal.");
-    const fontSpellcheck = await cdp.eval(
-      "JSON.stringify({ content: document.querySelector('.markdown-source-view .cm-content')?.getAttribute('spellcheck'), span: document.querySelector('.markdown-source-view .cm-content .langscape-font')?.getAttribute('spellcheck') })"
+    const fontSpellcheck = JSON.parse(
+      await cdp.eval(
+        "JSON.stringify({ content: document.querySelector('.markdown-source-view .cm-content')?.getAttribute('spellcheck'), span: document.querySelector('.markdown-source-view .cm-content .langscape-font')?.getAttribute('spellcheck'), lines: document.querySelectorAll('.markdown-source-view .cm-line[spellcheck=\"false\"]').length })"
+      )
     );
     await ensure(
-      JSON.parse(fontSpellcheck).content === "false",
-      `Spellcheck was not disabled for the font note: ${fontSpellcheck}`
+      fontSpellcheck.content !== "false",
+      `Spellcheck was disabled for the whole note: ${JSON.stringify(fontSpellcheck)}`
     );
-    log(`font note spellcheck disabled: ${fontSpellcheck}`);
+    await ensure(
+      fontSpellcheck.span === "false" && fontSpellcheck.lines > 0,
+      `Spellcheck was not disabled on the font span/line: ${JSON.stringify(fontSpellcheck)}`
+    );
+    log(`font span spellcheck scope: ${JSON.stringify(fontSpellcheck)}`);
     log("inline font spans render in Live Preview (code stays literal)");
     await saveScreenshot(cdp, "font-demo.png");
+    await cdp.eval(
+      `(async () => { const f = app.vault.getAbstractFileByPath('Welcome.md'); const leaf = app.workspace.getLeaf('tab'); await leaf.openFile(f); app.workspace.setActiveLeaf(leaf, { focus: true }); await new Promise((resolve) => setTimeout(resolve, 500)); return true; })()`
+    );
+    const normalSpellcheck = await cdp.eval(
+      "document.querySelector('.markdown-source-view .cm-content')?.getAttribute('spellcheck') ?? null"
+    );
+    await ensure(normalSpellcheck !== "false", "Spellcheck was disabled in a normal Markdown note.");
+    log(`normal note spellcheck: ${normalSpellcheck}`);
 
     await cdp.eval(
       `(async () => { const f = app.vault.getAbstractFileByPath('Langscape Demo/Changes/Demo.lsc'); window.localStorage.setItem('langscape-lsc-side-width', '390'); for (const old of app.workspace.getLeavesOfType('langscape-sound-change')) old.detach(); const leaf = app.workspace.getLeaf('tab'); await leaf.openFile(f); app.workspace.setActiveLeaf(leaf, { focus: true }); return true; })()`
