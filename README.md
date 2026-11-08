@@ -127,6 +127,14 @@ All text in this note uses the font. Inline spans can still override it.
 
 Use **Langscape: Insert custom-font text** or the ribbon type icon to pick a font visually. It inserts the `{nickname: text}` syntax for you.
 
+### Bases and Excalidraw
+
+- **Bases:** table and card values using `{nickname: text}` are decorated live.
+- **Excalidraw:** embedded Markdown (`excalidraw-md-host`) is decorated.
+- Excalidraw **canvas text elements** are rendered by Excalidraw's own canvas font system, not HTML, so inline font markup cannot style individual text elements there. Use Excalidraw's font settings for those.
+
+![Custom font in a Bases table](docs/screenshots/bases-font.png)
+
 ## Sound-change editor
 
 Click any `.lsc` file in the vault. Langscape opens a custom view:

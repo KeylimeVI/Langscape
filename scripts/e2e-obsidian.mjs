@@ -82,6 +82,26 @@ async function setupVault() {
     )
   );
   await fs.writeFile(path.join(vault, "Welcome.md"), "# E2E vault\n");
+  await fs.mkdir(path.join(vault, "FontBase"), { recursive: true });
+  await fs.writeFile(
+    path.join(vault, "FontBase", "Word.md"),
+    "---\nword: \"{Noto-Sans-Gothic: 𐌰𐍆𐌰}\"\n---\n"
+  );
+  await fs.writeFile(
+    path.join(vault, "FontBase.base"),
+    [
+      "views:",
+      "  - type: table",
+      "    name: Font base",
+      "    filters:",
+      "      and:",
+      '        - file.inFolder("FontBase")',
+      "    order:",
+      "      - file.name",
+      "      - word",
+      "",
+    ].join("\n")
+  );
 }
 
 async function waitForPort(url, timeoutMs = 20_000) {
@@ -558,6 +578,19 @@ async function main() {
     );
     await ensure(normalSpellcheck !== "false", "Spellcheck was disabled in a normal Markdown note.");
     log(`normal note spellcheck: ${normalSpellcheck}`);
+
+    await cdp.eval(
+      `(async () => { const f = app.vault.getAbstractFileByPath('FontBase.base'); const leaf = app.workspace.getLeaf('tab'); await leaf.openFile(f); app.workspace.setActiveLeaf(leaf, { focus: true }); await new Promise((resolve) => setTimeout(resolve, 1400)); return true; })()`
+    );
+    const baseFonts = JSON.parse(
+      await cdp.eval(
+        "JSON.stringify({ roots: document.querySelectorAll('.bases-view, .bases-embed').length, spans: document.querySelectorAll('.bases-view .langscape-font, .bases-embed .langscape-font').length, text: document.querySelector('.bases-view, .bases-embed')?.textContent?.slice(0, 200) ?? null })"
+      )
+    );
+    await ensure(baseFonts.roots > 0, `The Bases view did not render: ${JSON.stringify(baseFonts)}`);
+    await ensure(baseFonts.spans > 0, `Font spans were not decorated in Bases: ${JSON.stringify(baseFonts)}`);
+    log(`bases font spans: ${JSON.stringify(baseFonts)}`);
+    await saveScreenshot(cdp, "bases-font.png");
 
     await cdp.eval(
       `(async () => { const f = app.vault.getAbstractFileByPath('Langscape Demo/Changes/Demo.lsc'); window.localStorage.setItem('langscape-lsc-side-width', '390'); for (const old of app.workspace.getLeavesOfType('langscape-sound-change')) old.detach(); const leaf = app.workspace.getLeaf('tab'); await leaf.openFile(f); app.workspace.setActiveLeaf(leaf, { focus: true }); return true; })()`

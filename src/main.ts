@@ -10,6 +10,7 @@ import {
 import { createStarterVault } from "./demo";
 import { isFontFile } from "./fonts/css";
 import { FontManager } from "./fonts/manager";
+import { FontDomDecorator } from "./fonts/dom";
 import { FontPickerModal } from "./fonts/modal";
 import {
   createFontLivePreviewExtension,
@@ -50,6 +51,7 @@ type CanvasStepKind = "source" | "sound-change" | "output";
 export default class LangscapePlugin extends Plugin {
   settings: LangscapeSettings = { ...DEFAULT_SETTINGS };
   fontManager!: FontManager;
+  private fontDomDecorator: FontDomDecorator | null = null;
   lexurgy!: LexurgyService;
   private testWordsSaveTimer: ReturnType<typeof setTimeout> | null = null;
   private pipelineRun: Promise<PipelineRunReport | null> | null = null;
@@ -60,6 +62,7 @@ export default class LangscapePlugin extends Plugin {
   async onload(): Promise<void> {
     await this.loadSettings();
     this.fontManager = new FontManager(this.app, () => this.settings);
+    this.fontDomDecorator = new FontDomDecorator(this.app, this.fontManager);
     this.lexurgy = new LexurgyService(this);
 
     this.registerView(SOUNDCHANGE_VIEW_TYPE, (leaf) => new SoundChangeView(leaf, this));
@@ -72,6 +75,8 @@ export default class LangscapePlugin extends Plugin {
     this.registerMarkdownCodeBlockProcessor("langscape", createPipelineCodeBlockProcessor(this));
 
     await this.fontManager.refresh();
+    this.fontDomDecorator.start();
+    this.register(() => this.fontDomDecorator?.stop());
     this.registerFontEvents();
     this.addCommands();
     this.addRibbonIcons();
