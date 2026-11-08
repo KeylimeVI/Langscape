@@ -534,6 +534,14 @@ async function main() {
       "document.querySelector('.markdown-source-view .cm-content')?.innerText.includes('{Noto-Sans-Gothic:') ?? false"
     );
     await ensure(rawCode, "Inline code containing font markup was decorated instead of left literal.");
+    const fontSpellcheck = await cdp.eval(
+      "JSON.stringify({ content: document.querySelector('.markdown-source-view .cm-content')?.getAttribute('spellcheck'), span: document.querySelector('.markdown-source-view .cm-content .langscape-font')?.getAttribute('spellcheck') })"
+    );
+    await ensure(
+      JSON.parse(fontSpellcheck).content === "false",
+      `Spellcheck was not disabled for the font note: ${fontSpellcheck}`
+    );
+    log(`font note spellcheck disabled: ${fontSpellcheck}`);
     log("inline font spans render in Live Preview (code stays literal)");
     await saveScreenshot(cdp, "font-demo.png");
 

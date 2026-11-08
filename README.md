@@ -122,6 +122,7 @@ All text in this note uses the font. Inline spans can still override it.
 - Font files are discovered automatically **anywhere in the vault**. Use **Rescan** in settings after adding one.
 - Set a short nickname per font to keep inline markup compact.
 - Font spans are processed per Markdown block. A span cannot cross a paragraph break; use the frontmatter font for whole-note styling.
+- Notes containing Langscape font markup or `langscape-font` frontmatter have native spellcheck disabled so conlang words and custom scripts are not shown with red squiggles.
 - Fonts are injected with `@font-face` from the vault's local resource URL. This works for desktop Obsidian and exported HTML. Mobile Obsidian is not supported in this version.
 
 Use **Langscape: Insert custom-font text** or the ribbon type icon to pick a font visually. It inserts the `{nickname: text}` syntax for you.

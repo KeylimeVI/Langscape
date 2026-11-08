@@ -1180,3 +1180,11 @@ body.theme-light {
   font-size: 9px;
   letter-spacing: 0.04em;
 }
+
+/* Belt-and-braces for browsers that still paint native spelling errors on a
+   custom-font span despite spellcheck="false". */
+.langscape-font::spelling-error,
+.langscape-font::grammar-error {
+  text-decoration: none !important;
+  background: transparent !important;
+}

@@ -68,6 +68,7 @@ export function decorateFontSpans(
       const span = doc.createElement("span");
       span.className = `langscape-font ${record.className}`;
       span.dataset.langscapeFont = record.displayName;
+      span.setAttribute("spellcheck", "false");
       span.textContent = segment.text;
       fragment.appendChild(span);
     }
@@ -200,7 +201,10 @@ function build(view: EditorView, manager: FontManager): DecorationSet {
           contentEnd,
           Decoration.mark({
             class: `langscape-font ${record.className}`,
-            attributes: { "data-langscape-font": record.displayName },
+            attributes: {
+              "data-langscape-font": record.displayName,
+              spellcheck: "false",
+            },
           })
         );
       }
@@ -211,6 +215,57 @@ function build(view: EditorView, manager: FontManager): DecorationSet {
   }
 
   return builder.finish();
+}
+
+/**
+ * Notes using Langscape font markup contain conlang text that the system
+ * dictionary will never know. Turn off native spellcheck for those notes so
+ * the browser stops painting red squiggles through the custom script.
+ */
+export function createFontSpellcheckExtension() {
+  return ViewPlugin.fromClass(
+    class {
+      private readonly original: string | null;
+      private readonly observer: MutationObserver;
+
+      constructor(private readonly editorView: EditorView) {
+        this.original = editorView.contentDOM.getAttribute("spellcheck");
+        this.observer = new MutationObserver(() => this.apply(editorView));
+        this.observer.observe(editorView.contentDOM, {
+          attributes: true,
+          attributeFilter: ["spellcheck"],
+        });
+        this.apply(editorView);
+        requestAnimationFrame(() => this.apply(editorView));
+      }
+
+      update(update: ViewUpdate): void {
+        if (update.docChanged) this.apply(update.view);
+      }
+
+      destroy(): void {
+        this.observer.disconnect();
+      }
+
+      private apply(view: EditorView): void {
+        const desired = documentUsesFonts(view.state.doc.toString())
+          ? "false"
+          : this.original;
+        const current = view.contentDOM.getAttribute("spellcheck");
+        if (current === desired) return;
+        if (desired === null) view.contentDOM.removeAttribute("spellcheck");
+        else view.contentDOM.setAttribute("spellcheck", desired);
+      }
+    }
+  );
+}
+
+function documentUsesFonts(doc: string): boolean {
+  const frontmatter = /^---\r?\n([\s\S]*?)\r?\n---/.exec(doc)?.[1] ?? "";
+  return (
+    /^langscape-font:\s*\S/m.test(frontmatter) ||
+    /(?:\{font:|\{\s*[^{}:\n]+\s*:|''')/.test(doc)
+  );
 }
 
 /** Register the post-processor; returns a function for easy testing. */
