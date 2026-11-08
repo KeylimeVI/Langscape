@@ -17,6 +17,14 @@ Langscape is a conlanger's workbench for [Obsidian](https://obsidian.md). It bri
 
 ![Vertical Lexurgy rule trace](docs/screenshots/trace-table.png)
 
+## Video overview
+
+A short, no-voiceover tour of fonts, Lexurgy, pipelines, and Bases:
+
+[Watch the Langscape overview](docs/video/langscape-overview.webm)
+
+[![Langscape overview poster](docs/video/langscape-overview-poster.jpg)](docs/video/langscape-overview.webm)
+
 ## Features
 
 - **Custom fonts everywhere** — drop `.ttf`, `.otf`, `.woff`, or `.woff2` files anywhere in the vault. Use `{nickname: text}` inline, or set a font for an entire note with `langscape-font` frontmatter. Fonts render in Live Preview, Reading view, and exported HTML/PDF.
