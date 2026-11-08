@@ -590,6 +590,15 @@ async function main() {
     await ensure(baseFonts.roots > 0, `The Bases view did not render: ${JSON.stringify(baseFonts)}`);
     await ensure(baseFonts.spans > 0, `Font spans were not decorated in Bases: ${JSON.stringify(baseFonts)}`);
     log(`bases font spans: ${JSON.stringify(baseFonts)}`);
+    const baseEdit = JSON.parse(
+      await cdp.eval(
+        `(async () => { const ed = document.querySelector('.bases-view [contenteditable="true"]'); if (!ed) return 'null'; const before = ed.textContent; ed.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); ed.focus(); const during = ed.textContent; ed.blur(); await new Promise((resolve) => setTimeout(resolve, 600)); const fresh = document.querySelector('.bases-view [contenteditable="true"]'); const file = await app.vault.adapter.read('FontBase/Word.md'); return JSON.stringify({ before, during, after: fresh?.textContent ?? null, span: Boolean(fresh?.querySelector('.langscape-font')), source: fresh?.dataset.langscapeSource ?? null, file }); })()`
+      )
+    );
+    await ensure(baseEdit.during.includes("{Noto-Sans-Gothic:"), `Bases edit did not restore markup: ${JSON.stringify(baseEdit)}`);
+    await ensure(baseEdit.file.includes("{Noto-Sans-Gothic:"), `Bases saved the value without font markup: ${JSON.stringify(baseEdit)}`);
+    await ensure(baseEdit.span, `Bases did not re-render the font span after blur: ${JSON.stringify(baseEdit)}`);
+    log(`bases edit preserve: ${JSON.stringify(baseEdit)}`);
     await saveScreenshot(cdp, "bases-font.png");
 
     await cdp.eval(

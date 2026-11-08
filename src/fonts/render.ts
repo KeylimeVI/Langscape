@@ -25,16 +25,25 @@ function hasFontMarkup(text: string): boolean {
   );
 }
 
+export interface FontDecorateOptions {
+  /** Bases metadata cells are contenteditable even when not actively edited. */
+  includeEditable?: boolean;
+}
+
 export function decorateFontSpans(
   root: HTMLElement,
   manager: FontManager,
-  doc: Document = root.ownerDocument
+  doc: Document = root.ownerDocument,
+  options: FontDecorateOptions = {}
 ): void {
   const walker = doc.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
     acceptNode(node) {
       const parent = node.parentElement;
       if (!parent) return NodeFilter.FILTER_REJECT;
       if (parent.closest("code, pre, script, style, textarea, .langscape-font")) {
+        return NodeFilter.FILTER_REJECT;
+      }
+      if (!options.includeEditable && isEditable(parent)) {
         return NodeFilter.FILTER_REJECT;
       }
       return hasFontMarkup(node.nodeValue ?? "")
@@ -245,6 +254,17 @@ function build(view: EditorView, manager: FontManager): DecorationSet {
     decorations.map((entry) => entry.decoration.range(entry.from, entry.to)),
     true
   );
+}
+
+function isEditable(element: HTMLElement): boolean {
+  const editable = element.closest<HTMLElement>(
+    '[contenteditable], input, textarea, [role="textbox"]'
+  );
+  if (!editable) return false;
+  if (editable instanceof HTMLInputElement || editable instanceof HTMLTextAreaElement) {
+    return true;
+  }
+  return editable.getAttribute("contenteditable") !== "false";
 }
 
 /** Register the post-processor; returns a function for easy testing. */
