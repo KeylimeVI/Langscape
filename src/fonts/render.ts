@@ -202,6 +202,9 @@ function build(view: EditorView, manager: FontManager): DecorationSet {
       if (!record) continue;
       const start = from + span.start;
       if (isInCode(state, start)) continue;
+      // A complete syntax-tree line is rendered by the tree widget. Do not
+      // decorate its font markup in the source line as well.
+      if (state.doc.lineAt(start).text.trim().startsWith("{tree:")) continue;
       const contentStart = from + span.contentStart;
       const contentEnd = from + span.contentEnd;
       const end = from + span.end;

@@ -34,6 +34,8 @@ import { DEFAULT_SETTINGS, mergeSettings, type LangscapeSettings } from "./setti
 import { LangscapeSettingTab } from "./settings-ui";
 import { SOUNDCHANGE_VIEW_TYPE, SoundChangeView } from "./soundchange/view";
 import { NEW_LSC_TEMPLATE } from "./soundchange/template";
+import { createSyntaxTreeExtension } from "./trees/editor";
+import { createSyntaxTreePostProcessor } from "./trees/postprocess";
 import { confirmAction, promptText } from "./ui/modals";
 import { pickPath, type PathOption } from "./ui/path-picker";
 
@@ -69,12 +71,18 @@ export default class LangscapePlugin extends Plugin {
     this.registerExtensions(["lsc"], SOUNDCHANGE_VIEW_TYPE);
     this.addSettingTab(new LangscapeSettingTab(this));
 
+    // Trees must be processed before fonts: tree labels can contain font spans,
+    // and the tree parser needs to see the raw braces. The tree renderer applies
+    // fonts inside each label itself.
+    this.registerMarkdownPostProcessor(createSyntaxTreePostProcessor(this.fontManager));
     this.registerMarkdownPostProcessor(createFontPostProcessor(this.fontManager, this.app));
+    this.registerEditorExtension(createSyntaxTreeExtension(this.fontManager));
     this.registerEditorExtension(createFontLivePreviewExtension(this.fontManager));
     this.registerEditorExtension(createNoteFontExtension(this.fontManager));
     this.registerMarkdownCodeBlockProcessor("langscape", createPipelineCodeBlockProcessor(this));
 
     await this.fontManager.refresh();
+    this.refreshTreeViews();
     this.fontDomDecorator.start();
     this.register(() => this.fontDomDecorator?.stop());
     this.registerFontEvents();
@@ -132,6 +140,29 @@ export default class LangscapePlugin extends Plugin {
 
   async refreshFonts(): Promise<void> {
     await this.fontManager.refresh();
+    this.refreshTreeViews();
+  }
+
+  /** Rebuild tree widgets and Reading-view trees after fonts finish loading. */
+  private refreshTreeViews(): void {
+    for (const leaf of this.app.workspace.getLeavesOfType("markdown")) {
+      const view = leaf.view as MarkdownView;
+      const editor = view.editor as unknown as {
+        cm?: {
+          state: { selection: { main: { anchor: number } } };
+          dispatch: (spec: unknown) => void;
+        };
+      };
+      try {
+        const cm = editor?.cm;
+        if (cm) {
+          cm.dispatch({ selection: { anchor: cm.state.selection.main.anchor } });
+        }
+        view.previewMode?.rerender(true);
+      } catch {
+        // The leaf may be closing while fonts finish loading.
+      }
+    }
   }
 
   openSettings(): void {

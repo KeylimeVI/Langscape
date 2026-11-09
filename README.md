@@ -17,6 +17,8 @@ Langscape is a conlanger's workbench for [Obsidian](https://obsidian.md). It bri
 
 ![Vertical Lexurgy rule trace](docs/screenshots/trace-table.png)
 
+![Syntax tree with a custom font in a node label](docs/screenshots/syntax-tree.png)
+
 ## Video overview
 
 A short, no-voiceover tour of fonts, Lexurgy, pipelines, and Bases:
@@ -28,6 +30,7 @@ A short, no-voiceover tour of fonts, Lexurgy, pipelines, and Bases:
 ## Features
 
 - **Custom fonts everywhere** — drop `.ttf`, `.otf`, `.woff`, or `.woff2` files anywhere in the vault. Use `{nickname: text}` inline, or set a font for an entire note with `langscape-font` frontmatter. Fonts render in Live Preview, Reading view, and exported HTML/PDF.
+- **Syntax trees** — write a tree on its own Markdown line with `{tree: ...}`. Node labels can use custom fonts, and trees render in Live Preview, Reading view, and exported HTML.
 - **Sound-change workbench** — `.lsc` files open in a dedicated editor with Lexurgy syntax highlighting, live validation, and a test bench with rule-by-rule traces.
 - **Lexurgy integration** — Langscape runs the official Lexurgy CLI as a persistent local server, so applying changes is fast. Install or update the official CLI from settings, or point at an existing installation.
 - **Canvas pipelines** — the canvas header has a Langscape menu for adding sources, sound changes, and outputs. Connect the cards with arrows, then press **Run** on an output card. **Run all** is in the same canvas menu.
@@ -140,6 +143,34 @@ Use **Langscape: Insert custom-font text** or the ribbon type icon to pick a fon
 Table and card values using `{nickname: text}` are decorated live. Clicking into a Bases metadata cell temporarily restores the original markup so the value is not saved back without its font span.
 
 ![Custom font in a Bases table](docs/screenshots/bases-font.png)
+
+## Syntax trees
+
+A tree is a complete line of Markdown:
+
+```markdown
+{tree: VP(NP(I), V(see), NP(Det(the), Adj(blue), N(sky)))}
+```
+
+Parentheses add children; commas separate siblings. A node without parentheses is a leaf. Spaces around labels and children are ignored:
+
+```markdown
+{tree: VP( NP(Det(the), N(sky)), V(see) )}
+```
+
+Font spans work inside node labels. The tree parser understands the nested braces:
+
+```markdown
+{tree: VP(NP({tengwar: 𐌰𐍆𐌰}), V(see), NP(Det(the), Adj(blue), N(sky)))}
+```
+
+In Live Preview, the source line is replaced by the tree when the cursor is outside it. Click the tree to return to the source line and edit it. In Reading view the tree is display-only. Tree markup must be on a line by itself; inline uses are left as literal text.
+
+### Notes and limitations
+
+- Only one tree per line, and no surrounding prose on the same line.
+- Labels may contain spaces and font spans. Commas and parentheses outside a font span are structural, so use a font span or a different label if you need those characters literally.
+- Trees are rendered as HTML/CSS, not inserted into the Markdown file; the source stays portable.
 
 ## Sound-change editor
 

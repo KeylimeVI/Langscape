@@ -58,6 +58,21 @@ export async function createStarterVault(
 
   await writeIfMissing(
     app,
+    `${folder}/Notes/Tree demo.md`,
+    [
+      "# Syntax trees",
+      "",
+      "A tree lives on its own Markdown line:",
+      "",
+      "{tree: VP(NP({Noto-Sans-Gothic: 𐌰𐍆𐌰}), V(see), NP(Det(the), Adj(blue), N(sky)))}",
+      "",
+      "Fonts render inside node labels. Click the tree to edit its source line.",
+      "",
+    ].join("\n")
+  );
+
+  await writeIfMissing(
+    app,
     `${folder}/Notes/Font demo.md`,
     [
       "# Custom writing systems",
@@ -171,6 +186,7 @@ export async function createStarterVault(
       "- `Changes/Demo.lsc` — Lexurgy sound changes.",
       "- `Fonts/Noto Sans Gothic` — an OFL font used by the font demo.",
       "- `Notes/Font demo.md` — inline `{nickname: text}` examples.",
+      "- `Notes/Tree demo.md` — a syntax tree with a font inside a node label.",
       "",
       "Open the canvas, use the Langscape menu in the canvas header, and press **Run**.",
       "",

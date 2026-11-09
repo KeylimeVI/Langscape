@@ -38,6 +38,7 @@ export class FontManager {
   private records: FontRecord[] = [];
   private cache = new Map<string, CacheEntry>();
   private refreshToken = 0;
+  private revision = 0;
   private styleEl: HTMLStyleElement | null = null;
   private lastWarnings: string[] = [];
 
@@ -48,6 +49,11 @@ export class FontManager {
 
   list(): FontRecord[] {
     return this.records.slice();
+  }
+
+  /** Increases after a successful refresh so editor widgets can rerender. */
+  get version(): number {
+    return this.revision;
   }
 
   get warnings(): string[] {
@@ -150,6 +156,7 @@ export class FontManager {
     if (token !== this.refreshToken) return this.records;
     this.records = records;
     this.lastWarnings = warnings;
+    this.revision++;
     this.injectStyles();
     return this.list();
   }

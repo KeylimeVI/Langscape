@@ -580,6 +580,52 @@ async function main() {
     log(`normal note spellcheck: ${normalSpellcheck}`);
 
     await cdp.eval(
+      `(async () => { const f = app.vault.getAbstractFileByPath('Langscape Demo/Notes/Tree demo.md'); const leaf = app.workspace.getLeaf('tab'); await leaf.openFile(f); app.workspace.setActiveLeaf(leaf, { focus: true }); return true; })()`
+    );
+    await waitForEval(cdp, "document.querySelectorAll('.cm-editor .langscape-tree').length === 1", 5_000);
+    const treeSource = JSON.parse(
+      await cdp.eval(
+        "JSON.stringify({ trees: document.querySelectorAll('.cm-editor .langscape-tree').length, labels: [...document.querySelectorAll('.cm-editor .langscape-tree-label')].map((node) => node.textContent), fonts: document.querySelectorAll('.cm-editor .langscape-tree .langscape-font').length, hidden: document.querySelectorAll('.langscape-tree-source-hidden').length, source: app.workspace.activeLeaf?.view?.editor?.getValue?.().includes('{tree:') ?? false })"
+      )
+    );
+    await ensure(treeSource.trees === 1, `Syntax tree did not render in Live Preview: ${JSON.stringify(treeSource)}`);
+    await ensure(treeSource.fonts === 1, `Font inside the syntax tree did not render: ${JSON.stringify(treeSource)}`);
+    await ensure(treeSource.hidden > 0, `Tree source line was not hidden: ${JSON.stringify(treeSource)}`);
+    await ensure(treeSource.source, "The tree's Markdown source disappeared from the editor model.");
+    log(`syntax tree source render: ${JSON.stringify(treeSource)}`);
+
+    const clickedTree = await cdp.eval(
+      "(() => { const leaf = document.querySelector('.workspace-leaf.mod-active'); const widget = leaf?.querySelector('.langscape-tree-widget'); if (!widget) return false; widget.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true })); return true; })()"
+    );
+    await ensure(clickedTree, "The active syntax tree widget was not found.");
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    const treeEditing = await cdp.eval(
+      "(() => { const leaf = document.querySelector('.workspace-leaf.mod-active'); return Boolean(leaf?.querySelector('.cm-content')?.innerText.includes('{tree:')) && leaf.querySelectorAll('.langscape-tree').length === 0; })()"
+    );
+    await ensure(treeEditing, "Clicking the tree did not return to its source line.");
+    await cdp.eval(
+      `(async () => { const v = app.workspace.activeLeaf?.view; v?.editor?.setCursor?.({ line: 0, ch: 0 }); await new Promise((resolve) => setTimeout(resolve, 500)); return true; })()`
+    );
+    await waitForEval(cdp, "document.querySelectorAll('.cm-editor .langscape-tree').length === 1", 5_000);
+    log("clicking a tree toggles back to its source line");
+
+    await cdp.eval(
+      `(async () => { const leaf = app.workspace.activeLeaf; await leaf.setViewState({ type: 'markdown', state: { file: 'Langscape Demo/Notes/Tree demo.md', mode: 'preview' }, active: true }); await new Promise((resolve) => setTimeout(resolve, 900)); return true; })()`
+    );
+    await waitForEval(cdp, "document.querySelectorAll('.markdown-preview-view .langscape-tree').length === 1", 5_000);
+    const treePreview = JSON.parse(
+      await cdp.eval(
+        "JSON.stringify({ trees: document.querySelectorAll('.markdown-preview-view .langscape-tree').length, fonts: document.querySelectorAll('.markdown-preview-view .langscape-tree .langscape-font').length, labels: document.querySelectorAll('.markdown-preview-view .langscape-tree-label').length })"
+      )
+    );
+    await ensure(treePreview.fonts === 1, `Tree fonts did not render in Reading view: ${JSON.stringify(treePreview)}`);
+    log(`syntax tree Reading view: ${JSON.stringify(treePreview)}`);
+    await saveScreenshot(cdp, "syntax-tree.png");
+    await cdp.eval(
+      `(async () => { const leaf = app.workspace.activeLeaf; await leaf.setViewState({ type: 'markdown', state: { file: 'Langscape Demo/Notes/Tree demo.md', mode: 'source' }, active: true }); await new Promise((resolve) => setTimeout(resolve, 600)); return true; })()`
+    );
+
+    await cdp.eval(
       `(async () => { const f = app.vault.getAbstractFileByPath('FontBase.base'); const leaf = app.workspace.getLeaf('tab'); await leaf.openFile(f); app.workspace.setActiveLeaf(leaf, { focus: true }); await new Promise((resolve) => setTimeout(resolve, 1400)); return true; })()`
     );
     const baseFonts = JSON.parse(

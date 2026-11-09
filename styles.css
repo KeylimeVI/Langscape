@@ -1188,3 +1188,112 @@ body.theme-light {
   text-decoration: none !important;
   background: transparent !important;
 }
+
+/* Syntax trees ------------------------------------------------------------ */
+
+.langscape-tree-block {
+  overflow-x: auto;
+  padding: 0.8rem 0.25rem 1.2rem;
+}
+
+.langscape-tree {
+  display: flex;
+  justify-content: center;
+  min-width: 100%;
+}
+
+.langscape-tree-node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+}
+
+.langscape-tree-children {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  position: relative;
+  padding-top: 22px;
+}
+
+/* Parent-to-horizontal stem. */
+.langscape-tree-children::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  height: 11px;
+  border-left: 1px solid var(--text-muted);
+  opacity: 0.65;
+}
+
+.langscape-tree-children:has(> .langscape-tree-node:only-child)::before {
+  height: 22px;
+}
+
+.langscape-tree-children > .langscape-tree-node {
+  padding: 0 10px;
+}
+
+/* Horizontal sibling rail. */
+.langscape-tree-children > .langscape-tree-node::after {
+  content: "";
+  position: absolute;
+  top: -11px;
+  left: 0;
+  width: 100%;
+  border-top: 1px solid var(--text-muted);
+  opacity: 0.65;
+}
+
+.langscape-tree-children > .langscape-tree-node:first-child::after {
+  left: 50%;
+  width: 50%;
+}
+
+.langscape-tree-children > .langscape-tree-node:last-child::after {
+  width: 50%;
+}
+
+/* Child stem down to its label. */
+.langscape-tree-children > .langscape-tree-node::before {
+  content: "";
+  position: absolute;
+  top: -11px;
+  left: 50%;
+  height: 11px;
+  border-left: 1px solid var(--text-muted);
+  opacity: 0.65;
+}
+
+.langscape-tree-children > .langscape-tree-node:only-child::before,
+.langscape-tree-children > .langscape-tree-node:only-child::after {
+  display: none;
+}
+
+.langscape-tree-label {
+  display: inline-block;
+  max-width: 22rem;
+  min-width: 2.25rem;
+  padding: 4px 10px;
+  border: 1px solid var(--background-modifier-border-hover);
+  border-radius: 4px;
+  background: var(--background-secondary);
+  color: var(--text-normal);
+  font-family: var(--font-monospace);
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.45;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.langscape-tree-widget {
+  display: block;
+  margin: 0.1rem 0;
+}
+
+.cm-line .langscape-tree-source-hidden {
+  display: none !important;
+}
