@@ -39,6 +39,7 @@ interface DragState {
     item: HTMLDivElement;
     mode: DropMode;
   } | null;
+  targetPoint: { x: number; y: number } | null;
 }
 
 const ALIGNMENT_KEY = "langscape-tree-alignment";
@@ -261,6 +262,7 @@ export function renderSyntaxTree(
       homeNext: context.item,
       createdContainer: null,
       target: null,
+      targetPoint: null,
     };
     redrawSoon();
     return true;
@@ -269,6 +271,17 @@ export function renderSyntaxTree(
   const updateDrag = (event: PointerEvent) => {
     const drag = currentDrag;
     if (!drag) return;
+
+    // The preview participates in layout, so inserting it can move a
+    // different node under the pointer. Only re-evaluate the drop target
+    // after meaningful pointer movement; otherwise that feedback loop makes
+    // the ghost flicker between two positions.
+    if (
+      drag.targetPoint &&
+      Math.hypot(event.clientX - drag.targetPoint.x, event.clientY - drag.targetPoint.y) < 14
+    ) {
+      return;
+    }
 
     const under = doc.elementFromPoint(event.clientX, event.clientY);
     let item = under?.closest<HTMLElement>(".langscape-tree-node") ?? null;
@@ -306,6 +319,7 @@ export function renderSyntaxTree(
         drag.target = null;
         resetPreview();
       }
+      drag.targetPoint = { x: event.clientX, y: event.clientY };
       return;
     }
 
@@ -317,6 +331,7 @@ export function renderSyntaxTree(
       drag.target = { node: targetNode, item: item as HTMLDivElement, mode };
       placePreview(drag.target);
     }
+    drag.targetPoint = { x: event.clientX, y: event.clientY };
   };
 
   const finishDrag = (dropped: boolean) => {

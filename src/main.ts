@@ -35,7 +35,10 @@ import { DEFAULT_SETTINGS, mergeSettings, type LangscapeSettings } from "./setti
 import { LangscapeSettingTab } from "./settings-ui";
 import { SOUNDCHANGE_VIEW_TYPE, SoundChangeView } from "./soundchange/view";
 import { NEW_LSC_TEMPLATE } from "./soundchange/template";
-import { createSyntaxTreeExtension } from "./trees/editor";
+import {
+  createSyntaxTreeExtension,
+  refreshSyntaxTrees,
+} from "./trees/editor";
 import { createSyntaxTreePostProcessor } from "./trees/postprocess";
 import { confirmAction, promptText } from "./ui/modals";
 import { pickPath, type PathOption } from "./ui/path-picker";
@@ -161,14 +164,13 @@ export default class LangscapePlugin extends Plugin {
       const view = leaf.view as MarkdownView;
       const editor = view.editor as unknown as {
         cm?: {
-          state: { selection: { main: { anchor: number } } };
           dispatch: (spec: unknown) => void;
         };
       };
       try {
         const cm = editor?.cm;
         if (cm) {
-          cm.dispatch({ selection: { anchor: cm.state.selection.main.anchor } });
+          cm.dispatch({ effects: refreshSyntaxTrees.of(null) });
         }
         view.previewMode?.rerender(true);
       } catch {

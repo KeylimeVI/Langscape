@@ -1,4 +1,5 @@
 import { syntaxTree } from "@codemirror/language";
+import { StateEffect } from "@codemirror/state";
 import {
   Decoration,
   EditorView,
@@ -16,6 +17,9 @@ import {
   type SyntaxTreeNode,
 } from "./model";
 import { renderSyntaxTree } from "./render";
+
+/** Force tree widgets to re-render after asynchronous font loading. */
+export const refreshSyntaxTrees = StateEffect.define<null>();
 
 class SyntaxTreeWidget extends WidgetType {
   constructor(
@@ -100,7 +104,10 @@ export function createSyntaxTreeExtension(manager: FontManager, app?: App) {
       }
 
       update(update: ViewUpdate): void {
-        if (update.docChanged || update.viewportChanged) {
+        const refresh = update.transactions.some((transaction) =>
+          transaction.effects.some((effect) => effect.is(refreshSyntaxTrees))
+        );
+        if (update.docChanged || update.viewportChanged || update.selectionSet || refresh) {
           this.decorations = build(update.view, manager, app);
         }
       }

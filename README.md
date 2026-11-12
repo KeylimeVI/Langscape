@@ -171,6 +171,7 @@ In Live Preview, the source line is replaced by the tree and stays rendered whil
 - Hover a node and click the **trash** control beside its text to delete it and its whole subtree. Deleting a subtree with two or more nodes asks for confirmation.
 - Drag a node onto another node to make it a child; drop on the left or right side of a node to place it before or after that sibling instead. While dragging, the subtree previews in the accent color at its destination, with an accent edge to its new parent.
 - Use the alignment toggle at the top-left of the tree to switch the whole tree between centered and left-aligned.
+- Wide trees keep their full layout and get a horizontal scrollbar at the bottom instead of shrinking the nodes.
 
 Right-click in a Markdown note, choose **Insert → Syntax tree**, or run **Langscape: Insert syntax tree** from the command palette, to add a single-node starter tree. In Reading view the tree is display-only; switch to Source mode if you want to edit the raw `{tree: ...}` syntax. Tree markup must be on a line by itself; inline uses are left as literal text.
 

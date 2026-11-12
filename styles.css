@@ -1195,7 +1195,17 @@ body.theme-light {
   overflow-x: auto;
   /* The leaf + control is absolutely positioned below its label; keep enough
      room for it inside the scroll container so it is not clipped. */
-  padding: 0.65rem 0.25rem 2.6rem;
+  padding: 0.65rem 2rem 2.6rem 0.25rem;
+  scrollbar-width: thin;
+}
+
+.langscape-tree-block::-webkit-scrollbar {
+  height: 9px;
+}
+
+.langscape-tree-block::-webkit-scrollbar-thumb {
+  background: var(--background-modifier-border-hover);
+  border-radius: 5px;
 }
 
 .langscape-tree-toolbar {
@@ -1209,6 +1219,7 @@ body.theme-light {
 .langscape-tree {
   display: flex;
   justify-content: center;
+  width: max-content;
   min-width: 100%;
   position: relative;
 }
@@ -1233,6 +1244,7 @@ body.theme-light {
   flex-direction: column;
   align-items: center;
   position: relative;
+  flex-shrink: 0;
   z-index: 1;
 }
 
@@ -1261,6 +1273,7 @@ body.theme-light {
   align-items: flex-start;
   gap: 4px;
   position: relative;
+  flex-shrink: 0;
   padding-top: 32px;
 }
 
