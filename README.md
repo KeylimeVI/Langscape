@@ -169,7 +169,7 @@ In Live Preview, the source line is replaced by the tree and stays rendered whil
 - Hover a node and click **+** below it to add a child.
 - Click a node's text to rename it. New nodes start empty and show a hollow-circle placeholder until named.
 - Hover a node and click the **trash** control beside its text to delete it and its whole subtree. Deleting a subtree with two or more nodes asks for confirmation.
-- Drag a node onto another node to make it a child; drop on the left or right side of a node to place it before or after that sibling instead. While dragging, the subtree previews in the accent color at its destination, with an accent edge to its new parent.
+- Drag a node onto another node to make it a child; drop on the left or right side of a node to place it before or after that sibling instead. Dropping above a node's children picks the child slot under the pointer, rather than always appending to the right. While dragging, the subtree previews in the accent color at its destination, with an accent edge to its new parent.
 - Use the alignment toggle at the top-left of the tree to switch the whole tree between centered and left-aligned.
 - Wide trees keep their full layout and get a horizontal scrollbar at the bottom instead of shrinking the nodes.
 

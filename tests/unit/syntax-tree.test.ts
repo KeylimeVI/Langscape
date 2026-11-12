@@ -317,4 +317,34 @@ describe("syntax tree rendering", () => {
     root.remove();
   });
 
+  it("inserts a child at the pointer's position instead of always appending", () => {
+    const tree = parseSyntaxTreeLine("{tree: S(A, B, C)}")!;
+    const root = renderSyntaxTree(tree, manager, document, { onChange: () => undefined });
+    document.body.appendChild(root);
+    const labels = [...root.querySelectorAll<HTMLElement>(".langscape-tree-label")];
+    const source = labels.find((label) => label.textContent === "C")!;
+    const target = labels.find((label) => label.textContent === "S")!;
+    const a = labels.find((label) => label.textContent === "A")!;
+    const b = labels.find((label) => label.textContent === "B")!;
+    const rect = (left: number, top: number, width = 40) =>
+      ({ left, right: left + width, top, bottom: top + 20, width, height: 20, x: left, y: top, toJSON: () => ({}) }) as DOMRect;
+    target.getBoundingClientRect = () => rect(0, 0, 100);
+    a.getBoundingClientRect = () => rect(10, 60);
+    b.getBoundingClientRect = () => rect(70, 60);
+    const original = (document as any).elementFromPoint;
+    (document as any).elementFromPoint = () => target;
+    source.dispatchEvent(
+      new MouseEvent("pointerdown", { bubbles: true, button: 0, clientX: 10, clientY: 10 })
+    );
+    source.dispatchEvent(
+      new MouseEvent("pointermove", { bubbles: true, button: 0, clientX: 50, clientY: 10 })
+    );
+    source.dispatchEvent(
+      new MouseEvent("pointerup", { bubbles: true, button: 0, clientX: 50, clientY: 10 })
+    );
+    (document as any).elementFromPoint = original;
+    expect(tree.children.map((child) => child.label)).toEqual(["A", "C", "B"]);
+    root.remove();
+  });
+
 });

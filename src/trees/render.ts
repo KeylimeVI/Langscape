@@ -38,6 +38,7 @@ interface DragState {
     node: SyntaxTreeNode;
     item: HTMLDivElement;
     mode: DropMode;
+    index: number;
   } | null;
   targetPoint: { x: number; y: number } | null;
 }
@@ -84,6 +85,13 @@ export function renderSyntaxTree(
     actions.onChange(root);
   };
 
+  const centerWideTree = () => {
+    if (block.scrollWidth <= block.clientWidth + 1) return;
+    block.scrollLeft = tree.classList.contains("is-align-left")
+      ? 0
+      : Math.round((block.scrollWidth - block.clientWidth) / 2);
+  };
+
   const redrawSoon = () => {
     const win = doc.defaultView;
     if (win?.requestAnimationFrame) {
@@ -110,8 +118,36 @@ export function renderSyntaxTree(
     redrawSoon();
   };
 
+  const childIndexAt = (targetItem: HTMLElement, clientX: number): number => {
+    const drag = currentDrag;
+    const container = targetItem.querySelector<HTMLElement>(
+      ":scope > .langscape-tree-children"
+    );
+    if (!container) return 0;
+    const nodes = [...container.children].filter(
+      (child): child is HTMLElement =>
+        child instanceof HTMLElement &&
+        child.classList.contains("langscape-tree-node") &&
+        child !== drag?.source &&
+        child !== drag?.preview
+    );
+    let index = 0;
+    let measured = false;
+    for (const child of nodes) {
+      const label = child.querySelector<HTMLElement>(
+        ":scope > .langscape-tree-label-row > .langscape-tree-label"
+      );
+      const rect = label?.getBoundingClientRect();
+      if (!rect || !rect.width) continue;
+      measured = true;
+      if (clientX > rect.left + rect.width / 2) index++;
+      else break;
+    }
+    return measured ? index : nodes.length;
+  };
+
   const placePreview = (
-    target: { node: SyntaxTreeNode; item: HTMLDivElement; mode: DropMode }
+    target: { node: SyntaxTreeNode; item: HTMLDivElement; mode: DropMode; index: number }
   ) => {
     const drag = currentDrag;
     if (!drag) return;
@@ -126,7 +162,14 @@ export function renderSyntaxTree(
         target.item.appendChild(container);
         drag.createdContainer = container as HTMLDivElement;
       }
-      container.appendChild(drag.preview);
+      const siblings = [...container.children].filter(
+        (child): child is HTMLElement =>
+          child instanceof HTMLElement &&
+          child.classList.contains("langscape-tree-node") &&
+          child !== drag.source &&
+          child !== drag.preview
+      );
+      container.insertBefore(drag.preview, siblings[target.index] ?? null);
     } else {
       const parent = target.item.parentElement;
       if (!parent) {
@@ -156,6 +199,7 @@ export function renderSyntaxTree(
       if (button) setAlignmentIcon(button, next);
       const candidateSvg = candidate.querySelector<SVGSVGElement>(".langscape-tree-edges");
       if (candidateSvg) drawEdges(candidate, candidateSvg);
+      if (candidate === tree) centerWideTree();
     }
   };
 
@@ -272,17 +316,6 @@ export function renderSyntaxTree(
     const drag = currentDrag;
     if (!drag) return;
 
-    // The preview participates in layout, so inserting it can move a
-    // different node under the pointer. Only re-evaluate the drop target
-    // after meaningful pointer movement; otherwise that feedback loop makes
-    // the ghost flicker between two positions.
-    if (
-      drag.targetPoint &&
-      Math.hypot(event.clientX - drag.targetPoint.x, event.clientY - drag.targetPoint.y) < 14
-    ) {
-      return;
-    }
-
     const under = doc.elementFromPoint(event.clientX, event.clientY);
     let item = under?.closest<HTMLElement>(".langscape-tree-node") ?? null;
     if (item?.closest(".is-drag-ghost")) item = null;
@@ -306,6 +339,7 @@ export function renderSyntaxTree(
       if (ratio < 0.28) mode = "before";
       else if (ratio > 0.72) mode = "after";
     }
+    const index = item && mode === "child" ? childIndexAt(item, event.clientX) : -1;
 
     const valid =
       item &&
@@ -313,6 +347,32 @@ export function renderSyntaxTree(
       targetNode !== drag.node &&
       !isDescendant(drag.node, targetNode) &&
       (mode === "child" || Boolean(targetParent));
+
+    if (drag.target) {
+      const distance = drag.targetPoint
+        ? Math.hypot(
+            event.clientX - drag.targetPoint.x,
+            event.clientY - drag.targetPoint.y
+          )
+        : Number.POSITIVE_INFINITY;
+      const sameNodeAndMode =
+        drag.target.item === item && drag.target.mode === mode;
+      if (sameNodeAndMode) {
+        // Small horizontal moves can refine the child index without
+        // re-evaluating the target node itself.
+        if (drag.target.index !== index && distance >= 8) {
+          drag.target.index = index;
+          placePreview(drag.target);
+        }
+        drag.targetPoint = { x: event.clientX, y: event.clientY };
+        return;
+      }
+      if (distance < 14) {
+        // The preview can shift the node under the pointer. Keep the current
+        // target until the pointer has moved far enough to be intentional.
+        return;
+      }
+    }
 
     if (!valid || !item || !targetNode) {
       if (drag.target) {
@@ -323,15 +383,14 @@ export function renderSyntaxTree(
       return;
     }
 
-    if (
-      !drag.target ||
-      drag.target.item !== item ||
-      drag.target.mode !== mode
-    ) {
-      drag.target = { node: targetNode, item: item as HTMLDivElement, mode };
-      placePreview(drag.target);
-    }
+    drag.target = {
+      node: targetNode,
+      item: item as HTMLDivElement,
+      mode,
+      index,
+    };
     drag.targetPoint = { x: event.clientX, y: event.clientY };
+    placePreview(drag.target);
   };
 
   const finishDrag = (dropped: boolean) => {
@@ -361,7 +420,7 @@ export function renderSyntaxTree(
 
     let index: number;
     if (target.mode === "child") {
-      index = newParent.children.length;
+      index = Math.min(target.index, newParent.children.length);
     } else {
       index = newParent.children.indexOf(target.node);
       if (index < 0) {
@@ -541,10 +600,16 @@ export function renderSyntaxTree(
     const win = doc.defaultView;
     if (win?.requestAnimationFrame) {
       win.requestAnimationFrame(() => {
-        win.requestAnimationFrame(redrawEdges);
+        win.requestAnimationFrame(() => {
+          redrawEdges();
+          centerWideTree();
+        });
       });
     } else {
-      setTimeout(redrawEdges, 0);
+      setTimeout(() => {
+        redrawEdges();
+        centerWideTree();
+      }, 0);
     }
   };
   schedule();
