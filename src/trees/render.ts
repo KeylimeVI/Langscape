@@ -146,6 +146,65 @@ export function renderSyntaxTree(
     return measured ? index : nodes.length;
   };
 
+  const gapTargetAt = (
+    clientX: number,
+    clientY: number
+  ): { node: SyntaxTreeNode; item: HTMLDivElement; index: number } | null => {
+    const drag = currentDrag;
+    if (!drag) return null;
+    let best:
+      | { node: SyntaxTreeNode; item: HTMLDivElement; index: number; bottom: number }
+      | null = null;
+    for (const item of tree.querySelectorAll<HTMLElement>(".langscape-tree-node")) {
+      if (item === drag.source || item.closest(".is-drag-ghost")) continue;
+      const node = byItem.get(item);
+      if (!node || node === drag.node || isDescendant(drag.node, node)) continue;
+      const label = item.querySelector<HTMLElement>(
+        ":scope > .langscape-tree-label-row > .langscape-tree-label"
+      );
+      const children = item.querySelector<HTMLElement>(
+        ":scope > .langscape-tree-children"
+      );
+      if (!label || !children) continue;
+      const childRects = [...children.children]
+        .filter(
+          (child): child is HTMLElement =>
+            child instanceof HTMLElement &&
+            child.classList.contains("langscape-tree-node") &&
+            child !== drag.source &&
+            child !== drag.preview
+        )
+        .map((child) =>
+          child
+            .querySelector<HTMLElement>(
+              ":scope > .langscape-tree-label-row > .langscape-tree-label"
+            )
+            ?.getBoundingClientRect()
+        )
+        .filter((rect): rect is DOMRect => Boolean(rect && rect.width && rect.height));
+      if (childRects.length === 0) continue;
+      const labelRect = label.getBoundingClientRect();
+      const childTop = Math.min(...childRects.map((rect) => rect.top));
+      const childLeft = Math.min(...childRects.map((rect) => rect.left));
+      const childRight = Math.max(...childRects.map((rect) => rect.right));
+      if (
+        clientY >= labelRect.bottom - 2 &&
+        clientY <= childTop + 2 &&
+        clientX >= childLeft &&
+        clientX <= childRight &&
+        (!best || labelRect.bottom > best.bottom)
+      ) {
+        best = {
+          node,
+          item: item as HTMLDivElement,
+          index: childIndexAt(item, clientX),
+          bottom: labelRect.bottom,
+        };
+      }
+    }
+    return best ? { node: best.node, item: best.item, index: best.index } : null;
+  };
+
   const placePreview = (
     target: { node: SyntaxTreeNode; item: HTMLDivElement; mode: DropMode; index: number }
   ) => {
@@ -316,10 +375,11 @@ export function renderSyntaxTree(
     const drag = currentDrag;
     if (!drag) return;
 
+    const gapTarget = gapTargetAt(event.clientX, event.clientY);
     const under = doc.elementFromPoint(event.clientX, event.clientY);
-    let item = under?.closest<HTMLElement>(".langscape-tree-node") ?? null;
+    let item = gapTarget?.item ?? under?.closest<HTMLElement>(".langscape-tree-node") ?? null;
     if (item?.closest(".is-drag-ghost")) item = null;
-    const targetNode = item ? byItem.get(item) : undefined;
+    const targetNode = gapTarget?.node ?? (item ? byItem.get(item) : undefined);
     const targetParent = targetNode ? parentByNode.get(targetNode) : null;
     const label = item?.querySelector<HTMLElement>(
       ":scope > .langscape-tree-label-row > .langscape-tree-label"
@@ -328,6 +388,7 @@ export function renderSyntaxTree(
 
     let mode: DropMode = "child";
     if (
+      !gapTarget &&
       targetNode &&
       targetParent &&
       rect &&
@@ -339,7 +400,11 @@ export function renderSyntaxTree(
       if (ratio < 0.28) mode = "before";
       else if (ratio > 0.72) mode = "after";
     }
-    const index = item && mode === "child" ? childIndexAt(item, event.clientX) : -1;
+    const index = gapTarget
+      ? gapTarget.index
+      : item && mode === "child"
+        ? childIndexAt(item, event.clientX)
+        : -1;
 
     const valid =
       item &&
