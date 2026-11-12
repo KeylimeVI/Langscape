@@ -84,7 +84,11 @@ describe("syntax tree serialization", () => {
     expect(isValidSyntaxTreeLabel("two words")).toBe(true);
     expect(isValidSyntaxTreeLabel("A(B)")).toBe(false);
     expect(isValidSyntaxTreeLabel("A, B")).toBe(false);
-    expect(isValidSyntaxTreeLabel("   ")).toBe(false);
+    expect(isValidSyntaxTreeLabel("")).toBe(true);
+    expect(isValidSyntaxTreeLabel("   ")).toBe(true);
+    expect(parseSyntaxTreeLine('{tree: ""}')).toEqual({ label: "", children: [] });
+    expect(serializeSyntaxTree({ label: "", children: [] })).toBe('{tree: ""}');
+    expect(parseSyntaxTreeLine('{tree: S("")}')?.children[0].label).toBe("");
   });
 });
 
@@ -111,6 +115,14 @@ describe("syntax tree rendering", () => {
     expect(root.textContent).toContain("{tree: NP(I)} more");
     root.remove();
   });
+
+  it("renders a placeholder for an empty label", () => {
+    const tree = parseSyntaxTreeLine('{tree: ""}')!;
+    const root = renderSyntaxTree(tree, manager);
+    expect(root.querySelector(".langscape-tree-empty")?.textContent).toBe("○");
+    expect(root.textContent?.trim()).toBe("○");
+  });
+
   it("adds a child from the hover control", () => {
     const tree = parseSyntaxTreeLine("{tree: S(NP(N(cat)))}")!;
     let changes = 0;
@@ -123,7 +135,7 @@ describe("syntax tree rendering", () => {
     document.body.appendChild(root);
     const add = root.querySelector<HTMLButtonElement>(".langscape-tree-add")!;
     add.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    expect(tree.children.at(-1)?.label).toBe("X");
+    expect(tree.children.at(-1)?.label).toBe("");
     expect(changes).toBe(1);
     root.remove();
   });

@@ -227,7 +227,7 @@ export default class LangscapePlugin extends Plugin {
       new Notice("Open a Markdown note to insert a syntax tree.");
       return;
     }
-    const template = "{tree: node}";
+    const template = '{tree: ""}';
     const cursor = target.getCursor();
     const currentLine = target.getLine(cursor.line);
     target.replaceSelection(currentLine.trim() ? `\n${template}` : template);

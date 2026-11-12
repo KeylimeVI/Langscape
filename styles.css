@@ -1200,7 +1200,7 @@ body.theme-light {
 
 .langscape-tree-toolbar {
   display: flex;
-  justify-content: flex-end;
+  justify-content: flex-start;
   align-items: center;
   height: 26px;
   margin-bottom: 2px;
@@ -1294,23 +1294,36 @@ body.theme-light {
   outline: none;
 }
 
-.langscape-tree-node.is-dragging {
-  opacity: 0.35;
+.langscape-tree-node.is-dragging-source {
+  display: none;
 }
 
-.langscape-tree-node.is-drop-child > .langscape-tree-label-row > .langscape-tree-label {
-  color: var(--text-accent);
-  text-decoration: underline;
-  text-decoration-color: var(--text-accent);
-  text-underline-offset: 4px;
+.langscape-tree-node.is-drag-ghost {
+  pointer-events: none;
+  opacity: 0.9;
 }
 
-.langscape-tree-node.is-drop-before > .langscape-tree-label-row > .langscape-tree-label {
-  box-shadow: inset 3px 0 0 var(--text-accent);
+.langscape-tree-node.is-drag-ghost .langscape-tree-label,
+.langscape-tree-node.is-drag-ghost .langscape-tree-label * {
+  color: var(--text-accent) !important;
 }
 
-.langscape-tree-node.is-drop-after > .langscape-tree-label-row > .langscape-tree-label {
-  box-shadow: inset -3px 0 0 var(--text-accent);
+.langscape-tree-edges line.is-drag-edge {
+  stroke: var(--text-accent);
+  stroke-width: 1.5px;
+}
+
+.langscape-tree-empty {
+  color: var(--text-faint);
+  opacity: 0.55;
+  font-size: 18px;
+  font-weight: 400;
+}
+
+
+.langscape-tree-node.is-drag-ghost .langscape-tree-empty {
+  color: var(--text-accent) !important;
+  opacity: 0.8;
 }
 
 .langscape-tree-add,
@@ -1418,21 +1431,6 @@ body input.langscape-tree-edit:focus {
   -webkit-appearance: none;
 }
 
-.langscape-tree-drag-ghost {
-  position: fixed;
-  z-index: 9999;
-  padding: 3px 8px;
-  border-radius: 4px;
-  background: var(--background-primary-alt);
-  color: var(--text-normal);
-  font-family: var(--font-monospace);
-  font-size: 16px;
-  font-weight: 500;
-  line-height: 1.45;
-  white-space: nowrap;
-  pointer-events: none;
-  box-shadow: 0 4px 14px rgb(0 0 0 / 35%);
-}
 
 .langscape-tree-widget {
   display: block;

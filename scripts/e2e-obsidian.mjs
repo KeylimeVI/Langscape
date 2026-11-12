@@ -630,7 +630,7 @@ async function main() {
         if (!add) return false;
         add.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
         await new Promise((resolve) => setTimeout(resolve, 500));
-        return Boolean(app.workspace.activeLeaf?.view?.editor?.getValue?.().includes('X'));
+        return Boolean(app.workspace.activeLeaf?.view?.editor?.getValue?.().includes('""'));
       })()`
     );
     await ensure(addedTree, "The graph + control did not add a child.");

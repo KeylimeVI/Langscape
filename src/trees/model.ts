@@ -45,8 +45,9 @@ class TreeParser {
   constructor(private readonly text: string) {}
 
   parseNode(): SyntaxTreeNode | null {
+    this.skipWhitespace();
     const label = this.readLabel();
-    if (!label) return null;
+    if (label === null) return null;
 
     const children: SyntaxTreeNode[] = [];
     this.skipWhitespace();
@@ -89,7 +90,29 @@ class TreeParser {
     return this.text[this.position];
   }
 
-  private readLabel(): string {
+  private readLabel(): string | null {
+    if (this.peek() === '"') {
+      this.position++;
+      let value = "";
+      while (this.position < this.text.length) {
+        const char = this.text[this.position];
+        if (char === "\\") {
+          const next = this.text[this.position + 1];
+          if (next === undefined) return null;
+          value += next;
+          this.position += 2;
+          continue;
+        }
+        if (char === '"') {
+          this.position++;
+          return value;
+        }
+        value += char;
+        this.position++;
+      }
+      return null;
+    }
+
     const start = this.position;
     let braces = 0;
     while (this.position < this.text.length) {
@@ -108,7 +131,9 @@ class TreeParser {
       if (braces === 0 && (char === "(" || char === "," || char === ")")) break;
       this.position++;
     }
-    return this.text.slice(start, this.position).trim();
+    if (this.position === start) return null;
+    const value = this.text.slice(start, this.position).trim();
+    return value || null;
   }
 }
 
@@ -118,7 +143,7 @@ export function serializeSyntaxTree(root: SyntaxTreeNode): string {
 }
 
 function serializeNode(node: SyntaxTreeNode): string {
-  const label = node.label.trim() || "X";
+  const label = node.label.trim() ? node.label.trim() : '""';
   if (node.children.length === 0) return label;
   return `${label}(${node.children.map(serializeNode).join(", ")})`;
 }
@@ -126,7 +151,7 @@ function serializeNode(node: SyntaxTreeNode): string {
 /** True when a label can round-trip through the tree parser. */
 export function isValidSyntaxTreeLabel(label: string): boolean {
   const value = label.trim();
-  if (!value) return false;
+  if (!value) return true;
   const parsed = parseSyntaxTreeLine(`{tree: ${value}()}`);
   return parsed !== null && parsed.label === value;
 }
