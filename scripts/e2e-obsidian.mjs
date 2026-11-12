@@ -605,7 +605,7 @@ async function main() {
           label.dispatchEvent(new MouseEvent('pointerdown', init));
           label.dispatchEvent(new MouseEvent('pointerup', init));
           await new Promise((resolve) => setTimeout(resolve, 250));
-          const input = leaf.querySelector('.langscape-tree-edit');
+          const input = document.querySelector('.langscape-tree-edit');
           if (!input) return JSON.stringify({ error: 'no edit input' });
           input.value = 'S';
           input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));

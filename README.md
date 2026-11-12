@@ -168,7 +168,7 @@ In Live Preview, the source line is replaced by the tree and stays rendered whil
 
 - Hover a node and click **+** below it to add a child.
 - Click a node's text to rename it.
-- Hover a node and click **×** beside its text to delete it and its whole subtree.
+- Hover a node and click the **trash** control beside its text to delete it and its whole subtree. Deleting a subtree with two or more nodes asks for confirmation.
 - Drag a node onto another node to make it a child; drop on the left or right side of a node to place it before or after that sibling instead.
 - Use the alignment toggle at the top of the tree to switch the whole tree between centered and left-aligned.
 

@@ -1193,7 +1193,9 @@ body.theme-light {
 
 .langscape-tree-block {
   overflow-x: auto;
-  padding: 0.65rem 0.25rem 1.2rem;
+  /* The leaf + control is absolutely positioned below its label; keep enough
+     room for it inside the scroll container so it is not clipped. */
+  padding: 0.65rem 0.25rem 2.6rem;
 }
 
 .langscape-tree-toolbar {
@@ -1355,9 +1357,13 @@ body.theme-light {
   transform: translateY(-50%);
   width: 22px;
   height: 22px;
-  font-size: 17px;
   opacity: 0;
   pointer-events: none;
+}
+
+.langscape-tree-delete svg {
+  width: 13px;
+  height: 13px;
 }
 
 .langscape-tree-node:hover > .langscape-tree-label-row .langscape-tree-add,
@@ -1389,20 +1395,18 @@ body.theme-light {
   opacity: 1;
 }
 
-.langscape-tree-block input.langscape-tree-edit,
-.langscape-tree-block input.langscape-tree-edit:focus {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 4;
-  min-width: 3ch;
+body input.langscape-tree-edit,
+body input.langscape-tree-edit:focus {
+  position: fixed !important;
+  z-index: 9998;
+  box-sizing: border-box;
+  min-width: 52px;
   max-width: 22rem;
-  padding: 0 2px !important;
-  border: none !important;
-  border-radius: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
+  padding: 2px 6px !important;
+  border: 1px solid var(--text-accent) !important;
+  border-radius: 5px !important;
+  background: var(--background-primary) !important;
+  box-shadow: 0 2px 10px rgb(0 0 0 / 35%) !important;
   color: var(--text-normal);
   font-family: var(--font-monospace);
   font-size: 16px;

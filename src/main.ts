@@ -77,7 +77,7 @@ export default class LangscapePlugin extends Plugin {
     // fonts inside each label itself.
     this.registerMarkdownPostProcessor(createSyntaxTreePostProcessor(this.fontManager));
     this.registerMarkdownPostProcessor(createFontPostProcessor(this.fontManager, this.app));
-    this.registerEditorExtension(createSyntaxTreeExtension(this.fontManager));
+    this.registerEditorExtension(createSyntaxTreeExtension(this.fontManager, this.app));
     this.registerEditorExtension(createFontLivePreviewExtension(this.fontManager));
     this.registerEditorExtension(createNoteFontExtension(this.fontManager));
     this.registerMarkdownCodeBlockProcessor("langscape", createPipelineCodeBlockProcessor(this));

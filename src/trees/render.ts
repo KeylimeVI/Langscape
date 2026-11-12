@@ -11,6 +11,8 @@ export interface SyntaxTreeActions {
   onChange?: (tree: SyntaxTreeNode) => void;
   /** Remove the whole tree. Used by the root node's delete control. */
   onRemove?: () => void;
+  /** Confirm deletion of a subtree with two or more nodes. */
+  confirmDelete?: (node: SyntaxTreeNode, count: number) => boolean | Promise<boolean>;
 }
 
 interface NodeContext {
@@ -118,10 +120,14 @@ export function renderSyntaxTree(
     input.className = "langscape-tree-edit";
     input.value = context.node.label;
     const rect = context.label.getBoundingClientRect();
-    input.style.width = `${Math.max(44, rect.width)}px`;
-    if (rect.height) input.style.height = `${rect.height}px`;
+    input.style.left = `${Math.max(4, rect.left - 5)}px`;
+    input.style.top = `${Math.max(4, rect.top - 1)}px`;
+    input.style.width = `${Math.max(52, rect.width + 10)}px`;
+    input.style.height = `${Math.max(26, rect.height + 2)}px`;
     context.label.style.visibility = "hidden";
-    context.row.appendChild(input);
+    // Keep the input outside CodeMirror. A native input nested in the CM
+    // contenteditable leaks keystrokes into the Markdown source.
+    doc.body.appendChild(input);
 
     let finished = false;
     const restoreLabel = () => {
@@ -153,9 +159,11 @@ export function renderSyntaxTree(
       paintLabel(context, manager, doc);
     };
 
-    input.addEventListener("pointerdown", (event) => {
-      event.stopPropagation();
-    });
+    for (const type of ["pointerdown", "click", "keydown", "keypress", "keyup", "beforeinput", "input"]) {
+      input.addEventListener(type, (event) => {
+        event.stopPropagation();
+      });
+    }
     input.addEventListener("keydown", (event) => {
       if (event.key === "Enter") {
         event.preventDefault();
@@ -167,9 +175,7 @@ export function renderSyntaxTree(
     });
     input.addEventListener("blur", commit);
     input.focus();
-    // Put the caret at the end instead of selecting all. Selecting the input
-    // makes Obsidian paint a rounded selection box around the node.
-    input.setSelectionRange(input.value.length, input.value.length);
+    input.select();
   };
 
   const startDrag = (context: NodeContext, event: PointerEvent): boolean => {
@@ -392,14 +398,19 @@ export function renderSyntaxTree(
         const remove = doc.createElement("button");
         remove.type = "button";
         remove.className = "langscape-tree-delete";
-        remove.textContent = "×";
+        setTrashIcon(remove, doc);
         remove.addEventListener("pointerdown", (event) => {
           event.preventDefault();
           event.stopPropagation();
         });
-        remove.addEventListener("click", (event) => {
+        remove.addEventListener("click", async (event) => {
           event.preventDefault();
           event.stopPropagation();
+          const count = countNodes(node);
+          if (count >= 2 && actions.confirmDelete) {
+            const confirmed = await actions.confirmDelete(node, count);
+            if (!confirmed) return;
+          }
           if (!parent) {
             actions.onRemove?.();
             return;
@@ -488,6 +499,35 @@ function setAlignmentIcon(button: HTMLButtonElement, alignment: TreeAlignment): 
 
 function clearDropClasses(item: HTMLElement | undefined): void {
   item?.classList.remove("is-drop-target", "is-drop-child", "is-drop-before", "is-drop-after");
+}
+
+function countNodes(node: SyntaxTreeNode): number {
+  return 1 + node.children.reduce((total, child) => total + countNodes(child), 0);
+}
+
+function setTrashIcon(button: HTMLButtonElement, doc: Document): void {
+  const svg = doc.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("width", "14");
+  svg.setAttribute("height", "14");
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("stroke", "currentColor");
+  svg.setAttribute("stroke-width", "2");
+  svg.setAttribute("stroke-linecap", "round");
+  svg.setAttribute("stroke-linejoin", "round");
+  svg.setAttribute("aria-hidden", "true");
+  for (const definition of [
+    "M3 6h18",
+    "M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2",
+    "M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6",
+    "M10 11v6",
+    "M14 11v6",
+  ]) {
+    const path = doc.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("d", definition);
+    svg.appendChild(path);
+  }
+  button.replaceChildren(svg);
 }
 
 function paintLabel(

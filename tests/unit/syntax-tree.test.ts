@@ -144,7 +144,7 @@ describe("syntax tree rendering", () => {
     label.dispatchEvent(
       new MouseEvent("pointerup", { bubbles: true, button: 0, clientX: 10, clientY: 10 })
     );
-    const input = root.querySelector<HTMLInputElement>(".langscape-tree-edit");
+    const input = document.querySelector<HTMLInputElement>(".langscape-tree-edit");
     expect(input).not.toBeNull();
     input!.value = "CP";
     input!.dispatchEvent(new Event("blur"));
@@ -196,7 +196,7 @@ describe("syntax tree rendering", () => {
     );
     expect(label.isConnected).toBe(true);
     expect(label.style.visibility).toBe("hidden");
-    const input = root.querySelector<HTMLInputElement>(".langscape-tree-edit")!;
+    const input = document.querySelector<HTMLInputElement>(".langscape-tree-edit")!;
     input.dispatchEvent(new Event("blur"));
     expect(label.style.visibility).toBe("");
     root.remove();
@@ -278,6 +278,30 @@ describe("syntax tree rendering", () => {
     (document as any).elementFromPoint = original;
     expect(tree.children.map((child) => child.label)).toEqual(["C", "A", "B"]);
     expect(changes).toBe(1);
+    root.remove();
+  });
+
+  it("confirms before deleting a multi-node subtree", () => {
+    const tree = parseSyntaxTreeLine("{tree: S(NP(N(cat)), VP(V(see)))}")!;
+    let changes = 0;
+    let asked = 0;
+    const root = renderSyntaxTree(tree, manager, document, {
+      onChange: () => {
+        changes++;
+      },
+      confirmDelete: (node, count) => {
+        asked++;
+        expect(node.label).toBe("NP");
+        expect(count).toBe(3);
+        return false;
+      },
+    });
+    document.body.appendChild(root);
+    const remove = root.querySelector<HTMLButtonElement>(".langscape-tree-delete")!;
+    remove.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(asked).toBe(1);
+    expect(tree.children.map((child) => child.label)).toEqual(["NP", "VP"]);
+    expect(changes).toBe(0);
     root.remove();
   });
 

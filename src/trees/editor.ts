@@ -7,7 +7,9 @@ import {
   type DecorationSet,
   type ViewUpdate,
 } from "@codemirror/view";
+import type { App } from "obsidian";
 import type { FontManager } from "../fonts/manager";
+import { confirmAction } from "../ui/modals";
 import {
   parseSyntaxTreeLine,
   serializeSyntaxTree,
@@ -19,6 +21,7 @@ class SyntaxTreeWidget extends WidgetType {
   constructor(
     private readonly tree: SyntaxTreeNode,
     private readonly manager: FontManager,
+    private readonly app: App | undefined,
     private readonly from: number,
     // Keep the raw line in `eq` so an in-place graphical edit (which mutates
     // this.tree before the doc change arrives) still forces a fresh widget.
@@ -63,6 +66,20 @@ class SyntaxTreeWidget extends WidgetType {
           // The note may have changed while the delete click was in flight.
         }
       },
+      confirmDelete: this.app
+        ? async (node, count) => {
+            const label = node.label.trim() || "this node";
+            const descendants = count - 1;
+            return confirmAction(this.app!, {
+              title: "Delete subtree?",
+              body: `Delete “${label}” and its ${descendants} descendant${
+                descendants === 1 ? "" : "s"
+              }?`,
+              confirmText: "Delete",
+              warning: true,
+            });
+          }
+        : undefined,
     });
     el.classList.add("langscape-tree-widget");
     return el;
@@ -73,18 +90,18 @@ class SyntaxTreeWidget extends WidgetType {
   }
 }
 
-export function createSyntaxTreeExtension(manager: FontManager) {
+export function createSyntaxTreeExtension(manager: FontManager, app?: App) {
   return ViewPlugin.fromClass(
     class {
       decorations: DecorationSet;
 
       constructor(view: EditorView) {
-        this.decorations = build(view, manager);
+        this.decorations = build(view, manager, app);
       }
 
       update(update: ViewUpdate): void {
         if (update.docChanged || update.viewportChanged) {
-          this.decorations = build(update.view, manager);
+          this.decorations = build(update.view, manager, app);
         }
       }
     },
@@ -94,7 +111,7 @@ export function createSyntaxTreeExtension(manager: FontManager) {
   );
 }
 
-function build(view: EditorView, manager: FontManager): DecorationSet {
+function build(view: EditorView, manager: FontManager, app?: App): DecorationSet {
   const decorations: Array<{ from: number; to: number; decoration: Decoration }> = [];
   const { state } = view;
 
@@ -112,6 +129,7 @@ function build(view: EditorView, manager: FontManager): DecorationSet {
             widget: new SyntaxTreeWidget(
               tree,
               manager,
+              app,
               line.from,
               line.text,
               manager.version
