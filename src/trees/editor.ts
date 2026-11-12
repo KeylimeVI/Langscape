@@ -8,7 +8,11 @@ import {
   type ViewUpdate,
 } from "@codemirror/view";
 import type { FontManager } from "../fonts/manager";
-import { parseSyntaxTreeLine, type SyntaxTreeNode } from "./model";
+import {
+  parseSyntaxTreeLine,
+  serializeSyntaxTree,
+  type SyntaxTreeNode,
+} from "./model";
 import { renderSyntaxTree } from "./render";
 
 class SyntaxTreeWidget extends WidgetType {
@@ -16,6 +20,9 @@ class SyntaxTreeWidget extends WidgetType {
     private readonly tree: SyntaxTreeNode,
     private readonly manager: FontManager,
     private readonly from: number,
+    // Keep the raw line in `eq` so an in-place graphical edit (which mutates
+    // this.tree before the doc change arrives) still forces a fresh widget.
+    private readonly source: string,
     private readonly revision: number
   ) {
     super();
@@ -24,20 +31,31 @@ class SyntaxTreeWidget extends WidgetType {
   eq(other: SyntaxTreeWidget): boolean {
     return (
       other.from === this.from &&
+      other.source === this.source &&
       other.revision === this.revision &&
       JSON.stringify(other.tree) === JSON.stringify(this.tree)
     );
   }
 
   toDOM(view: EditorView): HTMLElement {
-    const el = renderSyntaxTree(this.tree, this.manager, view.dom.ownerDocument);
-    el.classList.add("langscape-tree-widget");
-    el.addEventListener("mousedown", (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      view.dispatch({ selection: { anchor: this.from } });
-      view.focus();
+    const el = renderSyntaxTree(this.tree, this.manager, view.dom.ownerDocument, {
+      onChange: (tree) => {
+        try {
+          const line = view.state.doc.lineAt(this.from);
+          view.dispatch({
+            changes: {
+              from: line.from,
+              to: line.to,
+              insert: serializeSyntaxTree(tree),
+            },
+          });
+          view.focus();
+        } catch {
+          // The note may have changed while a drag/edit was in flight.
+        }
+      },
     });
+    el.classList.add("langscape-tree-widget");
     return el;
   }
 
@@ -56,7 +74,7 @@ export function createSyntaxTreeExtension(manager: FontManager) {
       }
 
       update(update: ViewUpdate): void {
-        if (update.docChanged || update.viewportChanged || update.selectionSet) {
+        if (update.docChanged || update.viewportChanged) {
           this.decorations = build(update.view, manager);
         }
       }
@@ -70,23 +88,25 @@ export function createSyntaxTreeExtension(manager: FontManager) {
 function build(view: EditorView, manager: FontManager): DecorationSet {
   const decorations: Array<{ from: number; to: number; decoration: Decoration }> = [];
   const { state } = view;
-  const selections = state.selection.ranges;
 
   for (const range of view.visibleRanges) {
     let line = state.doc.lineAt(range.from);
     while (line.from <= range.to) {
       const tree = parseSyntaxTreeLine(line.text);
-      const cursorInside = selections.some(
-        (selection) => selection.from <= line.to && selection.to >= line.from
-      );
-      if (tree && !cursorInside && !isInCode(state, line.from)) {
+      if (tree && !isInCode(state, line.from)) {
         // Obsidian forbids block decorations from plugins. Use an inline
         // widget at the line start and hide the source text with a mark.
         decorations.push({
           from: line.from,
           to: line.from,
           decoration: Decoration.widget({
-            widget: new SyntaxTreeWidget(tree, manager, line.from, manager.version),
+            widget: new SyntaxTreeWidget(
+              tree,
+              manager,
+              line.from,
+              line.text,
+              manager.version
+            ),
             side: 1,
           }),
         });

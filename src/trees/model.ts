@@ -111,3 +111,22 @@ class TreeParser {
     return this.text.slice(start, this.position).trim();
   }
 }
+
+/** Serialize a tree back to the single-line `{tree: ...}` Markdown form. */
+export function serializeSyntaxTree(root: SyntaxTreeNode): string {
+  return `{tree: ${serializeNode(root)}}`;
+}
+
+function serializeNode(node: SyntaxTreeNode): string {
+  const label = node.label.trim() || "X";
+  if (node.children.length === 0) return label;
+  return `${label}(${node.children.map(serializeNode).join(", ")})`;
+}
+
+/** True when a label can round-trip through the tree parser. */
+export function isValidSyntaxTreeLabel(label: string): boolean {
+  const value = label.trim();
+  if (!value) return false;
+  const parsed = parseSyntaxTreeLine(`{tree: ${value}()}`);
+  return parsed !== null && parsed.label === value;
+}

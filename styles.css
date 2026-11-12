@@ -1200,6 +1200,17 @@ body.theme-light {
   display: flex;
   justify-content: center;
   min-width: 100%;
+  position: relative;
+}
+
+/* Diagonal parent-to-child connectors are drawn as SVG lines after layout. */
+.langscape-tree-edges {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+  color: var(--text-faint);
+  z-index: 0;
 }
 
 .langscape-tree-node {
@@ -1207,86 +1218,139 @@ body.theme-light {
   flex-direction: column;
   align-items: center;
   position: relative;
+  z-index: 1;
+}
+
+.langscape-tree-label-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .langscape-tree-children {
   display: flex;
   justify-content: center;
   align-items: flex-start;
+  gap: 2px;
   position: relative;
-  padding-top: 22px;
-}
-
-/* Parent-to-horizontal stem. */
-.langscape-tree-children::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 50%;
-  height: 11px;
-  border-left: 1px solid var(--text-muted);
-  opacity: 0.65;
-}
-
-.langscape-tree-children:has(> .langscape-tree-node:only-child)::before {
-  height: 22px;
+  padding-top: 28px;
 }
 
 .langscape-tree-children > .langscape-tree-node {
-  padding: 0 10px;
-}
-
-/* Horizontal sibling rail. */
-.langscape-tree-children > .langscape-tree-node::after {
-  content: "";
-  position: absolute;
-  top: -11px;
-  left: 0;
-  width: 100%;
-  border-top: 1px solid var(--text-muted);
-  opacity: 0.65;
-}
-
-.langscape-tree-children > .langscape-tree-node:first-child::after {
-  left: 50%;
-  width: 50%;
-}
-
-.langscape-tree-children > .langscape-tree-node:last-child::after {
-  width: 50%;
-}
-
-/* Child stem down to its label. */
-.langscape-tree-children > .langscape-tree-node::before {
-  content: "";
-  position: absolute;
-  top: -11px;
-  left: 50%;
-  height: 11px;
-  border-left: 1px solid var(--text-muted);
-  opacity: 0.65;
-}
-
-.langscape-tree-children > .langscape-tree-node:only-child::before,
-.langscape-tree-children > .langscape-tree-node:only-child::after {
-  display: none;
+  padding: 0 4px;
 }
 
 .langscape-tree-label {
   display: inline-block;
   max-width: 22rem;
-  min-width: 2.25rem;
-  padding: 4px 10px;
-  border: 1px solid var(--background-modifier-border-hover);
+  min-width: 1.75rem;
+  padding: 2px 4px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-normal);
+  font-family: var(--font-monospace);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.45;
+  text-align: center;
+  white-space: nowrap;
+  cursor: text;
+  touch-action: none;
+  user-select: none;
+}
+
+.langscape-tree-label:hover,
+.langscape-tree-label:focus-visible {
+  color: var(--text-accent);
+  outline: none;
+}
+
+.langscape-tree-node.is-dragging {
+  opacity: 0.35;
+}
+
+.langscape-tree-node.is-drop-target > .langscape-tree-label-row > .langscape-tree-label {
+  color: var(--text-accent);
+  text-decoration: underline;
+  text-decoration-color: var(--text-accent);
+  text-underline-offset: 4px;
+}
+
+.langscape-tree-add {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 50%;
+  background: var(--background-primary);
+  color: var(--text-muted);
+  font-family: var(--font-monospace);
+  font-size: 14px;
+  line-height: 1;
+  opacity: 0;
+  pointer-events: none;
+  cursor: pointer;
+  transition: opacity 120ms ease, color 120ms ease, border-color 120ms ease;
+  z-index: 3;
+}
+
+.langscape-tree-node:hover > .langscape-tree-label-row .langscape-tree-add,
+.langscape-tree-node:focus-within > .langscape-tree-label-row .langscape-tree-add {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Only show + on the node the pointer is actually over, not every ancestor. */
+.langscape-tree-node:has(.langscape-tree-node:hover) > .langscape-tree-label-row .langscape-tree-add {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.langscape-tree-add:hover {
+  color: var(--text-accent);
+  border-color: var(--text-accent);
+}
+
+.langscape-tree-edit {
+  min-width: 4ch;
+  max-width: 22rem;
+  padding: 3px 6px;
+  border: none;
+  border-bottom: 1px solid var(--text-accent);
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-normal);
+  font-family: var(--font-monospace);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.45;
+  text-align: center;
+  outline: none;
+}
+
+.langscape-tree-drag-ghost {
+  position: fixed;
+  z-index: 9999;
+  padding: 3px 8px;
   border-radius: 4px;
-  background: var(--background-secondary);
+  background: var(--background-primary-alt);
   color: var(--text-normal);
   font-family: var(--font-monospace);
   font-size: 15px;
   font-weight: 500;
   line-height: 1.45;
-  text-align: center;
   white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 4px 14px rgb(0 0 0 / 35%);
 }
 
 .langscape-tree-widget {

@@ -594,20 +594,47 @@ async function main() {
     await ensure(treeSource.source, "The tree's Markdown source disappeared from the editor model.");
     log(`syntax tree source render: ${JSON.stringify(treeSource)}`);
 
-    const clickedTree = await cdp.eval(
-      "(() => { const leaf = document.querySelector('.workspace-leaf.mod-active'); const widget = leaf?.querySelector('.langscape-tree-widget'); if (!widget) return false; widget.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true })); return true; })()"
+    const renamedTree = JSON.parse(
+      await cdp.eval(
+        `(async () => {
+          const leaf = document.querySelector('.workspace-leaf.mod-active');
+          const label = leaf?.querySelector('.langscape-tree-widget .langscape-tree-label');
+          if (!label) return JSON.stringify({ error: 'no label' });
+          const box = label.getBoundingClientRect();
+          const init = { bubbles: true, cancelable: true, button: 0, clientX: box.x + box.width / 2, clientY: box.y + box.height / 2 };
+          label.dispatchEvent(new MouseEvent('pointerdown', init));
+          label.dispatchEvent(new MouseEvent('pointerup', init));
+          await new Promise((resolve) => setTimeout(resolve, 250));
+          const input = leaf.querySelector('.langscape-tree-edit');
+          if (!input) return JSON.stringify({ error: 'no edit input' });
+          input.value = 'S';
+          input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+          await new Promise((resolve) => setTimeout(resolve, 500));
+          return JSON.stringify({
+            tree: document.querySelectorAll('.cm-editor .langscape-tree').length,
+            labels: [...document.querySelectorAll('.cm-editor .langscape-tree-label')].map((node) => node.textContent),
+            source: app.workspace.activeLeaf?.view?.editor?.getValue?.() ?? ''
+          });
+        })()`
+      )
     );
-    await ensure(clickedTree, "The active syntax tree widget was not found.");
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    const treeEditing = await cdp.eval(
-      "(() => { const leaf = document.querySelector('.workspace-leaf.mod-active'); return Boolean(leaf?.querySelector('.cm-content')?.innerText.includes('{tree:')) && leaf.querySelectorAll('.langscape-tree').length === 0; })()"
+    await ensure(!renamedTree.error, `Tree rename failed: ${JSON.stringify(renamedTree)}`);
+    await ensure(renamedTree.tree === 1, `Tree disappeared after rename: ${JSON.stringify(renamedTree)}`);
+    await ensure(renamedTree.labels[0] === 'S', `Tree label did not update: ${JSON.stringify(renamedTree)}`);
+    await ensure(renamedTree.source.includes('{tree: S('), `Tree source did not update: ${JSON.stringify(renamedTree)}`);
+    log(`syntax tree rename: ${JSON.stringify(renamedTree.labels.slice(0, 3))}`);
+
+    const addedTree = await cdp.eval(
+      `(async () => {
+        const add = document.querySelector('.workspace-leaf.mod-active .langscape-tree-widget .langscape-tree-add');
+        if (!add) return false;
+        add.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        return Boolean(app.workspace.activeLeaf?.view?.editor?.getValue?.().includes('X'));
+      })()`
     );
-    await ensure(treeEditing, "Clicking the tree did not return to its source line.");
-    await cdp.eval(
-      `(async () => { const v = app.workspace.activeLeaf?.view; v?.editor?.setCursor?.({ line: 0, ch: 0 }); await new Promise((resolve) => setTimeout(resolve, 500)); return true; })()`
-    );
-    await waitForEval(cdp, "document.querySelectorAll('.cm-editor .langscape-tree').length === 1", 5_000);
-    log("clicking a tree toggles back to its source line");
+    await ensure(addedTree, "The graph + control did not add a child.");
+    log("syntax tree plus control adds a child");
 
     await cdp.eval(
       `(async () => { const leaf = app.workspace.activeLeaf; await leaf.setViewState({ type: 'markdown', state: { file: 'Langscape Demo/Notes/Tree demo.md', mode: 'preview' }, active: true }); await new Promise((resolve) => setTimeout(resolve, 900)); return true; })()`

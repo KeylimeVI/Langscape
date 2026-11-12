@@ -1,4 +1,5 @@
 import {
+  Editor,
   MarkdownView,
   Menu,
   Notice,
@@ -88,6 +89,17 @@ export default class LangscapePlugin extends Plugin {
     this.registerFontEvents();
     this.addCommands();
     this.addRibbonIcons();
+    this.registerEvent(
+      this.app.workspace.on("editor-menu", (menu, editor) => {
+        menu.addItem((item) => {
+          item
+            .setTitle("Syntax tree")
+            .setIcon("network")
+            .setSection("insert")
+            .onClick(() => this.insertSyntaxTree(editor));
+        });
+      })
+    );
 
     this.registerEvent(
       this.app.workspace.on("active-leaf-change", () => this.ensureCanvasAction())
@@ -207,6 +219,19 @@ export default class LangscapePlugin extends Plugin {
         editor.focus();
       },
     }).open();
+  }
+
+  insertSyntaxTree(editor?: Editor): void {
+    const target = editor ?? this.app.workspace.getActiveViewOfType(MarkdownView)?.editor;
+    if (!target) {
+      new Notice("Open a Markdown note to insert a syntax tree.");
+      return;
+    }
+    const template = "{tree: S(NP(Det(the), N(cat)), VP(V(die)))}";
+    const cursor = target.getCursor();
+    const currentLine = target.getLine(cursor.line);
+    target.replaceSelection(currentLine.trim() ? `\n${template}` : template);
+    target.focus();
   }
 
   async createSoundChangeFile(): Promise<void> {
@@ -639,6 +664,17 @@ export default class LangscapePlugin extends Plugin {
         if (!this.app.workspace.getActiveViewOfType(MarkdownView)) return false;
         if (checking) return true;
         void this.insertFontSpan();
+        return true;
+      },
+    });
+
+    this.addCommand({
+      id: "insert-syntax-tree",
+      name: "Insert syntax tree",
+      checkCallback: (checking) => {
+        if (!this.app.workspace.getActiveViewOfType(MarkdownView)) return false;
+        if (checking) return true;
+        this.insertSyntaxTree();
         return true;
       },
     });

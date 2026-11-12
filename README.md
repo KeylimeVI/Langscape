@@ -17,7 +17,7 @@ Langscape is a conlanger's workbench for [Obsidian](https://obsidian.md). It bri
 
 ![Vertical Lexurgy rule trace](docs/screenshots/trace-table.png)
 
-![Syntax tree with a custom font in a node label](docs/screenshots/syntax-tree.png)
+![Syntax tree with diagonal branches and custom-font labels](docs/screenshots/syntax-tree.png)
 
 ## Video overview
 
@@ -164,7 +164,13 @@ Font spans work inside node labels. The tree parser understands the nested brace
 {tree: VP(NP({tengwar: 𐌰𐍆𐌰}), V(see), NP(Det(the), Adj(blue), N(sky)))}
 ```
 
-In Live Preview, the source line is replaced by the tree when the cursor is outside it. Click the tree to return to the source line and edit it. In Reading view the tree is display-only. Tree markup must be on a line by itself; inline uses are left as literal text.
+In Live Preview, the source line is replaced by the tree and stays rendered while you edit it graphically:
+
+- Hover a node and click **+** below it to add a child.
+- Click a node's text to rename it.
+- Drag a node onto another node to move it and its entire subtree.
+
+Right-click in a Markdown note and choose **Syntax tree**, or run **Langscape: Insert syntax tree** from the command palette, to add a starter tree. In Reading view the tree is display-only; switch to Source mode if you want to edit the raw `{tree: ...}` syntax. Tree markup must be on a line by itself; inline uses are left as literal text.
 
 ### Notes and limitations
 

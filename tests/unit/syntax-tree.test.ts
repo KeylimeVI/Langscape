@@ -1,7 +1,11 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
 import type { FontRecord } from "../../src/fonts/css";
-import { parseSyntaxTreeLine } from "../../src/trees/model";
+import {
+  isValidSyntaxTreeLabel,
+  parseSyntaxTreeLine,
+  serializeSyntaxTree,
+} from "../../src/trees/model";
 import { createSyntaxTreePostProcessor } from "../../src/trees/postprocess";
 import { renderSyntaxTree } from "../../src/trees/render";
 
@@ -66,6 +70,24 @@ describe("syntax tree syntax", () => {
   });
 });
 
+describe("syntax tree serialization", () => {
+  it("round-trips a parsed tree", () => {
+    const source = "{tree: VP(NP(I), V(see), NP(Det(the), Adj(blue), N(sky)))}";
+    const tree = parseSyntaxTreeLine(source)!;
+    expect(serializeSyntaxTree(tree)).toBe(source);
+    expect(parseSyntaxTreeLine(serializeSyntaxTree(tree))).toEqual(tree);
+  });
+
+  it("validates labels that can round-trip", () => {
+    expect(isValidSyntaxTreeLabel("NP")).toBe(true);
+    expect(isValidSyntaxTreeLabel("{tengwar: 𐌰𐍆𐌰}")).toBe(true);
+    expect(isValidSyntaxTreeLabel("two words")).toBe(true);
+    expect(isValidSyntaxTreeLabel("A(B)")).toBe(false);
+    expect(isValidSyntaxTreeLabel("A, B")).toBe(false);
+    expect(isValidSyntaxTreeLabel("   ")).toBe(false);
+  });
+});
+
 describe("syntax tree rendering", () => {
   it("renders nested labels and fonts inside labels", () => {
     const tree = parseSyntaxTreeLine(
@@ -89,4 +111,76 @@ describe("syntax tree rendering", () => {
     expect(root.textContent).toContain("{tree: NP(I)} more");
     root.remove();
   });
+  it("adds a child from the hover control", () => {
+    const tree = parseSyntaxTreeLine("{tree: S(NP(N(cat)))}")!;
+    let changes = 0;
+    const root = renderSyntaxTree(tree, manager, document, {
+      onChange: (next) => {
+        changes++;
+        expect(next).toBe(tree);
+      },
+    });
+    document.body.appendChild(root);
+    const add = root.querySelector<HTMLButtonElement>(".langscape-tree-add")!;
+    add.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(tree.children.at(-1)?.label).toBe("X");
+    expect(changes).toBe(1);
+    root.remove();
+  });
+
+  it("renames a node when its label is clicked", () => {
+    const tree = parseSyntaxTreeLine("{tree: S(NP(N(cat)))}")!;
+    let changes = 0;
+    const root = renderSyntaxTree(tree, manager, document, {
+      onChange: () => {
+        changes++;
+      },
+    });
+    document.body.appendChild(root);
+    const label = root.querySelector<HTMLElement>(".langscape-tree-label")!;
+    label.dispatchEvent(
+      new MouseEvent("pointerdown", { bubbles: true, button: 0, clientX: 10, clientY: 10 })
+    );
+    label.dispatchEvent(
+      new MouseEvent("pointerup", { bubbles: true, button: 0, clientX: 10, clientY: 10 })
+    );
+    const input = root.querySelector<HTMLInputElement>(".langscape-tree-edit");
+    expect(input).not.toBeNull();
+    input!.value = "CP";
+    input!.dispatchEvent(new Event("blur"));
+    expect(tree.label).toBe("CP");
+    expect(changes).toBe(1);
+    root.remove();
+  });
+
+  it("moves a subtree when dragged onto another node", () => {
+    const tree = parseSyntaxTreeLine("{tree: S(NP(N(cat)), VP(V(see)))}")!;
+    let changes = 0;
+    const root = renderSyntaxTree(tree, manager, document, {
+      onChange: () => {
+        changes++;
+      },
+    });
+    document.body.appendChild(root);
+    const labels = [...root.querySelectorAll<HTMLElement>(".langscape-tree-label")];
+    const source = labels.find((label) => label.textContent === "NP")!;
+    const target = labels.find((label) => label.textContent === "VP")!;
+    const original = (document as any).elementFromPoint;
+    (document as any).elementFromPoint = () => target;
+    source.dispatchEvent(
+      new MouseEvent("pointerdown", { bubbles: true, button: 0, clientX: 10, clientY: 10 })
+    );
+    source.dispatchEvent(
+      new MouseEvent("pointermove", { bubbles: true, button: 0, clientX: 30, clientY: 30 })
+    );
+    source.dispatchEvent(
+      new MouseEvent("pointerup", { bubbles: true, button: 0, clientX: 30, clientY: 30 })
+    );
+    (document as any).elementFromPoint = original;
+    expect(tree.children.map((child) => child.label)).toEqual(["VP"]);
+    expect(tree.children[0].children.map((child) => child.label)).toEqual(["V", "NP"]);
+    expect(changes).toBe(1);
+    root.remove();
+  });
+
 });
