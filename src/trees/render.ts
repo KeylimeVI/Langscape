@@ -73,6 +73,7 @@ export function renderSyntaxTree(
   tree.appendChild(svg);
 
   const byItem = new Map<HTMLElement, SyntaxTreeNode>();
+  const itemByNode = new Map<SyntaxTreeNode, HTMLDivElement>();
   const parentByNode = new Map<SyntaxTreeNode, SyntaxTreeNode | null>();
   const editable = Boolean(actions.onChange);
 
@@ -152,57 +153,114 @@ export function renderSyntaxTree(
   ): { node: SyntaxTreeNode; item: HTMLDivElement; index: number } | null => {
     const drag = currentDrag;
     if (!drag) return null;
-    let best:
-      | { node: SyntaxTreeNode; item: HTMLDivElement; index: number; bottom: number }
-      | null = null;
-    for (const item of tree.querySelectorAll<HTMLElement>(".langscape-tree-node")) {
-      if (item === drag.source || item.closest(".is-drag-ghost")) continue;
-      const node = byItem.get(item);
-      if (!node || node === drag.node || isDescendant(drag.node, node)) continue;
+
+    type ParentEntry = {
+      node: SyntaxTreeNode;
+      item: HTMLDivElement;
+      label: HTMLElement;
+    };
+    type ChildEntry = {
+      node: SyntaxTreeNode;
+      item: HTMLDivElement;
+      parent: ParentEntry;
+      index: number;
+      center: number;
+      top: number;
+    };
+
+    const groups = new Map<SyntaxTreeNode | null, ParentEntry[]>();
+    for (const [node, item] of itemByNode) {
+      if (node.children.length === 0) continue;
+      if (node === drag.node || isDescendant(drag.node, node)) continue;
       const label = item.querySelector<HTMLElement>(
         ":scope > .langscape-tree-label-row > .langscape-tree-label"
       );
-      const children = item.querySelector<HTMLElement>(
-        ":scope > .langscape-tree-children"
-      );
-      if (!label || !children) continue;
-      const childRects = [...children.children]
-        .filter(
-          (child): child is HTMLElement =>
-            child instanceof HTMLElement &&
-            child.classList.contains("langscape-tree-node") &&
-            child !== drag.source &&
-            child !== drag.preview
-        )
-        .map((child) =>
-          child
-            .querySelector<HTMLElement>(
-              ":scope > .langscape-tree-label-row > .langscape-tree-label"
-            )
-            ?.getBoundingClientRect()
-        )
-        .filter((rect): rect is DOMRect => Boolean(rect && rect.width && rect.height));
-      if (childRects.length === 0) continue;
-      const labelRect = label.getBoundingClientRect();
-      const childTop = Math.min(...childRects.map((rect) => rect.top));
-      const childLeft = Math.min(...childRects.map((rect) => rect.left));
-      const childRight = Math.max(...childRects.map((rect) => rect.right));
-      if (
-        clientY >= labelRect.bottom - 2 &&
-        clientY <= childTop + 2 &&
-        clientX >= childLeft &&
-        clientX <= childRight &&
-        (!best || labelRect.bottom > best.bottom)
-      ) {
-        best = {
-          node,
-          item: item as HTMLDivElement,
-          index: childIndexAt(item, clientX),
-          bottom: labelRect.bottom,
-        };
+      if (!label) continue;
+      const key = parentByNode.get(node) ?? null;
+      const group = groups.get(key) ?? [];
+      group.push({ node, item, label });
+      groups.set(key, group);
+    }
+
+    let best:
+      | {
+          bottom: number;
+          target: { node: SyntaxTreeNode; item: HTMLDivElement; index: number };
+        }
+      | null = null;
+    for (const parents of groups.values()) {
+      const children: ChildEntry[] = [];
+      let parentBottom = Number.NEGATIVE_INFINITY;
+      for (const parent of parents) {
+        const labelRect = parent.label.getBoundingClientRect();
+        if (!labelRect.width) continue;
+        parentBottom = Math.max(parentBottom, labelRect.bottom);
+        const remaining = parent.node.children.filter((child) => child !== drag.node);
+        for (let index = 0; index < remaining.length; index++) {
+          const child = remaining[index];
+          const item = itemByNode.get(child);
+          if (!item) continue;
+          const childLabel = item.querySelector<HTMLElement>(
+            ":scope > .langscape-tree-label-row > .langscape-tree-label"
+          );
+          const rect = childLabel?.getBoundingClientRect();
+          if (!rect || !rect.width) continue;
+          children.push({
+            node: child,
+            item,
+            parent,
+            index,
+            center: rect.left + rect.width / 2,
+            top: rect.top,
+          });
+        }
+      }
+      if (children.length === 0 || !Number.isFinite(parentBottom)) continue;
+      const childTop = Math.min(...children.map((child) => child.top));
+      // The layer band runs from just below the parent row to the top of the
+      // child row. Inside it, horizontal position chooses a child slot across
+      // every sibling parent in the layer.
+      if (clientY < parentBottom || clientY > childTop + 1) continue;
+
+      children.sort((a, b) => a.center - b.center);
+      const first = children[0];
+      const last = children[children.length - 1];
+      let target: { node: SyntaxTreeNode; item: HTMLDivElement; index: number } | null = null;
+      if (clientX < first.center) {
+        target = { node: first.parent.node, item: first.parent.item, index: first.index };
+      } else {
+        for (let i = 0; i < children.length - 1; i++) {
+          const left = children[i];
+          const right = children[i + 1];
+          if (clientX > right.center) continue;
+          if (left.parent.node === right.parent.node) {
+            target = { node: right.parent.node, item: right.parent.item, index: right.index };
+          } else {
+            const midpoint = (left.center + right.center) / 2;
+            target =
+              clientX <= midpoint
+                ? {
+                    node: left.parent.node,
+                    item: left.parent.item,
+                    index: left.index + 1,
+                  }
+                : {
+                    node: right.parent.node,
+                    item: right.parent.item,
+                    index: right.index,
+                  };
+          }
+          break;
+        }
+        if (!target) {
+          target = { node: last.parent.node, item: last.parent.item, index: last.index + 1 };
+        }
+      }
+      if (target && (!best || parentBottom > best.bottom)) {
+        best = { bottom: parentBottom, target };
       }
     }
-    return best ? { node: best.node, item: best.item, index: best.index } : null;
+    return best?.target ?? null;
   };
 
   const placePreview = (
@@ -594,6 +652,7 @@ export function renderSyntaxTree(
 
     const context: NodeContext = { node, parent, item, row, label };
     byItem.set(item, node);
+    itemByNode.set(node, item);
     parentByNode.set(node, parent);
     bindLabel(context);
 
