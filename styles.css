@@ -1193,7 +1193,15 @@ body.theme-light {
 
 .langscape-tree-block {
   overflow-x: auto;
-  padding: 0.8rem 0.25rem 1.2rem;
+  padding: 0.65rem 0.25rem 1.2rem;
+}
+
+.langscape-tree-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  height: 26px;
+  margin-bottom: 2px;
 }
 
 .langscape-tree {
@@ -1201,6 +1209,11 @@ body.theme-light {
   justify-content: center;
   min-width: 100%;
   position: relative;
+}
+
+.langscape-tree.is-align-left {
+  justify-content: flex-start;
+  padding-left: 2px;
 }
 
 /* Diagonal parent-to-child connectors are drawn as SVG lines after layout. */
@@ -1228,13 +1241,25 @@ body.theme-light {
   justify-content: center;
 }
 
+/* Transparent bridge below the text keeps a leaf node hovered while the
+   pointer travels down to its + control. */
+.langscape-tree-label-row::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  width: 30px;
+  height: 31px;
+  transform: translateX(-50%);
+}
+
 .langscape-tree-children {
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  gap: 2px;
+  gap: 4px;
   position: relative;
-  padding-top: 28px;
+  padding-top: 32px;
 }
 
 .langscape-tree-children > .langscape-tree-node {
@@ -1244,14 +1269,14 @@ body.theme-light {
 .langscape-tree-label {
   display: inline-block;
   max-width: 22rem;
-  min-width: 1.75rem;
-  padding: 2px 4px;
+  min-width: 1.9rem;
+  padding: 3px 6px;
   border: none;
   border-radius: 0;
   background: transparent;
   color: var(--text-normal);
   font-family: var(--font-monospace);
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 500;
   line-height: 1.45;
   text-align: center;
@@ -1271,70 +1296,122 @@ body.theme-light {
   opacity: 0.35;
 }
 
-.langscape-tree-node.is-drop-target > .langscape-tree-label-row > .langscape-tree-label {
+.langscape-tree-node.is-drop-child > .langscape-tree-label-row > .langscape-tree-label {
   color: var(--text-accent);
   text-decoration: underline;
   text-decoration-color: var(--text-accent);
   text-underline-offset: 4px;
 }
 
-.langscape-tree-add {
-  position: absolute;
-  top: calc(100% + 2px);
-  left: 50%;
-  transform: translateX(-50%);
+.langscape-tree-node.is-drop-before > .langscape-tree-label-row > .langscape-tree-label {
+  box-shadow: inset 3px 0 0 var(--text-accent);
+}
+
+.langscape-tree-node.is-drop-after > .langscape-tree-label-row > .langscape-tree-label {
+  box-shadow: inset -3px 0 0 var(--text-accent);
+}
+
+.langscape-tree-add,
+.langscape-tree-delete,
+.langscape-tree-align {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
   padding: 0;
   border: 1px solid var(--background-modifier-border);
   border-radius: 50%;
   background: var(--background-primary);
   color: var(--text-muted);
   font-family: var(--font-monospace);
-  font-size: 14px;
   line-height: 1;
-  opacity: 0;
-  pointer-events: none;
   cursor: pointer;
   transition: opacity 120ms ease, color 120ms ease, border-color 120ms ease;
   z-index: 3;
 }
 
-.langscape-tree-node:hover > .langscape-tree-label-row .langscape-tree-add,
-.langscape-tree-node:focus-within > .langscape-tree-label-row .langscape-tree-add {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-/* Only show + on the node the pointer is actually over, not every ancestor. */
-.langscape-tree-node:has(.langscape-tree-node:hover) > .langscape-tree-label-row .langscape-tree-add {
-  opacity: 0;
-  pointer-events: none;
-}
-
-.langscape-tree-add:hover {
+.langscape-tree-add:hover,
+.langscape-tree-delete:hover,
+.langscape-tree-align:hover {
   color: var(--text-accent);
   border-color: var(--text-accent);
 }
 
-.langscape-tree-edit {
-  min-width: 4ch;
+.langscape-tree-add {
+  position: absolute;
+  top: calc(100% - 1px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: 24px;
+  height: 24px;
+  font-size: 17px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.langscape-tree-delete {
+  position: absolute;
+  top: 50%;
+  left: 100%;
+  transform: translateY(-50%);
+  width: 22px;
+  height: 22px;
+  font-size: 17px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.langscape-tree-node:hover > .langscape-tree-label-row .langscape-tree-add,
+.langscape-tree-node:hover > .langscape-tree-label-row .langscape-tree-delete {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Only show controls on the node the pointer is actually over, not every
+   ancestor in the subtree. */
+.langscape-tree-node:has(.langscape-tree-node:hover)
+  > .langscape-tree-label-row
+  .langscape-tree-add,
+.langscape-tree-node:has(.langscape-tree-node:hover)
+  > .langscape-tree-label-row
+  .langscape-tree-delete {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.langscape-tree-align {
+  width: 24px;
+  height: 24px;
+  opacity: 0.55;
+}
+
+.langscape-tree-block:hover .langscape-tree-align,
+.langscape-tree-block:focus-within .langscape-tree-align {
+  opacity: 1;
+}
+
+.langscape-tree-block input.langscape-tree-edit,
+.langscape-tree-block input.langscape-tree-edit:focus {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 4;
+  min-width: 3ch;
   max-width: 22rem;
-  padding: 3px 6px;
-  border: none;
-  border-bottom: 1px solid var(--text-accent);
-  border-radius: 0;
-  background: transparent;
+  padding: 0 2px !important;
+  border: none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
   color: var(--text-normal);
   font-family: var(--font-monospace);
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 500;
   line-height: 1.45;
   text-align: center;
-  outline: none;
+  outline: none !important;
+  appearance: none;
+  -webkit-appearance: none;
 }
 
 .langscape-tree-drag-ghost {
@@ -1345,7 +1422,7 @@ body.theme-light {
   background: var(--background-primary-alt);
   color: var(--text-normal);
   font-family: var(--font-monospace);
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 500;
   line-height: 1.45;
   white-space: nowrap;

@@ -66,7 +66,7 @@ export async function createStarterVault(
       "",
       "{tree: VP(NP({Noto-Sans-Gothic: 𐌰𐍆𐌰}), V(see), NP(Det(the), Adj(blue), N(sky)))}",
       "",
-      "Fonts render inside node labels. Hover a node for +, click its text to rename it, and drag a node onto another to move its whole subtree.",
+      "Fonts render inside node labels. Hover for + and ×, click a label to rename it, drag a node to move its subtree, and use the top-right toggle to align the tree.",
       "",
     ].join("\n")
   );

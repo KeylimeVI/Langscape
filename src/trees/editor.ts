@@ -54,6 +54,15 @@ class SyntaxTreeWidget extends WidgetType {
           // The note may have changed while a drag/edit was in flight.
         }
       },
+      onRemove: () => {
+        try {
+          const line = view.state.doc.lineAt(this.from);
+          view.dispatch({ changes: { from: line.from, to: line.to, insert: "" } });
+          view.focus();
+        } catch {
+          // The note may have changed while the delete click was in flight.
+        }
+      },
     });
     el.classList.add("langscape-tree-widget");
     return el;

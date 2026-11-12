@@ -94,8 +94,8 @@ export default class LangscapePlugin extends Plugin {
         menu.addItem((item) => {
           item
             .setTitle("Syntax tree")
-            .setIcon("network")
-            .setSection("insert")
+            .setIcon("lucide-network")
+            .setSection("selection.insert.basic")
             .onClick(() => this.insertSyntaxTree(editor));
         });
       })
@@ -227,7 +227,7 @@ export default class LangscapePlugin extends Plugin {
       new Notice("Open a Markdown note to insert a syntax tree.");
       return;
     }
-    const template = "{tree: S(NP(Det(the), N(cat)), VP(V(die)))}";
+    const template = "{tree: node}";
     const cursor = target.getCursor();
     const currentLine = target.getLine(cursor.line);
     target.replaceSelection(currentLine.trim() ? `\n${template}` : template);

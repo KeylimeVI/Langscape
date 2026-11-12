@@ -9,14 +9,35 @@ export interface SyntaxTreeActions {
    * CodeMirror change).
    */
   onChange?: (tree: SyntaxTreeNode) => void;
+  /** Remove the whole tree. Used by the root node's delete control. */
+  onRemove?: () => void;
 }
 
 interface NodeContext {
   node: SyntaxTreeNode;
   parent: SyntaxTreeNode | null;
   item: HTMLDivElement;
+  row: HTMLDivElement;
   label: HTMLSpanElement;
 }
+
+type DropMode = "child" | "before" | "after";
+type TreeAlignment = "center" | "left";
+
+interface DragState {
+  node: SyntaxTreeNode;
+  parent: SyntaxTreeNode;
+  source: HTMLDivElement;
+  ghost: HTMLDivElement;
+  target: {
+    node: SyntaxTreeNode;
+    item: HTMLDivElement;
+    mode: DropMode;
+  } | null;
+}
+
+const ALIGNMENT_KEY = "langscape-tree-alignment";
+let treeAlignment: TreeAlignment | null = null;
 
 export function renderSyntaxTree(
   root: SyntaxTreeNode,
@@ -26,6 +47,14 @@ export function renderSyntaxTree(
 ): HTMLElement {
   const block = doc.createElement("div");
   block.className = "langscape-tree-block";
+
+  const toolbar = doc.createElement("div");
+  toolbar.className = "langscape-tree-toolbar";
+  const alignButton = doc.createElement("button");
+  alignButton.type = "button";
+  alignButton.className = "langscape-tree-align";
+  alignButton.setAttribute("aria-pressed", "false");
+  toolbar.appendChild(alignButton);
 
   const tree = doc.createElement("div");
   tree.className = "langscape-tree";
@@ -37,17 +66,10 @@ export function renderSyntaxTree(
   tree.appendChild(svg);
 
   const byItem = new Map<HTMLElement, SyntaxTreeNode>();
+  const parentByNode = new Map<SyntaxTreeNode, SyntaxTreeNode | null>();
   const editable = Boolean(actions.onChange);
 
-  let currentDrag:
-    | {
-        node: SyntaxTreeNode;
-        parent: SyntaxTreeNode;
-        source: HTMLDivElement;
-        ghost: HTMLDivElement;
-        target: { node: SyntaxTreeNode; item: HTMLElement } | null;
-      }
-    | null = null;
+  let currentDrag: DragState | null = null;
 
   const redrawEdges = () => drawEdges(tree, svg);
 
@@ -56,6 +78,38 @@ export function renderSyntaxTree(
     actions.onChange(root);
   };
 
+  const setAlignment = (next: TreeAlignment) => {
+    treeAlignment = next;
+    try {
+      doc.defaultView?.localStorage?.setItem(ALIGNMENT_KEY, next);
+    } catch {
+      // Storage can be unavailable in restricted windows; the toggle still works.
+    }
+    for (const blockEl of doc.querySelectorAll<HTMLElement>(".langscape-tree-block")) {
+      const candidate = blockEl.querySelector<HTMLElement>(".langscape-tree");
+      if (!candidate) continue;
+      candidate.classList.toggle("is-align-left", next === "left");
+      const button = blockEl.querySelector<HTMLButtonElement>(".langscape-tree-align");
+      if (button) setAlignmentIcon(button, next);
+      const candidateSvg = candidate.querySelector<SVGSVGElement>(".langscape-tree-edges");
+      if (candidateSvg) drawEdges(candidate, candidateSvg);
+    }
+  };
+
+  alignButton.addEventListener("pointerdown", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+  });
+  alignButton.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setAlignment(alignmentFor(doc) === "left" ? "center" : "left");
+  });
+
+  const alignment = alignmentFor(doc);
+  tree.classList.toggle("is-align-left", alignment === "left");
+  setAlignmentIcon(alignButton, alignment);
+
   const beginEdit = (context: NodeContext) => {
     if (!editable || context.label.dataset.editing === "true") return;
     context.label.dataset.editing = "true";
@@ -63,13 +117,16 @@ export function renderSyntaxTree(
     input.type = "text";
     input.className = "langscape-tree-edit";
     input.value = context.node.label;
-    input.size = Math.max(4, Math.min(24, context.node.label.length + 2));
-    context.label.replaceWith(input);
+    const rect = context.label.getBoundingClientRect();
+    input.style.width = `${Math.max(44, rect.width)}px`;
+    if (rect.height) input.style.height = `${rect.height}px`;
+    context.label.style.visibility = "hidden";
+    context.row.appendChild(input);
 
     let finished = false;
     const restoreLabel = () => {
-      if (!input.isConnected) return;
-      input.replaceWith(context.label);
+      input.remove();
+      context.label.style.visibility = "";
     };
     const cancel = () => {
       if (finished) return;
@@ -110,13 +167,12 @@ export function renderSyntaxTree(
     });
     input.addEventListener("blur", commit);
     input.focus();
-    input.select();
+    // Put the caret at the end instead of selecting all. Selecting the input
+    // makes Obsidian paint a rounded selection box around the node.
+    input.setSelectionRange(input.value.length, input.value.length);
   };
 
-  const startDrag = (
-    context: NodeContext,
-    event: PointerEvent
-  ): boolean => {
+  const startDrag = (context: NodeContext, event: PointerEvent): boolean => {
     if (!editable || !context.parent || currentDrag) return false;
     const ghost = doc.createElement("div");
     ghost.className = "langscape-tree-drag-ghost";
@@ -144,19 +200,40 @@ export function renderSyntaxTree(
     const under = doc.elementFromPoint(event.clientX, event.clientY);
     const item = under?.closest<HTMLElement>(".langscape-tree-node") ?? null;
     const targetNode = item ? byItem.get(item) : undefined;
+    const targetParent = targetNode ? parentByNode.get(targetNode) : null;
+    const label = item?.querySelector<HTMLElement>(
+      ":scope > .langscape-tree-label-row > .langscape-tree-label"
+    );
+    const rect = label?.getBoundingClientRect();
+
+    let mode: DropMode = "child";
+    if (
+      targetNode &&
+      targetParent &&
+      rect &&
+      rect.width > 0 &&
+      event.clientY >= rect.top &&
+      event.clientY <= rect.bottom
+    ) {
+      const ratio = (event.clientX - rect.left) / rect.width;
+      if (ratio < 0.28) mode = "before";
+      else if (ratio > 0.72) mode = "after";
+    }
+
     const valid =
       item &&
       targetNode &&
       targetNode !== drag.node &&
-      !isDescendant(drag.node, targetNode);
+      !isDescendant(drag.node, targetNode) &&
+      (mode === "child" || Boolean(targetParent));
 
-    if (drag.target?.item !== item) {
-      drag.target?.item.classList.remove("is-drop-target");
+    if (drag.target?.item !== item || drag.target?.mode !== mode) {
+      clearDropClasses(drag.target?.item);
       drag.target = null;
     }
     if (valid && item && targetNode) {
-      drag.target = { node: targetNode, item };
-      item.classList.add("is-drop-target");
+      drag.target = { node: targetNode, item: item as HTMLDivElement, mode };
+      item.classList.add("is-drop-target", `is-drop-${mode}`);
     }
   };
 
@@ -166,13 +243,33 @@ export function renderSyntaxTree(
     currentDrag = null;
     drag.ghost.remove();
     drag.source.classList.remove("is-dragging");
-    drag.target?.item.classList.remove("is-drop-target");
+    clearDropClasses(drag.target?.item);
 
     if (!dropped || !drag.target) return;
-    const index = drag.parent.children.indexOf(drag.node);
-    if (index < 0) return;
-    drag.parent.children.splice(index, 1);
-    drag.target.node.children.push(drag.node);
+    const target = drag.target;
+    const newParent =
+      target.mode === "child" ? target.node : parentByNode.get(target.node) ?? null;
+    if (!newParent || newParent === drag.node || isDescendant(drag.node, newParent)) {
+      return;
+    }
+
+    const oldIndex = drag.parent.children.indexOf(drag.node);
+    if (oldIndex < 0) return;
+    drag.parent.children.splice(oldIndex, 1);
+
+    let index: number;
+    if (target.mode === "child") {
+      index = newParent.children.length;
+    } else {
+      index = newParent.children.indexOf(target.node);
+      if (index < 0) {
+        // Target disappeared mid-drag; put the node back where it was.
+        drag.parent.children.splice(oldIndex, 0, drag.node);
+        return;
+      }
+      if (target.mode === "after") index++;
+    }
+    newParent.children.splice(index, 0, drag.node);
     notify();
   };
 
@@ -269,8 +366,9 @@ export function renderSyntaxTree(
     paintLabelText(label, node.label, manager, doc);
     row.appendChild(label);
 
-    const context: NodeContext = { node, parent, item, label };
+    const context: NodeContext = { node, parent, item, row, label };
     byItem.set(item, node);
+    parentByNode.set(node, parent);
     bindLabel(context);
 
     if (editable) {
@@ -289,6 +387,30 @@ export function renderSyntaxTree(
         notify();
       });
       row.appendChild(add);
+
+      if (parent || actions.onRemove) {
+        const remove = doc.createElement("button");
+        remove.type = "button";
+        remove.className = "langscape-tree-delete";
+        remove.textContent = "×";
+        remove.addEventListener("pointerdown", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+        });
+        remove.addEventListener("click", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          if (!parent) {
+            actions.onRemove?.();
+            return;
+          }
+          const index = parent.children.indexOf(node);
+          if (index < 0) return;
+          parent.children.splice(index, 1);
+          notify();
+        });
+        row.appendChild(remove);
+      }
     }
 
     item.appendChild(row);
@@ -305,6 +427,7 @@ export function renderSyntaxTree(
   };
 
   tree.appendChild(renderNode(root, null, 1));
+  block.appendChild(toolbar);
   block.appendChild(tree);
 
   const schedule = () => {
@@ -326,6 +449,45 @@ export function renderSyntaxTree(
   }
 
   return block;
+}
+
+function alignmentFor(doc: Document): TreeAlignment {
+  if (treeAlignment) return treeAlignment;
+  try {
+    treeAlignment =
+      doc.defaultView?.localStorage?.getItem(ALIGNMENT_KEY) === "left" ? "left" : "center";
+  } catch {
+    treeAlignment = "center";
+  }
+  return treeAlignment;
+}
+
+function setAlignmentIcon(button: HTMLButtonElement, alignment: TreeAlignment): void {
+  const doc = button.ownerDocument;
+  const svg = doc.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("width", "16");
+  svg.setAttribute("height", "16");
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("stroke", "currentColor");
+  svg.setAttribute("stroke-width", "2");
+  svg.setAttribute("stroke-linecap", "round");
+  const paths =
+    alignment === "left"
+      ? ["M4 6h16", "M4 10h10", "M4 14h14", "M4 18h6"]
+      : ["M4 6h16", "M7 10h10", "M5 14h14", "M9 18h6"];
+  for (const definition of paths) {
+    const path = doc.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("d", definition);
+    svg.appendChild(path);
+  }
+  button.replaceChildren(svg);
+  button.setAttribute("aria-pressed", String(alignment === "left"));
+  button.dataset.alignment = alignment;
+}
+
+function clearDropClasses(item: HTMLElement | undefined): void {
+  item?.classList.remove("is-drop-target", "is-drop-child", "is-drop-before", "is-drop-after");
 }
 
 function paintLabel(
@@ -369,6 +531,8 @@ function drawEdges(tree: HTMLElement, svg: SVGSVGElement): void {
   svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
   svg.setAttribute("width", String(width));
   svg.setAttribute("height", String(height));
+  svg.style.width = `${width}px`;
+  svg.style.height = `${height}px`;
   svg.replaceChildren();
 
   const treeRect = tree.getBoundingClientRect();
@@ -410,4 +574,3 @@ function drawEdges(tree: HTMLElement, svg: SVGSVGElement): void {
     }
   }
 }
-

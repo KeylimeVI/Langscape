@@ -168,9 +168,11 @@ In Live Preview, the source line is replaced by the tree and stays rendered whil
 
 - Hover a node and click **+** below it to add a child.
 - Click a node's text to rename it.
-- Drag a node onto another node to move it and its entire subtree.
+- Hover a node and click **×** beside its text to delete it and its whole subtree.
+- Drag a node onto another node to make it a child; drop on the left or right side of a node to place it before or after that sibling instead.
+- Use the alignment toggle at the top of the tree to switch the whole tree between centered and left-aligned.
 
-Right-click in a Markdown note and choose **Syntax tree**, or run **Langscape: Insert syntax tree** from the command palette, to add a starter tree. In Reading view the tree is display-only; switch to Source mode if you want to edit the raw `{tree: ...}` syntax. Tree markup must be on a line by itself; inline uses are left as literal text.
+Right-click in a Markdown note, choose **Insert → Syntax tree**, or run **Langscape: Insert syntax tree** from the command palette, to add a single-node starter tree. In Reading view the tree is display-only; switch to Source mode if you want to edit the raw `{tree: ...}` syntax. Tree markup must be on a line by itself; inline uses are left as literal text.
 
 ### Notes and limitations
 
