@@ -175,7 +175,7 @@ describe("syntax tree rendering", () => {
     });
     document.body.appendChild(root);
     const labels = [...root.querySelectorAll<HTMLElement>(".langscape-tree-label")];
-    const source = labels.find((label) => label.textContent === "NP")!;
+    const source = labels.find((label) => label.textContent === "N")!;
     const target = labels.find((label) => label.textContent === "VP")!;
     const original = (document as any).elementFromPoint;
     (document as any).elementFromPoint = () => target;
@@ -189,8 +189,9 @@ describe("syntax tree rendering", () => {
       new MouseEvent("pointerup", { bubbles: true, button: 0, clientX: 30, clientY: 30 })
     );
     (document as any).elementFromPoint = original;
-    expect(tree.children.map((child) => child.label)).toEqual(["VP"]);
-    expect(tree.children[0].children.map((child) => child.label)).toEqual(["V", "NP"]);
+    expect(tree.children.map((child) => child.label)).toEqual(["NP", "VP"]);
+    expect(tree.children[0].children).toEqual([]);
+    expect(tree.children[1].children.map((child) => child.label)).toEqual(["V", "N"]);
     expect(changes).toBe(1);
     root.remove();
   });
