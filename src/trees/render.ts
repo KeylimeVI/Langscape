@@ -31,16 +31,13 @@ interface DragState {
   parent: SyntaxTreeNode;
   source: HTMLDivElement;
   preview: HTMLDivElement;
-  homeParent: HTMLElement;
-  homeNext: Node;
-  createdContainer: HTMLDivElement | null;
+  overlay: SVGSVGElement;
   target: {
     node: SyntaxTreeNode;
     item: HTMLDivElement;
     mode: DropMode;
     index: number;
   } | null;
-  targetPoint: { x: number; y: number } | null;
 }
 
 const ALIGNMENT_KEY = "langscape-tree-alignment";
@@ -102,22 +99,6 @@ export function renderSyntaxTree(
     }
   };
 
-  const removeEmptyPreviewContainer = () => {
-    const drag = currentDrag;
-    if (!drag?.createdContainer) return;
-    if (!drag.createdContainer.querySelector(".langscape-tree-node")) {
-      drag.createdContainer.remove();
-    }
-    drag.createdContainer = null;
-  };
-
-  const resetPreview = () => {
-    const drag = currentDrag;
-    if (!drag) return;
-    removeEmptyPreviewContainer();
-    drag.homeParent.insertBefore(drag.preview, drag.homeNext);
-    redrawSoon();
-  };
 
   const childIndexAt = (targetItem: HTMLElement, clientX: number): number => {
     const drag = currentDrag;
@@ -263,42 +244,141 @@ export function renderSyntaxTree(
     return best?.target ?? null;
   };
 
-  const placePreview = (
-    target: { node: SyntaxTreeNode; item: HTMLDivElement; mode: DropMode; index: number }
-  ) => {
+  const positionGhost = (left: number, top: number) => {
     const drag = currentDrag;
     if (!drag) return;
-    removeEmptyPreviewContainer();
+    drag.preview.style.left = `${left}px`;
+    drag.preview.style.top = `${top}px`;
+    drag.preview.style.transform = "translateX(-50%)";
+    drawDragOverlay(drag);
+  };
+
+  const positionGhostForTarget = (target: DragState["target"]) => {
+    const drag = currentDrag;
+    if (!drag || !target) return;
+    const item = target.item;
+    const label = item.querySelector<HTMLElement>(
+      ":scope > .langscape-tree-label-row > .langscape-tree-label"
+    );
+    if (!label) return;
+    const labelRect = label.getBoundingClientRect();
+
+    let x = labelRect.left + labelRect.width / 2;
+    let y = labelRect.top;
     if (target.mode === "child") {
-      let container = target.item.querySelector<HTMLElement>(
+      const container = item.querySelector<HTMLElement>(
         ":scope > .langscape-tree-children"
       );
-      if (!container) {
-        container = doc.createElement("div");
-        container.className = "langscape-tree-children";
-        target.item.appendChild(container);
-        drag.createdContainer = container as HTMLDivElement;
+      const childLabels = container
+        ? [...container.children]
+            .filter(
+              (child): child is HTMLElement =>
+                child instanceof HTMLElement &&
+                child.classList.contains("langscape-tree-node") &&
+                child !== drag.source
+            )
+            .map((child) =>
+              child.querySelector<HTMLElement>(
+                ":scope > .langscape-tree-label-row > .langscape-tree-label"
+              )
+            )
+            .filter((childLabel): childLabel is HTMLElement => Boolean(childLabel))
+        : [];
+      if (childLabels.length === 0) {
+        x = labelRect.left + labelRect.width / 2;
+        y = labelRect.bottom + 32;
+      } else if (target.index < childLabels.length) {
+        const first = childLabels[target.index].getBoundingClientRect();
+        x = first.left - 8;
+        y = first.top;
+      } else {
+        const last = childLabels[childLabels.length - 1].getBoundingClientRect();
+        x = last.right + 8;
+        y = last.top;
       }
-      const siblings = [...container.children].filter(
-        (child): child is HTMLElement =>
-          child instanceof HTMLElement &&
-          child.classList.contains("langscape-tree-node") &&
-          child !== drag.source &&
-          child !== drag.preview
-      );
-      container.insertBefore(drag.preview, siblings[target.index] ?? null);
+    } else if (target.mode === "before") {
+      x = labelRect.left - 8;
     } else {
-      const parent = target.item.parentElement;
-      if (!parent) {
-        resetPreview();
-        return;
-      }
-      parent.insertBefore(
-        drag.preview,
-        target.mode === "before" ? target.item : target.item.nextSibling
-      );
+      x = labelRect.right + 8;
     }
-    redrawSoon();
+    positionGhost(x, y);
+  };
+
+  const drawDragOverlay = (drag: DragState) => {
+    const win = doc.defaultView;
+    const width = win?.innerWidth ?? 0;
+    const height = win?.innerHeight ?? 0;
+    if (!width || !height) return;
+    const svg = drag.overlay;
+    svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+    svg.setAttribute("width", String(width));
+    svg.setAttribute("height", String(height));
+    svg.replaceChildren();
+
+    const addLine = (
+      x1: number,
+      y1: number,
+      x2: number,
+      y2: number
+    ) => {
+      const line = doc.createElementNS("http://www.w3.org/2000/svg", "line");
+      line.setAttribute("x1", String(x1));
+      line.setAttribute("y1", String(y1));
+      line.setAttribute("x2", String(x2));
+      line.setAttribute("y2", String(y2));
+      line.setAttribute("stroke", "currentColor");
+      line.setAttribute("stroke-width", "1.5");
+      svg.appendChild(line);
+    };
+
+    for (const parent of drag.preview.querySelectorAll<HTMLElement>(
+      ".langscape-tree-node"
+    )) {
+      const parentLabel = parent.querySelector<HTMLElement>(
+        ":scope > .langscape-tree-label-row > .langscape-tree-label"
+      );
+      const children = parent.querySelector<HTMLElement>(
+        ":scope > .langscape-tree-children"
+      );
+      if (!parentLabel || !children) continue;
+      const parentRect = parentLabel.getBoundingClientRect();
+      for (const child of children.querySelectorAll<HTMLElement>(
+        ":scope > .langscape-tree-node"
+      )) {
+        const childLabel = child.querySelector<HTMLElement>(
+          ":scope > .langscape-tree-label-row > .langscape-tree-label"
+        );
+        if (!childLabel) continue;
+        const childRect = childLabel.getBoundingClientRect();
+        addLine(
+          parentRect.left + parentRect.width / 2,
+          parentRect.bottom,
+          childRect.left + childRect.width / 2,
+          childRect.top
+        );
+      }
+    }
+
+    const target = drag.target;
+    const ghostLabel = drag.preview.querySelector<HTMLElement>(
+      ":scope > .langscape-tree-label-row > .langscape-tree-label"
+    );
+    if (!target || !ghostLabel) return;
+    const parentNode =
+      target.mode === "child" ? target.node : parentByNode.get(target.node);
+    const parentItem = parentNode ? itemByNode.get(parentNode) : undefined;
+    const parentLabel = parentItem?.querySelector<HTMLElement>(
+      ":scope > .langscape-tree-label-row > .langscape-tree-label"
+    );
+    if (!parentLabel) return;
+    const parentRect = parentLabel.getBoundingClientRect();
+    const ghostRect = ghostLabel.getBoundingClientRect();
+    addLine(
+      parentRect.left + parentRect.width / 2,
+      parentRect.bottom,
+      ghostRect.left + ghostRect.width / 2,
+      ghostRect.top
+    );
   };
 
   const setAlignment = (next: TreeAlignment) => {
@@ -400,32 +480,34 @@ export function renderSyntaxTree(
     input.select();
   };
 
-  const startDrag = (context: NodeContext, _event: PointerEvent): boolean => {
+  const startDrag = (context: NodeContext, event: PointerEvent): boolean => {
     if (!editable || !context.parent || currentDrag) return false;
-    const homeParent = context.item.parentElement;
-    if (!homeParent) return false;
     const preview = context.item.cloneNode(true) as HTMLDivElement;
-    preview.classList.add("is-drag-ghost");
+    preview.classList.add("langscape-tree-drag-preview", "is-drag-ghost");
     preview.querySelectorAll(
       ".langscape-tree-add, .langscape-tree-delete, .langscape-tree-edit"
     ).forEach((element) => element.remove());
     preview.querySelectorAll("[tabindex]").forEach((element) => {
       element.removeAttribute("tabindex");
     });
+    doc.body.appendChild(preview);
+
+    const overlay = doc.createElementNS("http://www.w3.org/2000/svg", "svg");
+    overlay.classList.add("langscape-tree-drag-overlay");
+    overlay.setAttribute("aria-hidden", "true");
+    doc.body.appendChild(overlay);
+
     context.item.classList.add("is-dragging-source");
-    homeParent.insertBefore(preview, context.item);
     currentDrag = {
       node: context.node,
       parent: context.parent,
       source: context.item,
       preview,
-      homeParent,
-      homeNext: context.item,
-      createdContainer: null,
+      overlay,
       target: null,
-      targetPoint: null,
     };
     redrawSoon();
+    positionGhost(event.clientX + 16, event.clientY + 16);
     return true;
   };
 
@@ -471,49 +553,26 @@ export function renderSyntaxTree(
       !isDescendant(drag.node, targetNode) &&
       (mode === "child" || Boolean(targetParent));
 
-    if (drag.target) {
-      const distance = drag.targetPoint
-        ? Math.hypot(
-            event.clientX - drag.targetPoint.x,
-            event.clientY - drag.targetPoint.y
-          )
-        : Number.POSITIVE_INFINITY;
-      const sameNodeAndMode =
-        drag.target.item === item && drag.target.mode === mode;
-      if (sameNodeAndMode) {
-        // Small horizontal moves can refine the child index without
-        // re-evaluating the target node itself.
-        if (drag.target.index !== index && distance >= 8) {
-          drag.target.index = index;
-          placePreview(drag.target);
-        }
-        drag.targetPoint = { x: event.clientX, y: event.clientY };
-        return;
-      }
-      if (distance < 14) {
-        // The preview can shift the node under the pointer. Keep the current
-        // target until the pointer has moved far enough to be intentional.
-        return;
-      }
-    }
-
     if (!valid || !item || !targetNode) {
-      if (drag.target) {
-        drag.target = null;
-        resetPreview();
-      }
-      drag.targetPoint = { x: event.clientX, y: event.clientY };
+      drag.target = null;
+      positionGhost(event.clientX + 16, event.clientY + 16);
       return;
     }
 
-    drag.target = {
-      node: targetNode,
-      item: item as HTMLDivElement,
-      mode,
-      index,
-    };
-    drag.targetPoint = { x: event.clientX, y: event.clientY };
-    placePreview(drag.target);
+    if (
+      !drag.target ||
+      drag.target.item !== item ||
+      drag.target.mode !== mode ||
+      drag.target.index !== index
+    ) {
+      drag.target = {
+        node: targetNode,
+        item: item as HTMLDivElement,
+        mode,
+        index,
+      };
+      positionGhostForTarget(drag.target);
+    }
   };
 
   const finishDrag = (dropped: boolean) => {
@@ -521,10 +580,8 @@ export function renderSyntaxTree(
     if (!drag) return;
     currentDrag = null;
     drag.preview.remove();
+    drag.overlay.remove();
     drag.source.classList.remove("is-dragging-source");
-    if (drag.createdContainer && !drag.createdContainer.querySelector(".langscape-tree-node")) {
-      drag.createdContainer.remove();
-    }
 
     if (!dropped || !drag.target) {
       redrawSoon();
@@ -534,11 +591,15 @@ export function renderSyntaxTree(
     const newParent =
       target.mode === "child" ? target.node : parentByNode.get(target.node) ?? null;
     if (!newParent || newParent === drag.node || isDescendant(drag.node, newParent)) {
+      redrawSoon();
       return;
     }
 
     const oldIndex = drag.parent.children.indexOf(drag.node);
-    if (oldIndex < 0) return;
+    if (oldIndex < 0) {
+      redrawSoon();
+      return;
+    }
     drag.parent.children.splice(oldIndex, 1);
 
     let index: number;
@@ -547,8 +608,8 @@ export function renderSyntaxTree(
     } else {
       index = newParent.children.indexOf(target.node);
       if (index < 0) {
-        // Target disappeared mid-drag; put the node back where it was.
         drag.parent.children.splice(oldIndex, 0, drag.node);
+        redrawSoon();
         return;
       }
       if (target.mode === "after") index++;
@@ -900,8 +961,11 @@ function drawEdges(tree: HTMLElement, svg: SVGSVGElement): void {
       line.setAttribute("y2", String(childRect.top - treeRect.top));
       line.setAttribute("stroke-width", "1");
       line.setAttribute("stroke", "currentColor");
-      if (parent.closest(".is-drag-ghost") || child.closest(".is-drag-ghost")) {
-        line.classList.add("is-drag-edge");
+      if (
+        parent.closest(".is-dragging-source") ||
+        child.closest(".is-dragging-source")
+      ) {
+        continue;
       }
       svg.appendChild(line);
     }

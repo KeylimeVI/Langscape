@@ -1308,7 +1308,7 @@ body.theme-light {
 }
 
 .langscape-tree-node.is-dragging-source {
-  display: none;
+  visibility: hidden;
 }
 
 .langscape-tree-node.is-drag-ghost {
@@ -1316,14 +1316,27 @@ body.theme-light {
   opacity: 0.9;
 }
 
+.langscape-tree-drag-preview {
+  position: fixed;
+  z-index: 9998;
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+
+.langscape-tree-drag-overlay {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: visible;
+  pointer-events: none;
+  color: var(--text-accent);
+  z-index: 9997;
+}
+
 .langscape-tree-node.is-drag-ghost .langscape-tree-label,
 .langscape-tree-node.is-drag-ghost .langscape-tree-label * {
   color: var(--text-accent) !important;
-}
-
-.langscape-tree-edges line.is-drag-edge {
-  stroke: var(--text-accent);
-  stroke-width: 1.5px;
 }
 
 .langscape-tree-empty {
