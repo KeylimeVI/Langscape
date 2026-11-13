@@ -72,7 +72,6 @@ export function renderSyntaxTree(
   const byItem = new Map<HTMLElement, SyntaxTreeNode>();
   const itemByNode = new Map<SyntaxTreeNode, HTMLDivElement>();
   const parentByNode = new Map<SyntaxTreeNode, SyntaxTreeNode | null>();
-  const depthByNode = new Map<SyntaxTreeNode, number>();
   const editable = Boolean(actions.onChange);
 
   let currentDrag: DragState | null = null;
@@ -135,83 +134,88 @@ export function renderSyntaxTree(
   ): { node: SyntaxTreeNode; item: HTMLDivElement; index: number } | null => {
     const drag = currentDrag;
     if (!drag) return null;
-    const dragDepth = depthByNode.get(drag.node);
-    if (dragDepth === undefined || dragDepth <= 0) return null;
 
     type ParentEntry = {
       node: SyntaxTreeNode;
       item: HTMLDivElement;
       label: HTMLElement;
+      bottom: number;
     };
     type SlotEntry = {
       parent: ParentEntry;
       index: number;
       center: number;
-      top: number;
       parentSlot: boolean;
     };
 
-    const parents: ParentEntry[] = [];
+    // Find every parent whose label-to-children band contains the cursor.
+    // The shallowest matches are discarded; the deepest row is the cursor's
+    // actual layer, independent of the dragged node's own depth.
+    const candidates: ParentEntry[] = [];
     for (const [node, item] of itemByNode) {
-      if (depthByNode.get(node) !== dragDepth - 1) continue;
+      if (node.children.length === 0) continue;
       if (node === drag.node || isDescendant(drag.node, node)) continue;
       const label = item.querySelector<HTMLElement>(
         ":scope > .langscape-tree-label-row > .langscape-tree-label"
       );
       if (!label) continue;
-      parents.push({ node, item, label });
-    }
-    if (parents.length === 0) return null;
-
-    const slots: SlotEntry[] = [];
-    let parentBottom = Number.NEGATIVE_INFINITY;
-    let childTop = Number.POSITIVE_INFINITY;
-    let hasChildRow = false;
-    for (const parent of parents) {
-      const labelRect = parent.label.getBoundingClientRect();
+      const childTops: number[] = [];
+      for (const child of node.children) {
+        const childItem = itemByNode.get(child);
+        if (!childItem) continue;
+        const childLabel = childItem.querySelector<HTMLElement>(
+          ":scope > .langscape-tree-label-row > .langscape-tree-label"
+        );
+        const rect = childLabel?.getBoundingClientRect();
+        if (rect && rect.width) childTops.push(rect.top);
+      }
+      if (childTops.length === 0) continue;
+      const labelRect = label.getBoundingClientRect();
       if (!labelRect.width) continue;
-      parentBottom = Math.max(parentBottom, labelRect.bottom);
+      const childTop = Math.min(...childTops);
+      if (clientY < labelRect.bottom || clientY > childTop + 1) continue;
+      candidates.push({
+        node,
+        item,
+        label,
+        bottom: labelRect.bottom,
+      });
+    }
+    if (candidates.length === 0) return null;
 
+    const bestBottom = Math.max(...candidates.map((candidate) => candidate.bottom));
+    const layer = candidates.filter((candidate) => candidate.bottom >= bestBottom - 2);
+    const slots: SlotEntry[] = [];
+    for (const parent of layer) {
       const remaining = parent.node.children.filter((child) => child !== drag.node);
-      let visibleChildren = 0;
+      let visible = 0;
       for (let index = 0; index < remaining.length; index++) {
-        const child = remaining[index];
-        const item = itemByNode.get(child);
+        const item = itemByNode.get(remaining[index]);
         if (!item) continue;
         const childLabel = item.querySelector<HTMLElement>(
           ":scope > .langscape-tree-label-row > .langscape-tree-label"
         );
         const rect = childLabel?.getBoundingClientRect();
         if (!rect || !rect.width) continue;
-        visibleChildren++;
-        hasChildRow = true;
-        childTop = Math.min(childTop, rect.top);
+        visible++;
         slots.push({
           parent,
           index,
           center: rect.left + rect.width / 2,
-          top: rect.top,
           parentSlot: false,
         });
       }
-      if (visibleChildren === 0) {
-        // A candidate parent with no children left still gets one target slot
-        // under its own label, so leaves at the layer remain reachable.
+      if (visible === 0) {
+        const rect = parent.label.getBoundingClientRect();
         slots.push({
           parent,
           index: 0,
-          center: labelRect.left + labelRect.width / 2,
-          top: labelRect.bottom,
+          center: rect.left + rect.width / 2,
           parentSlot: true,
         });
       }
     }
-    if (!hasChildRow || slots.length === 0 || !Number.isFinite(parentBottom)) {
-      return null;
-    }
-    // The layer band runs from just below the parent row to the top of the
-    // child row.
-    if (clientY < parentBottom || clientY > childTop + 1) return null;
+    if (slots.length === 0) return null;
 
     slots.sort((a, b) => a.center - b.center);
     const first = slots[0];
@@ -537,49 +541,28 @@ export function renderSyntaxTree(
     );
     const rect = label?.getBoundingClientRect();
 
-    const dragDepth = depthByNode.get(drag.node);
-    const targetDepth = targetNode ? depthByNode.get(targetNode) : undefined;
-    const overLabel = Boolean(
-      rect &&
-        rect.width > 0 &&
-        event.clientY >= rect.top &&
-        event.clientY <= rect.bottom
-    );
-
     let mode: DropMode = "child";
-    let index = -1;
-    let valid = false;
-    if (gapTarget && item && targetNode) {
-      mode = "child";
-      index = gapTarget.index;
-      valid = true;
-    } else if (
-      item &&
+    if (
+      !gapTarget &&
       targetNode &&
-      dragDepth !== undefined &&
-      targetDepth === dragDepth - 1
+      targetParent &&
+      rect &&
+      rect.width > 0 &&
+      event.clientY >= rect.top &&
+      event.clientY <= rect.bottom
     ) {
-      // Only nodes one level above the dragged node can become its parent.
-      mode = "child";
-      index = childIndexAt(item, event.clientX);
-      valid = true;
-    } else if (
-      item &&
-      targetNode &&
-      dragDepth !== undefined &&
-      targetDepth === dragDepth &&
-      overLabel
-    ) {
-      // Same-level targets are only useful for sibling reordering.
-      mode =
-        event.clientX < (rect?.left ?? 0) + (rect?.width ?? 0) / 2
-          ? "before"
-          : "after";
-      valid = true;
+      const ratio = (event.clientX - rect.left) / rect.width;
+      if (ratio < 0.28) mode = "before";
+      else if (ratio > 0.72) mode = "after";
     }
+    const index = gapTarget
+      ? gapTarget.index
+      : item && mode === "child"
+        ? childIndexAt(item, event.clientX)
+        : -1;
 
-    valid =
-      valid &&
+    const valid =
+      Boolean(item) &&
       Boolean(targetNode) &&
       targetNode !== drag.node &&
       !isDescendant(drag.node, targetNode as SyntaxTreeNode) &&
@@ -747,7 +730,6 @@ export function renderSyntaxTree(
     byItem.set(item, node);
     itemByNode.set(node, item);
     parentByNode.set(node, parent);
-    depthByNode.set(node, level - 1);
     bindLabel(context);
 
     if (editable) {
