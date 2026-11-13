@@ -27,6 +27,16 @@ A short, no-voiceover tour of fonts, Lexurgy, pipelines, and Bases:
 
 [![Langscape overview poster](docs/video/langscape-overview-poster.jpg)](docs/video/langscape-overview.webm)
 
+## Trailer
+
+A 25-second motion-graphic trailer in Langscape's near-black and green-turquoise palette. No voiceover; the feature copy and app stills do the talking.
+
+[Watch the Langscape trailer](docs/video/langscape-trailer.mp4)
+
+[![Langscape trailer poster](docs/video/langscape-trailer-poster.jpg)](docs/video/langscape-trailer.mp4)
+
+The Remotion source is in [`trailer/`](trailer/); run `npm install && npm run render` there to rebuild it.
+
 ## Features
 
 - **Custom fonts everywhere** — drop `.ttf`, `.otf`, `.woff`, or `.woff2` files anywhere in the vault. Use `{nickname: text}` inline, or set a font for an entire note with `langscape-font` frontmatter. Fonts render in Live Preview, Reading view, and exported HTML/PDF.
