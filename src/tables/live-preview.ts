@@ -349,7 +349,11 @@ export class MergedTableController {
         }
       }
       const selection = this.selections.get(tableEl);
-      paintSelection(tableEl, layout, selection ? selectionRect(selection, meta.table) : null);
+      paintSelection(
+        tableEl,
+        layout,
+        selection ? expandRect(meta.table, layout, selectionRect(selection, meta.table)) : null
+      );
       this.bind(tableEl);
 
       if (hasMarkers(meta.table) && hasRightMarker(meta.table)) normalize = meta;
@@ -480,7 +484,12 @@ export class MergedTableController {
   ): void {
     this.selections.set(tableEl, selection);
     this.selectionByLine.set(meta.startLine, { state: selection, at: Date.now() });
-    paintSelection(tableEl, resolveLayout(meta.table), selectionRect(selection, meta.table));
+    const layout = resolveLayout(meta.table);
+    paintSelection(
+      tableEl,
+      layout,
+      expandRect(meta.table, layout, selectionRect(selection, meta.table))
+    );
   }
 
   private bind(tableEl: HTMLTableElement): void {

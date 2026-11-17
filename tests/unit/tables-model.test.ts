@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   cellIndexForColumn,
   escapeCell,
+  expandRect,
   findTable,
   findTables,
   mergeDirectionally,
@@ -154,6 +155,18 @@ describe("merge layout", () => {
     expect(layout.warnings[0]).toContain("not a rectangle");
   });
 
+  it("expands an L-shaped selection to the full bounding rectangle", () => {
+    const parsed = table([
+      "| A | B | C |",
+      "| --- | --- | --- |",
+      "| v | x | y |",
+      "| ^ | h | < |",
+    ]);
+    const layout = resolveLayout(parsed);
+    const rect = expandRect(parsed, layout, { r1: 1, c1: 0, r2: 2, c2: 1 });
+    expect(rect).toEqual({ r1: 1, c1: 0, r2: 2, c2: 2 });
+  });
+
   it("does not merge across the header/body boundary", () => {
     const parsed = table([
       "| A | B |",
@@ -218,6 +231,20 @@ describe("merge and split", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.rect).toEqual({ r1: 1, c1: 0, r2: 2, c2: 1 });
+  });
+
+  it("merges the full rectangle when a selection touches adjacent merges", () => {
+    const parsed = table([
+      "| A | B | C |",
+      "| --- | --- | --- |",
+      "| v | x | y |",
+      "| ^ | h | < |",
+    ]);
+    const result = mergeSelection(parsed, { r1: 1, c1: 0, r2: 2, c2: 1 });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.rect).toEqual({ r1: 1, c1: 0, r2: 2, c2: 2 });
+    expect(result.rows[1][0].text).toBe("v x y h");
   });
 
   it("splits a merged rectangle and clears markers", () => {
