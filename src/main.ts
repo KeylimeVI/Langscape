@@ -96,7 +96,7 @@ export default class LangscapePlugin extends Plugin {
     this.registerMarkdownPostProcessor(createMergedTablePostProcessor(this.app));
     this.registerMarkdownPostProcessor(createFontPostProcessor(this.fontManager, this.app));
     this.registerEditorExtension(createSyntaxTreeExtension(this.fontManager, this.app));
-    this.registerEditorExtension(createMergedTableExtension(this.app));
+    this.registerEditorExtension(createMergedTableExtension(this.app, this.fontManager));
     this.register(installTableMenuPatch());
     this.registerEditorExtension(createFontLivePreviewExtension(this.fontManager));
     this.registerEditorExtension(createNoteFontExtension(this.fontManager));

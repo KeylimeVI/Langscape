@@ -1,6 +1,8 @@
 import { Menu, Notice, type App } from "obsidian";
 import { Transaction, type Extension, type Text } from "@codemirror/state";
 import { ViewPlugin, type EditorView, type ViewUpdate } from "@codemirror/view";
+import type { FontManager } from "../fonts/manager";
+import { decorateFontSpans } from "../fonts/render";
 import {
   expandRect,
   findTables,
@@ -169,13 +171,13 @@ function groupSpanAt(table: MarkdownTable, r: number, c: number): number {
  * cell to a source position. Covered cells are therefore hidden rather than
  * removed, which keeps cell editing and source mapping intact.
  */
-export function createMergedTableExtension(app: App): Extension {
+export function createMergedTableExtension(app: App, fontManager?: FontManager): Extension {
   return ViewPlugin.fromClass(
     class {
       private readonly controller: MergedTableController;
 
       constructor(view: EditorView) {
-        this.controller = new MergedTableController(app, view);
+        this.controller = new MergedTableController(app, view, fontManager);
       }
 
       update(update: ViewUpdate): void {
@@ -204,7 +206,8 @@ export class MergedTableController {
 
   constructor(
     private readonly app: App,
-    private readonly view: EditorView
+    private readonly view: EditorView,
+    private readonly fontManager?: FontManager
   ) {
     const doc = this.view.dom.ownerDocument;
     const clearOutside = (event: PointerEvent): void => {
@@ -218,6 +221,14 @@ export class MergedTableController {
     };
     doc.addEventListener("pointerdown", clearOutside, true);
     this.cleanup.push(() => doc.removeEventListener("pointerdown", clearOutside, true));
+
+    // Obsidian swaps a table cell between its static wrapper and a nested
+    // editor. Re-scan when that happens so the static wrapper is decorated
+    // again after editing.
+    const observer = new MutationObserver(() => this.scheduleScan());
+    observer.observe(this.view.contentDOM, { childList: true, subtree: true });
+    this.cleanup.push(() => observer.disconnect());
+
     this.scheduleScan();
   }
 
@@ -354,6 +365,7 @@ export class MergedTableController {
         layout,
         selection ? expandRect(meta.table, layout, selectionRect(selection, meta.table)) : null
       );
+      this.decorateStaticCells(tableEl);
       this.bind(tableEl);
 
       if (hasMarkers(meta.table) && hasRightMarker(meta.table)) normalize = meta;
@@ -371,6 +383,18 @@ export class MergedTableController {
     }
 
     if (normalize) this.normalizeTable(normalize);
+  }
+
+  private decorateStaticCells(tableEl: HTMLTableElement): void {
+    if (!this.fontManager) return;
+    for (const wrapper of tableEl.querySelectorAll<HTMLElement>(".table-cell-wrapper")) {
+      if (wrapper.style.display === "none") continue;
+      if (wrapper.querySelector(".cm-editor, .cm-s-obsidian")) continue;
+      if (wrapper.querySelector(".langscape-font")) continue;
+      const text = wrapper.textContent ?? "";
+      if (!text.includes("{") && !text.includes("'''")) continue;
+      decorateFontSpans(wrapper, this.fontManager);
+    }
   }
 
   private focusCell(tableEl: HTMLTableElement, meta: TableMeta, r: number, c: number): void {
@@ -590,6 +614,12 @@ export class MergedTableController {
         event.stopPropagation();
         this.applyRows(tableEl, meta, result.rows, { r: result.rect.r1, c: result.rect.c1 });
       },
+      true
+    );
+
+    tableEl.addEventListener(
+      "focusout",
+      () => this.scheduleScan(),
       true
     );
 

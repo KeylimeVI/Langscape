@@ -19,7 +19,7 @@ function fakeViewWith(sourceText: string, rows: string[][]) {
   const head = rows[0].map((text) => `<th>${text}</th>`).join("");
   const body = rows
     .slice(1)
-    .map((row) => `<tr>${row.map((text) => `<td>${text}</td>`).join("")}</tr>`)
+    .map((row) => `<tr>${row.map((text) => `<td><div class="table-cell-wrapper">${text}</div></td>`).join("")}</tr>`)
     .join("");
   table.innerHTML = `<thead><tr>${head}</tr></thead><tbody>${body}</tbody>`;
   widget.appendChild(table);
@@ -183,6 +183,32 @@ describe("Live Preview table controller", () => {
       }
     }
     expect(cellAt(0, 2)!.classList.contains("langscape-table-selected")).toBe(false);
+    controller.destroy();
+  });
+
+  it("decorates a raw font span in a static table cell", () => {
+    const fontSource = ["| A | B |", "| --- | --- |", "| x | {gothic: 𐌰} |"].join("\n");
+    const fake = fakeViewWith(fontSource, [
+      ["A", "B"],
+      ["x", "{gothic: 𐌰}"],
+    ]);
+    const fontManager = {
+      find: (name: string) =>
+        name.toLowerCase() === "gothic"
+          ? {
+              id: "gothic",
+              family: "Noto Sans Gothic",
+              displayName: "Noto Sans Gothic",
+              nickname: "gothic",
+              className: "langscape-font-gothic",
+              source: "vault",
+            }
+          : undefined,
+    };
+    const controller = new MergedTableController({} as any, fake.view as any, fontManager as any);
+    fake.attach(controller);
+    (controller as any).scan();
+    expect(fake.table.querySelector("td .langscape-font")?.textContent).toBe("𐌰");
     controller.destroy();
   });
 
