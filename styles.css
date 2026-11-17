@@ -1491,11 +1491,14 @@ table.langscape-table-selecting * {
   vertical-align: middle !important;
 }
 
+/* Obsidian hides this wrapper with an inline display:none while a cell is
+   being edited. Do not use !important on display, or the old text stays visible
+   and the cell editor is pushed below the merged cell. */
 .markdown-source-view.mod-cm6
   .langscape-merged-table
   .langscape-table-anchor
   > .table-cell-wrapper {
-  display: flex !important;
+  display: flex;
   flex-direction: column;
   justify-content: center;
   height: 100% !important;
