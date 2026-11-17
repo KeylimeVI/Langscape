@@ -36,6 +36,18 @@ import { LangscapeSettingTab } from "./settings-ui";
 import { SOUNDCHANGE_VIEW_TYPE, SoundChangeView } from "./soundchange/view";
 import { NEW_LSC_TEMPLATE } from "./soundchange/template";
 import {
+  addTableMenuItems,
+  hasTableAtCursor,
+  insertTable,
+  mergeTableCells,
+  splitTableCell,
+} from "./tables/actions";
+import {
+  createMergedTableExtension,
+  installTableMenuPatch,
+} from "./tables/live-preview";
+import { createMergedTablePostProcessor } from "./tables/postprocess";
+import {
   createSyntaxTreeExtension,
   refreshSyntaxTrees,
 } from "./trees/editor";
@@ -79,8 +91,11 @@ export default class LangscapePlugin extends Plugin {
     // and the tree parser needs to see the raw braces. The tree renderer applies
     // fonts inside each label itself.
     this.registerMarkdownPostProcessor(createSyntaxTreePostProcessor(this.fontManager));
+    this.registerMarkdownPostProcessor(createMergedTablePostProcessor(this.app));
     this.registerMarkdownPostProcessor(createFontPostProcessor(this.fontManager, this.app));
     this.registerEditorExtension(createSyntaxTreeExtension(this.fontManager, this.app));
+    this.registerEditorExtension(createMergedTableExtension(this.app));
+    this.register(installTableMenuPatch());
     this.registerEditorExtension(createFontLivePreviewExtension(this.fontManager));
     this.registerEditorExtension(createNoteFontExtension(this.fontManager));
     this.registerMarkdownCodeBlockProcessor("langscape", createPipelineCodeBlockProcessor(this));
@@ -94,6 +109,7 @@ export default class LangscapePlugin extends Plugin {
     this.addRibbonIcons();
     this.registerEvent(
       this.app.workspace.on("editor-menu", (menu, editor) => {
+        if (!this.app.workspace.getActiveViewOfType(MarkdownView)) return;
         menu.addItem((item) => {
           item
             .setTitle("Syntax tree")
@@ -101,6 +117,20 @@ export default class LangscapePlugin extends Plugin {
             .setSection("selection.insert.basic")
             .onClick(() => this.insertSyntaxTree(editor));
         });
+        menu.addItem((item) => {
+          item
+            .setTitle("Table")
+            .setIcon("table-2")
+            .setSection("selection.insert.basic")
+            .onClick(() => insertTable(editor));
+        });
+      })
+    );
+
+    this.registerEvent(
+      this.app.workspace.on("editor-menu", (menu, editor) => {
+        if (!this.app.workspace.getActiveViewOfType(MarkdownView)) return;
+        addTableMenuItems(menu, editor);
       })
     );
 
@@ -677,6 +707,46 @@ export default class LangscapePlugin extends Plugin {
         if (!this.app.workspace.getActiveViewOfType(MarkdownView)) return false;
         if (checking) return true;
         this.insertSyntaxTree();
+        return true;
+      },
+    });
+
+    this.addCommand({
+      id: "insert-table",
+      name: "Insert table",
+      checkCallback: (checking) => {
+        const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+        if (!view || view.getMode() === "preview") return false;
+        if (checking) return true;
+        insertTable(view.editor);
+        return true;
+      },
+    });
+
+    this.addCommand({
+      id: "merge-table-cells",
+      name: "Merge table cells",
+      checkCallback: (checking) => {
+        const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+        if (!view || view.getMode() === "preview" || !hasTableAtCursor(view.editor)) {
+          return false;
+        }
+        if (checking) return true;
+        mergeTableCells(view.editor);
+        return true;
+      },
+    });
+
+    this.addCommand({
+      id: "split-table-cell",
+      name: "Split merged table cell",
+      checkCallback: (checking) => {
+        const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+        if (!view || view.getMode() === "preview" || !hasTableAtCursor(view.editor)) {
+          return false;
+        }
+        if (checking) return true;
+        splitTableCell(view.editor);
         return true;
       },
     });

@@ -9,6 +9,7 @@ main.ts
   ├─ FontManager ── font-name.ts / css.ts / spans.ts / render.ts / modal.ts
   ├─ LexurgyService ── locator.ts / server.ts / protocol.ts / installer.ts / release.ts
   ├─ SoundChangeView ── editor.ts / language.ts / outline.ts / panel.ts
+  ├─ merged tables ── model.ts / render.ts / live-preview.ts / postprocess.ts / actions.ts
   └─ code block + canvas menu ── model.ts / words.ts / runner.ts / writer.ts
 ```
 
@@ -18,6 +19,14 @@ main.ts
 - `buildFontCss()` emits `@font-face` and per-font classes. The CSS is injected into a single `<style>` element and regenerated on refresh. Reading view uses a Markdown post-processor that walks text nodes; Live Preview uses CodeMirror decorations. A separate editor extension handles note-level `langscape-font` frontmatter by marking the document text.
 - `FontDomDecorator` watches Bases views and applies the same text-node decoration outside the Markdown post-processor pipeline. Bases metadata cells are contenteditable even while idle; the decorator restores the original markup on focus and re-decorates after blur so the font syntax is not lost when the cell is saved.
 - Font markup is intentionally parsed without touching the Markdown AST: the preferred `{nickname: text}` form (plus the earlier `'''nickname text'''` and legacy `{font:Name|text}` forms) survives Markdown rendering and is rewritten in text nodes, so links/emphasis outside the span keep working. Spans stay inline and cannot cross a line break.
+
+### Merged table cells
+
+- A regular Markdown table stores merges as cell content: `<` joins left, `^` joins up, and `>` joins right. The model parses the table, resolves marker components with union-find, rejects non-rectangular groups, and computes the `rowspan`/`colspan` layout. Source formatting (padding, alignment row, escaped pipes) is preserved when a row is rewritten.
+- Reading view uses an async Markdown post-processor. It prefers the note's source lines (so escaped markers are not mistaken for merges) and falls back to the rendered cells for embeds. Text in a `>` group is moved into the top-left anchor because HTML `colspan` can only grow rightwards.
+- Live Preview is a CodeMirror `ViewPlugin`. It locates the source table for each `.cm-table-widget` table, applies spans to the existing cells, and hides covered cells with CSS instead of removing them. Keeping every cell in the DOM preserves Obsidian's cell-to-source mapping and editing behaviour. A layout signature avoids touching the DOM while the user is typing.
+- Cell selection is pointer-based (drag or Shift-click). Obsidian does not emit `editor-menu` for Live Preview table cells, so the native table menu is augmented by wrapping `Menu.showAtMouseEvent`/`showAtPosition` while a table context is pending. Its merge actions write markers back to the source through a CM transaction; typing `<`, `^`, or `>` in an empty cell performs the same edit immediately and moves focus to the merged cell. `>` source is normalized to `<` for formats that arrive from pasted text.
+- Commands and the editor context menu cover Source mode: merge selection, split cell, and insert table. All edits are ordinary Markdown changes, so undo and file history work normally.
 
 ### Lexurgy
 
@@ -42,7 +51,7 @@ main.ts
 
 ## Testing strategy
 
-- Unit tests cover parsing, CSS generation, OpenType name tables, span rendering, graph validation, word extraction, output rendering, file collision rules, trace grouping/stage parsing, and the Lexurgy wire protocol.
+- Unit tests cover parsing, CSS generation, OpenType name tables, span rendering, graph validation, word extraction, output rendering, file collision rules, trace grouping/stage parsing, merged-table layout/merge/split/serialization, and the Lexurgy wire protocol.
 - Integration tests launch the real Lexurgy 1.7.7 JVM when `.tools/lexurgy.zip` and Java are available, exercising extraction, detection, loading, applying, tracing, and error reporting.
 - `scripts/e2e-obsidian.mjs` launches a disposable real Obsidian vault through Electron's devtools protocol, loads the built plugin, creates the starter vault, runs the pipeline and a single-output branch, exercises the canvas add-step menu, checks generated notes and card errors, verifies font and syntax rendering, opens the `.lsc` view/test bench, and inspects the settings tab. It is intentionally outside `npm test` because it needs a desktop session and a downloaded Obsidian build.
 

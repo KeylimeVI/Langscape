@@ -41,6 +41,7 @@ The Remotion source is in [`trailer/`](trailer/); run `npm install && npm run re
 
 - **Custom fonts everywhere** — drop `.ttf`, `.otf`, `.woff`, or `.woff2` files anywhere in the vault. Use `{nickname: text}` inline, or set a font for an entire note with `langscape-font` frontmatter. Fonts render in Live Preview, Reading view, and exported HTML/PDF.
 - **Syntax trees** — write a tree on its own Markdown line with `{tree: ...}`. Node labels can use custom fonts, and trees render in Live Preview, Reading view, and exported HTML.
+- **Merged table cells** — select cells and right-click to merge or split them, or type `<`, `^`, or `>` in an empty cell to join it to the cell in that direction. Merges render in Live Preview, Reading view, and exports while the note stays plain Markdown.
 - **Sound-change workbench** — `.lsc` files open in a dedicated editor with Lexurgy syntax highlighting, live validation, and a test bench with rule-by-rule traces.
 - **Lexurgy integration** — Langscape runs the official Lexurgy CLI as a persistent local server, so applying changes is fast. Install or update the official CLI from settings, or point at an existing installation.
 - **Canvas pipelines** — the canvas header has a Langscape menu for adding sources, sound changes, and outputs. Connect the cards with arrows, then press **Run** on an output card. **Run all** is in the same canvas menu.
@@ -153,6 +154,28 @@ Use **Langscape: Insert custom-font text** or the ribbon type icon to pick a fon
 Table and card values using `{nickname: text}` are decorated live. Clicking into a Bases metadata cell temporarily restores the original markup so the value is not saved back without its font span.
 
 ![Custom font in a Bases table](docs/screenshots/bases-font.png)
+
+## Tables
+
+Ordinary Markdown tables can merge cells without turning into HTML. A cell whose only content is `<`, `^`, or `>` joins the cell in that direction:
+
+```markdown
+| Region | Q1 | < | Q2 | < |
+| --- | --- | --- | --- | --- |
+| North | 10 | 12 | 14 | 16 |
+| South | 8 | 9 | 11 | 13 |
+| ^ | 22 | 28 | 30 | 34 |
+```
+
+Here `Q1` spans two columns, `Q2` spans two columns, and `North` spans two rows. The markers stay in the source, so the file is still an ordinary Markdown table.
+
+- **Drag across cells** (or Shift-click) and **right-click** to get **Merge cells**, **Split cells**, and **Merge with left/right/above/below cell**.
+- In Live Preview, type **`<`**, **`^`**, or **`>`** in an empty cell to merge it in that direction immediately. The caret moves into the merged cell so you can keep typing.
+- In Source mode, put the cursor in a table and use the right-click menu or the command palette: **Merge table cells**, **Split merged table cell**, and **Insert table**.
+- Merging a selection joins all non-empty contents with a single space. Splitting keeps that text in the top-left cell and clears the others.
+- A merge must be rectangular and cannot cross the header row. A group must contain exactly one content cell; cells filled by `<`, `^`, or `>` are markers.
+
+To show a literal marker in a cell, escape it: `\<`, `\^`, or `\>`. A cell that contains anything besides marker characters is never treated as a merge. Other Markdown editors still see a valid table; they simply show the marker cells as literal text.
 
 ## Syntax trees
 
@@ -391,6 +414,7 @@ src/
   settings.ts             persisted settings
   settings-ui.ts          settings tab
   fonts/                  discovery, OpenType name parsing, CSS, decorations, picker
+  tables/                 merged-cell parser, layout, Live Preview, Reading view
   lexurgy/                server protocol, process management, locator, installer
   soundchange/            .lsc view, syntax decorations, rule selectors, test bench
   pipeline/               canvas model, graph validation, words, card UI, runner, writer

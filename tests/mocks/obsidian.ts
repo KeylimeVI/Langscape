@@ -17,6 +17,47 @@ export class Component {
   }
 }
 
+export class Menu {
+  items: any[] = [];
+  addItem(callback: (item: any) => any): this {
+    const item: any = {
+      setTitle: (title: string) => {
+        item.title = title;
+        return item;
+      },
+      setIcon: (icon: string) => {
+        item.icon = icon;
+        return item;
+      },
+      setChecked: () => item,
+      setDisabled: (disabled: boolean) => {
+        item.disabled = disabled;
+        return item;
+      },
+      setWarning: () => item,
+      setIsLabel: () => item,
+      setSection: () => item,
+      onClick: (handler: () => void) => {
+        item.handler = handler;
+        return item;
+      },
+    };
+    this.items.push(item);
+    callback(item);
+    return this;
+  }
+  addSeparator(): this {
+    this.items.push("separator");
+    return this;
+  }
+  showAtMouseEvent(): this {
+    return this;
+  }
+  showAtPosition(): this {
+    return this;
+  }
+}
+
 export class Notice {
   constructor(public message: string, public timeout?: number) {}
 }

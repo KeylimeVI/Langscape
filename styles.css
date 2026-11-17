@@ -1466,3 +1466,21 @@ body input.langscape-tree-edit:focus {
 .cm-line .langscape-tree-source-hidden {
   display: none !important;
 }
+
+/* Merged Markdown table cells. Covered cells stay in the DOM so Obsidian's
+   table editor keeps its source mapping, but they must not take up space. */
+.langscape-merged-table .langscape-table-covered {
+  display: none !important;
+}
+
+table .langscape-table-selected {
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: -2px;
+  background-color: color-mix(in srgb, var(--interactive-accent) 12%, transparent);
+}
+
+table.langscape-table-selecting,
+table.langscape-table-selecting * {
+  user-select: none;
+  -webkit-user-select: none;
+}
