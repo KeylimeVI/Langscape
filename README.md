@@ -157,6 +157,8 @@ Table and card values using `{nickname: text}` are decorated live. Clicking into
 
 ## Tables
 
+![Merged cells in a Markdown table](docs/screenshots/merged-table.png)
+
 Ordinary Markdown tables can merge cells without turning into HTML. A cell whose only content is `<`, `^`, or `>` joins the cell in that direction:
 
 ```markdown
