@@ -9,6 +9,7 @@ import {
   normalizePath,
 } from "obsidian";
 import { createStarterVault } from "./demo";
+import { installFontClipboard } from "./fonts/clipboard";
 import { isFontFile } from "./fonts/css";
 import { FontManager } from "./fonts/manager";
 import { FontDomDecorator } from "./fonts/dom";
@@ -80,6 +81,7 @@ export default class LangscapePlugin extends Plugin {
   async onload(): Promise<void> {
     await this.loadSettings();
     this.fontManager = new FontManager(this.app, () => this.settings);
+    this.register(installFontClipboard(this.fontManager));
     this.fontDomDecorator = new FontDomDecorator(this.app, this.fontManager);
     this.lexurgy = new LexurgyService(this);
 

@@ -172,6 +172,7 @@ All text in this note uses the font. Inline spans can still override it.
 - Font spans are processed per Markdown block. A span cannot cross a paragraph break; use the frontmatter font for whole-note styling.
 - Lines containing Langscape font markup have native spellcheck disabled so conlang words and custom scripts are not shown with red squiggles. Other lines and other Markdown notes keep normal spellcheck. A note using whole-note `langscape-font` disables spellcheck throughout because all of its text uses the custom font.
 - In Live Preview table cells, font spans stay rendered while the cell is being edited. Use Source mode if you need to edit the `{nickname: ...}` markup itself.
+- Copying rendered font text puts its `{nickname: text}` markup on the clipboard, so pasting it back into a note keeps the font. Other applications will see the markup rather than just the plain text.
 - Fonts are injected with `@font-face` from the vault's local resource URL. This works for desktop Obsidian and exported HTML. Mobile Obsidian is not supported in this version.
 
 Use **Langscape: Insert custom-font text** or the ribbon type icon to pick a font visually. It inserts the `{nickname: text}` syntax for you.
