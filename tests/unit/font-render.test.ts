@@ -75,6 +75,16 @@ describe("font post-processing", () => {
     expect(root.querySelector("span.langscape-font")).toBeNull();
   });
 
+  it("decorates font spans inside table cells", () => {
+    const root = document.createElement("div");
+    root.innerHTML =
+      "<table><tbody><tr><td>Say {gothic: 𐌰𐍆𐌰}</td></tr></tbody></table>";
+    decorateFontSpans(root, manager);
+    const span = root.querySelector("td span.langscape-font");
+    expect(span?.textContent).toBe("𐌰𐍆𐌰");
+    expect(root.querySelector("td")?.textContent).toBe("Say 𐌰𐍆𐌰");
+  });
+
   it("applies note-level frontmatter fonts", () => {
     const root = document.createElement("div");
     applyFrontmatterFont(root, { "langscape-font": "Noto Sans Gothic" }, manager);

@@ -194,6 +194,11 @@ function build(view: EditorView, manager: FontManager): DecorationSet {
   const fontLines = new Set<number>();
   const { state } = view;
   const selection = state.selection.ranges;
+  // Table cells are edited in their own CodeMirror views. Obsidian includes
+  // this extension there, but the cursor is necessarily on the cell line while
+  // typing. Always show the rendered font in a table cell instead of dropping
+  // back to raw {font: ...} markup.
+  const inTableCell = view.dom.closest(".cm-table-widget, .table-cell-wrapper") !== null;
 
   for (const { from, to } of view.visibleRanges) {
     const text = state.doc.sliceString(from, to);
@@ -211,9 +216,9 @@ function build(view: EditorView, manager: FontManager): DecorationSet {
       const lineStart = state.doc.lineAt(start).from;
       fontLines.add(lineStart);
 
-      const cursorInside = selection.some(
-        (range) => range.from <= end && range.to >= start
-      );
+      const cursorInside = inTableCell
+        ? false
+        : selection.some((range) => range.from <= end && range.to >= start);
 
       if (!cursorInside && contentStart > start) {
         decorations.push({
