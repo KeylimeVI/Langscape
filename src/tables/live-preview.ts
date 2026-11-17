@@ -156,20 +156,6 @@ export function installTableMenuPatch(): () => void {
   };
 }
 
-function canMergeDirection(
-  table: MarkdownTable,
-  r: number,
-  c: number,
-  direction: MergeDirection
-): boolean {
-  if (!neighboringRect(table, r, c, direction)) return false;
-  // Row 0 is the header. A rowspan cannot continue from <thead> into
-  // <tbody>, so these two directions would always be rejected later.
-  if (direction === "up" && r === 1) return false;
-  if (direction === "down" && r === 0) return false;
-  return true;
-}
-
 function groupSpanAt(table: MarkdownTable, r: number, c: number): number {
   const layout = resolveLayout(table);
   const group = layout.byCell[r]?.[c];
@@ -206,6 +192,7 @@ export function createMergedTableExtension(app: App): Extension {
 export class MergedTableController {
   private readonly metas = new WeakMap<HTMLTableElement, TableMeta>();
   private readonly selections = new WeakMap<HTMLTableElement, SelectionState>();
+  private readonly selectionByLine = new Map<number, { state: SelectionState; at: number }>();
   private readonly bound = new WeakSet<HTMLTableElement>();
   private readonly known = new Set<HTMLTableElement>();
   private readonly cleanup: Array<() => void> = [];
@@ -223,7 +210,11 @@ export class MergedTableController {
     const clearOutside = (event: PointerEvent): void => {
       const target = event.target as HTMLElement | null;
       if (target?.closest(".cm-table-widget table")) return;
-      for (const tableEl of this.known) clearSelection(tableEl);
+      for (const tableEl of this.known) {
+        clearSelection(tableEl);
+        this.selections.delete(tableEl);
+      }
+      this.selectionByLine.clear();
     };
     doc.addEventListener("pointerdown", clearOutside, true);
     this.cleanup.push(() => doc.removeEventListener("pointerdown", clearOutside, true));
@@ -247,6 +238,7 @@ export class MergedTableController {
     if (this.scanFrame !== null) cancelAnimationFrame(this.scanFrame);
     for (const remove of [...this.cleanup]) remove();
     this.cleanup.length = 0;
+    this.selectionByLine.clear();
   }
 
   private scheduleScan(): void {
@@ -348,6 +340,14 @@ export class MergedTableController {
         applyTableLayout(tableEl, meta.table, layout);
         tableEl.dataset.langscapeSignature = signature;
       }
+      const saved = this.selectionByLine.get(meta.startLine);
+      if (saved) {
+        if (Date.now() - saved.at < 60_000) {
+          this.selections.set(tableEl, saved.state);
+        } else {
+          this.selectionByLine.delete(meta.startLine);
+        }
+      }
       const selection = this.selections.get(tableEl);
       paintSelection(tableEl, layout, selection ? selectionRect(selection, meta.table) : null);
       this.bind(tableEl);
@@ -360,6 +360,7 @@ export class MergedTableController {
 
     for (const tableEl of this.known) {
       if (!current.has(tableEl)) {
+        this.selections.delete(tableEl);
         resetTableLayout(tableEl);
         this.known.delete(tableEl);
       }
@@ -478,6 +479,7 @@ export class MergedTableController {
     selection: SelectionState
   ): void {
     this.selections.set(tableEl, selection);
+    this.selectionByLine.set(meta.startLine, { state: selection, at: Date.now() });
     paintSelection(tableEl, resolveLayout(meta.table), selectionRect(selection, meta.table));
   }
 
@@ -611,6 +613,13 @@ export class MergedTableController {
     const layout = resolveLayout(table);
     let selection = this.selections.get(tableEl);
     if (!selection) {
+      const saved = this.selectionByLine.get(meta.startLine);
+      if (saved && Date.now() - saved.at < 60_000) {
+        selection = saved.state;
+        this.selections.set(tableEl, selection);
+      }
+    }
+    if (!selection) {
       selection = { anchorR: r, anchorC: c, focusR: r, focusC: c };
       this.updateSelection(tableEl, meta, selection);
     }
@@ -625,72 +634,39 @@ export class MergedTableController {
     const rawArea = (rawRect.r2 - rawRect.r1 + 1) * (rawRect.c2 - rawRect.c1 + 1);
     const canMerge = rawArea >= 2;
     const canSplit = groupSpanAt(table, r, c) > 1;
-    const directions: Array<{ direction: MergeDirection; title: string; icon: string }> = [
-      { direction: "left", title: "Merge with left cell", icon: "arrow-left" },
-      { direction: "right", title: "Merge with right cell", icon: "arrow-right" },
-      { direction: "up", title: "Merge with cell above", icon: "arrow-up" },
-      { direction: "down", title: "Merge with cell below", icon: "arrow-down" },
-    ];
-    const available =
-      rawArea === 1
-        ? directions.filter((entry) => canMergeDirection(table, r, c, entry.direction))
-        : [];
-    if (!canMerge && !canSplit && available.length === 0) return;
 
     menu.addSeparator();
-    if (canMerge) {
-      menu.addItem((item) =>
-        item
-          .setTitle("Merge cells")
-          .setIcon("merge")
-          .onClick(() => {
-            const result = mergeSelection(table, rect);
-            if (!result.ok) {
-              new Notice(result.reason);
-              return;
-            }
-            this.applyRows(tableEl, meta, result.rows, {
-              r: result.rect.r1,
-              c: result.rect.c1,
-            });
-          })
-      );
-    }
-    if (canSplit) {
-      menu.addItem((item) =>
-        item
-          .setTitle("Split cells")
-          .setIcon("scissors")
-          .onClick(() => {
-            const result = splitCellAt(table, r, c);
-            if (!result.ok) {
-              new Notice(result.reason);
-              return;
-            }
-            this.applyRows(tableEl, meta, result.rows, { r, c });
-          })
-      );
-    }
-    if (available.length > 0) {
-      menu.addSeparator();
-      for (const entry of available) {
-        menu.addItem((item) =>
-          item
-            .setTitle(entry.title)
-            .setIcon(entry.icon)
-            .onClick(() => {
-              const result = mergeDirectionally(table, r, c, entry.direction);
-              if (!result.ok) {
-                new Notice(result.reason);
-                return;
-              }
-              this.applyRows(tableEl, meta, result.rows, {
-                r: result.rect.r1,
-                c: result.rect.c1,
-              });
-            })
-        );
-      }
-    }
+    menu.addItem((item) =>
+      item
+        .setTitle("Merge cells")
+        .setIcon("merge")
+        .setDisabled(!canMerge)
+        .onClick(() => {
+          const result = mergeSelection(table, rect);
+          if (!result.ok) {
+            new Notice(result.reason);
+            return;
+          }
+          this.applyRows(tableEl, meta, result.rows, {
+            r: result.rect.r1,
+            c: result.rect.c1,
+          });
+        })
+    );
+    menu.addItem((item) =>
+      item
+        .setTitle("Split cells")
+        .setIcon("scissors")
+        .setDisabled(!canSplit)
+        .onClick(() => {
+          const result = splitCellAt(table, r, c);
+          if (!result.ok) {
+            new Notice(result.reason);
+            return;
+          }
+          this.applyRows(tableEl, meta, result.rows, { r, c });
+        })
+    );
+
   }
 }

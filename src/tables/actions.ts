@@ -2,9 +2,8 @@ import { Notice, type Editor, type Menu } from "obsidian";
 import {
   cellIndexForColumn,
   findTable,
-  mergeDirectionally,
   mergeSelection,
-  neighboringRect,
+  resolveLayout,
   rowForLine,
   serializeTable,
   splitCellAt,
@@ -48,34 +47,8 @@ function replaceTable(
   return true;
 }
 
-function canMergeDirection(
-  table: MarkdownTable,
-  row: number,
-  column: number,
-  direction: "left" | "right" | "up" | "down"
-): boolean {
-  if (!neighboringRect(table, row, column, direction)) return false;
-  if (direction === "up" && row === 1) return false;
-  if (direction === "down" && row === 0) return false;
-  return true;
-}
-
 function cursorLineForRow(table: MarkdownTable, row: number): number {
   return table.startLine + (row === 0 ? 0 : row + 1);
-}
-
-function applyDirectional(
-  editor: Editor,
-  current: CursorTable,
-  direction: "left" | "right" | "up" | "down"
-): void {
-  const result = mergeDirectionally(current.table, current.row, current.column, direction);
-  if (!result.ok) {
-    new Notice(result.reason);
-    return;
-  }
-  if (!replaceTable(editor, current.table, current.lines, result.rows)) return;
-  editor.setCursor({ line: cursorLineForRow(current.table, result.rect.r1), ch: 0 });
 }
 
 export function hasTableAtCursor(editor: Editor): boolean {
@@ -156,35 +129,24 @@ export function addTableMenuItems(menu: Menu, editor: Editor): boolean {
   const fromColumn = cellIndexForColumn(table, lines[selection.line] ?? "", selection.ch);
   const toColumn = cellIndexForColumn(table, lines[selectionEnd.line] ?? "", selectionEnd.ch);
   const multiCell = fromRow !== toRow || fromColumn !== toColumn;
+  const layout = resolveLayout(table);
+  const group = layout.byCell[current.row]?.[current.column];
+  const canSplit = Boolean(group && (group.rowSpan > 1 || group.colSpan > 1));
 
   menu.addItem((item) =>
     item
-      .setTitle("Merge table cells")
+      .setTitle("Merge cells")
       .setIcon("merge")
       .setDisabled(!multiCell)
       .onClick(() => mergeTableCells(editor))
   );
   menu.addItem((item) =>
     item
-      .setTitle("Split merged cell")
+      .setTitle("Split cells")
       .setIcon("scissors")
+      .setDisabled(!canSplit)
       .onClick(() => splitTableCell(editor))
   );
-  menu.addSeparator();
-  const directions: Array<{ id: "left" | "right" | "up" | "down"; title: string; icon: string }> = [
-    { id: "left", title: "Merge with left cell", icon: "arrow-left" },
-    { id: "right", title: "Merge with right cell", icon: "arrow-right" },
-    { id: "up", title: "Merge with cell above", icon: "arrow-up" },
-    { id: "down", title: "Merge with cell below", icon: "arrow-down" },
-  ];
-  for (const direction of directions) {
-    if (!canMergeDirection(table, current.row, current.column, direction.id)) continue;
-    menu.addItem((item) =>
-      item
-        .setTitle(direction.title)
-        .setIcon(direction.icon)
-        .onClick(() => applyDirectional(editor, current, direction.id))
-    );
-  }
+
   return true;
 }

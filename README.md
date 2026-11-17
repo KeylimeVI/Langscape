@@ -197,7 +197,7 @@ Ordinary Markdown tables can merge cells without turning into HTML. A cell whose
 
 Here `Q1` spans two columns, `Q2` spans two columns, and `North` spans two rows. The markers stay in the source, so the file is still an ordinary Markdown table.
 
-- **Drag across cells** (or Shift-click) and **right-click** to get **Merge cells**, **Split cells**, and **Merge with left/right/above/below cell**.
+- **Drag across cells** (or Shift-click) and **right-click** to get **Merge cells** and **Split cells**.
 - In Live Preview, type **`<`**, **`^`**, or **`>`** in an empty cell to merge it in that direction immediately. The caret moves into the merged cell so you can keep typing.
 - In Source mode, put the cursor in a table and use the right-click menu or the command palette: **Merge table cells**, **Split merged table cell**, and **Insert table**.
 - Merging a selection joins all non-empty contents with a single space. Splitting keeps that text in the top-left cell and clears the others.

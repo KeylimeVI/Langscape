@@ -105,19 +105,31 @@ describe("table commands", () => {
     expect(line).toContain("a b");
   });
 
-  it("adds merge and split actions to the editor menu", () => {
+  it("adds only merge and split actions to the editor menu", () => {
     const editor = new FakeEditor(
       ["| A | B |", "| --- | --- |", "| a | < |"].join("\n")
     );
     editor.setCursor({ line: 2, ch: 2 });
     const menu = new Menu();
     expect(addTableMenuItems(menu as any, editor as unknown as Editor)).toBe(true);
-    const titles = (menu as any).items
-      .filter((item: any) => typeof item === "object")
-      .map((item: any) => item.title);
-    expect(titles).toContain("Merge table cells");
-    expect(titles).toContain("Split merged cell");
-    expect(titles).toContain("Merge with right cell");
+    const items = (menu as any).items.filter((item: any) => typeof item === "object");
+    const titles = items.map((item: any) => item.title);
+    expect(titles).toEqual(["Merge cells", "Split cells"]);
+    expect(items.find((item: any) => item.title === "Merge cells")?.disabled).toBe(true);
+    expect(items.find((item: any) => item.title === "Split cells")?.disabled).toBe(false);
+  });
+
+  it("enables Merge cells when the source selection crosses cells", () => {
+    const editor = new FakeEditor(
+      ["| A | B |", "| --- | --- |", "| a | b |"].join("\n")
+    );
+    editor.from = { line: 2, ch: 2 };
+    editor.to = { line: 2, ch: 6 };
+    const menu = new Menu();
+    addTableMenuItems(menu as any, editor as unknown as Editor);
+    const items = (menu as any).items.filter((item: any) => typeof item === "object");
+    expect(items.find((item: any) => item.title === "Merge cells")?.disabled).toBe(false);
+    expect(items.find((item: any) => item.title === "Split cells")?.disabled).toBe(true);
   });
 
   it("does nothing when the cursor is outside a table", () => {

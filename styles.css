@@ -1484,3 +1484,19 @@ table.langscape-table-selecting * {
   user-select: none;
   -webkit-user-select: none;
 }
+
+/* A rowspan cell is taller than its content. Keep the merged text in the
+   vertical middle, and give the Live Preview wrapper the full click target. */
+.langscape-merged-table .langscape-table-anchor {
+  vertical-align: middle !important;
+}
+
+.markdown-source-view.mod-cm6
+  .langscape-merged-table
+  .langscape-table-anchor
+  > .table-cell-wrapper {
+  display: flex !important;
+  flex-direction: column;
+  justify-content: center;
+  height: 100% !important;
+}

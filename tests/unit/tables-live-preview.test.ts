@@ -94,10 +94,43 @@ describe("Live Preview table controller", () => {
       first.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true }));
       const menu = new Menu();
       menu.showAtMouseEvent(new MouseEvent("contextmenu"));
-      const titles = (menu as any).items
-        .filter((item: any) => typeof item === "object")
-        .map((item: any) => item.title);
+      const items = (menu as any).items.filter((item: any) => typeof item === "object");
+      const titles = items.map((item: any) => item.title);
       expect(titles).toContain("Merge cells");
+      expect(titles).toContain("Split cells");
+      expect(titles.some((title: string) => title.startsWith("Merge with"))).toBe(false);
+      expect(items.find((item: any) => item.title === "Merge cells")?.disabled).toBe(false);
+    } finally {
+      restore();
+      controller.destroy();
+    }
+  });
+
+  it("keeps a multi-cell selection when the table widget re-renders", () => {
+    const fake = fakeView();
+    const controller = new MergedTableController({} as any, fake.view as any);
+    fake.attach(controller);
+    (controller as any).scan();
+    const first = fake.table.rows[1].cells[0];
+    const second = fake.table.rows[1].cells[1];
+    first.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, button: 0 }));
+    second.dispatchEvent(
+      new MouseEvent("pointerdown", { bubbles: true, button: 0, shiftKey: true })
+    );
+
+    const clone = fake.table.cloneNode(true) as HTMLTableElement;
+    fake.table.replaceWith(clone);
+    (controller as any).scan();
+
+    const restore = installTableMenuPatch();
+    try {
+      clone.rows[1].cells[0].dispatchEvent(
+        new MouseEvent("contextmenu", { bubbles: true, cancelable: true })
+      );
+      const menu = new Menu();
+      menu.showAtMouseEvent(new MouseEvent("contextmenu"));
+      const merge = (menu as any).items.find((item: any) => item.title === "Merge cells");
+      expect(merge?.disabled).toBe(false);
     } finally {
       restore();
       controller.destroy();
