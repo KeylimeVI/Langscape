@@ -32,6 +32,10 @@ ZIP_URL="${LANGSCAPE_ZIP_URL:-}"
 ZIP_FILE=""
 SSH_HOST="${HOMELAB_HOST:-}"
 REMOTE_REPO="${HOMELAB_REPO:-/projects/Langscape}"
+# If a homelab SSH target is configured, read from it directly by default.
+if [ -z "${LANGSCAPE_SOURCE:-}" ] && [ -n "$SSH_HOST" ]; then
+  SOURCE="ssh"
+fi
 REMOTE_BUILD=0
 PRESERVE=1
 DRY_RUN=0
@@ -231,16 +235,13 @@ VERSION="$(printf '%s' "$MANIFEST" | sed -nE 's/.*"version"[[:space:]]*:[[:space
 
 shopt -s nullglob
 runtime_source=""
-if [ -d "$DESTINATION" ]; then
-  runtime_source="$DESTINATION"
-else
-  for candidate in "$PLUGINS_DIR"/langscape-*/; do
-    if [ -d "$candidate" ]; then
-      runtime_source="${candidate%/}"
-      break
-    fi
-  done
-fi
+for candidate in "$DESTINATION" "$PLUGINS_DIR"/langscape-*/; do
+  [ -d "$candidate" ] || continue
+  if [ -f "$candidate/data.json" ] || [ -d "$candidate/lexurgy" ]; then
+    runtime_source="${candidate%/}"
+    break
+  fi
+done
 
 old_dirs=()
 old_zips=()

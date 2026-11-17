@@ -118,7 +118,7 @@ curl -fsSL https://raw.githubusercontent.com/KeylimeVI/Langscape/main/scripts/in
 ./scripts/install-from-homelab.sh --source file --zip dist/langscape-0.1.0.zip
 ```
 
-Options: `--vault <path>`, `--no-preserve`, `--dry-run`, `--host <user@host>`, `--remote-repo <path>`, and `--remote-build`. The default source is the `dist/langscape-*.zip` artifact published to GitHub; `--source ssh` reads the homelab checkout directly and `--remote-build` runs `npm run build` plus `npm run package:release` there first. Set `LANGSCAPE_SOURCE=ssh` and `HOMELAB_HOST=user@host` to make direct homelab mode the default.
+Options: `--vault <path>`, `--no-preserve`, `--dry-run`, `--host <user@host>`, `--remote-repo <path>`, and `--remote-build`. The default source is the `dist/langscape-*.zip` artifact published to GitHub; `--source ssh` reads the homelab checkout directly and `--remote-build` runs `npm run build` plus `npm run package:release` there first. Set `HOMELAB_HOST=user@host` to make direct SSH mode the default, or set `LANGSCAPE_SOURCE` to choose a source explicitly.
 
 Publishing a new build from the homelab means running `npm run build` and `npm run package:release`, then committing/pushing `main.js` and `dist/langscape-*.zip`. Reload Obsidian, or disable/enable Langscape, after installing.
 
