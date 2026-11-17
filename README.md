@@ -96,6 +96,32 @@ npm run install:vault -- --no-preserve  # don't carry over data.json/lexurgy
 
 Reload Obsidian, or disable/enable the plugin, after installing.
 
+### Install a homelab build on another machine
+
+Use `scripts/install-from-homelab.sh` on a second Fedora/KDE machine to replace the installed plugin in its vault. It defaults to `/home/keylime/Documents/Obsidian Vault`, removes older `langscape*` plugin folders and build zips, and preserves `data.json` and the managed `lexurgy/` folder.
+
+Requirements: `curl` and `unzip` (`sudo dnf install curl unzip`); `ssh`/`scp` only for direct homelab mode.
+
+```bash
+# Published build (the same dist/langscape-*.zip the homelab pushes)
+curl -fsSL https://raw.githubusercontent.com/KeylimeVI/Langscape/main/scripts/install-from-homelab.sh | bash
+
+# Plan only
+./scripts/install-from-homelab.sh --dry-run
+
+# Direct from the homelab over Tailscale
+./scripts/install-from-homelab.sh --source ssh --host keylime@homelab
+./scripts/install-from-homelab.sh --source ssh --host keylime@homelab --remote-build
+
+# Other sources
+./scripts/install-from-homelab.sh --source url --url https://example.com/langscape.zip
+./scripts/install-from-homelab.sh --source file --zip dist/langscape-0.1.0.zip
+```
+
+Options: `--vault <path>`, `--no-preserve`, `--dry-run`, `--host <user@host>`, `--remote-repo <path>`, and `--remote-build`. The default source is the `dist/langscape-*.zip` artifact published to GitHub; `--source ssh` reads the homelab checkout directly and `--remote-build` runs `npm run build` plus `npm run package:release` there first. Set `LANGSCAPE_SOURCE=ssh` and `HOMELAB_HOST=user@host` to make direct homelab mode the default.
+
+Publishing a new build from the homelab means running `npm run build` and `npm run package:release`, then committing/pushing `main.js` and `dist/langscape-*.zip`. Reload Obsidian, or disable/enable Langscape, after installing.
+
 ### From source
 
 ```bash
@@ -421,6 +447,7 @@ src/
   soundchange/            .lsc view, syntax decorations, rule selectors, test bench
   pipeline/               canvas model, graph validation, words, card UI, runner, writer
   ui/                     small prompt/confirm modals
+  scripts/                e2e, local installer, packaging, homelab installer
 tests/                    vitest unit + real-Lexurgy integration tests
 docs/                     screenshots and architecture notes
 ```
