@@ -85,7 +85,7 @@ export class LangscapeSettingTab extends PluginSettingTab {
           new Notice("Nicknames can only contain letters, numbers, underscores, and hyphens.");
           return;
         }
-        const key = font.path ?? font.id;
+        const key = font.path ?? font.customId ?? font.id;
         if (
           clean &&
           Object.entries(this.plugin.settings.fontNicknames).some(
@@ -103,7 +103,8 @@ export class LangscapeSettingTab extends PluginSettingTab {
         this.display();
       });
 
-      const custom = this.plugin.settings.customFonts.find((entry) => entry.id === font.id);
+      const customId = font.customId ?? font.id;
+      const custom = this.plugin.settings.customFonts.find((entry) => entry.id === customId);
       if (custom) {
         const remove = actions.createEl("button", {
           cls: "clickable-icon",

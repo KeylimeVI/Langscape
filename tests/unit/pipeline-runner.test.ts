@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { parseCanvasPipeline } from "../../src/pipeline/model";
-import { runPipeline, graphSummary } from "../../src/pipeline/runner";
+import { runPipeline } from "../../src/pipeline/runner";
 
 function canvas(nodes: any[], edges: any[] = []): string {
   return JSON.stringify({ nodes, edges });
@@ -62,7 +62,6 @@ describe("pipeline runner", () => {
     expect(report.wordsIn).toBe(2);
     expect(report.wordsOut).toBe(2);
     expect(report.outputs[0].paths).toEqual(["Words/Modern/aab.md"]);
-    expect(graphSummary(graph)).toContain("1 source");
   });
 
   it("merges multiple sources into one sound change", async () => {

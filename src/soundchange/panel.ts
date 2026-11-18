@@ -292,9 +292,6 @@ export class SoundChangeTestPanel {
     if (traceEnabled) head.createEl("th", { text: "Trace" });
     const body = table.createTBody();
 
-    const selectedWords = (): string[] =>
-      inputs.filter((word) => this.lastTraceWords.has(word));
-
     const syncSelection = (): void => {
       body.querySelectorAll<HTMLInputElement>(".langscape-trace-check").forEach((box, index) => {
         box.checked = this.lastTraceWords.has(inputs[index]);
@@ -324,20 +321,20 @@ export class SoundChangeTestPanel {
           if (box.checked) this.lastTraceWords.add(inputs[index]);
           else this.lastTraceWords.delete(inputs[index]);
           syncSelection();
-          this.renderTrace(selectedWords());
+          this.renderTrace(this.selectedTraceWords());
         });
         row.addClass("is-clickable");
         row.addEventListener("click", () => {
           if (this.lastTraceWords.has(inputs[index])) this.lastTraceWords.delete(inputs[index]);
           else this.lastTraceWords.add(inputs[index]);
           syncSelection();
-          this.renderTrace(selectedWords());
+          this.renderTrace(this.selectedTraceWords());
         });
         if (this.lastTraceWords.has(inputs[index])) row.addClass("is-selected");
       }
     });
 
-    this.renderTrace(this.traceEl.checked ? selectedWords() : []);
+    this.renderTrace(this.traceEl.checked ? this.selectedTraceWords() : []);
   }
 
   private renderTrace(words: string[]): void {
@@ -408,8 +405,8 @@ export class SoundChangeTestPanel {
     const table = scroll.createEl("table", { cls: "langscape-trace-table" });
     const head = table.createTHead().insertRow();
     head.createEl("th", { text: "Iteration" });
-    for (const entry of traces) {
-      head.createEl("th", { text: entry.word, cls: "langscape-trace-word" });
+    for (const { word } of traces) {
+      head.createEl("th", { text: word, cls: "langscape-trace-word" });
     }
 
     const body = table.createTBody();
@@ -417,8 +414,8 @@ export class SoundChangeTestPanel {
     inputRow.addClass("is-input");
     inputRow.insertCell().textContent = "Input";
     const current = traces.map((entry) => entry.trace?.input || entry.word);
-    traces.forEach((entry, index) => {
-      inputRow.insertCell().textContent = current[index];
+    current.forEach((value) => {
+      inputRow.insertCell().textContent = value;
     });
 
     for (const rule of rules) {

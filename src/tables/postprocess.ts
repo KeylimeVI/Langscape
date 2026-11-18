@@ -4,12 +4,12 @@ import {
   hasMarkers,
   plainCellText,
   resolveLayout,
+  tableFromDomRows,
   type MarkdownTable,
 } from "./model";
 import {
   applyTableLayout,
   domRowTexts,
-  tableFromDom,
 } from "./render";
 
 type SectionContext = Pick<MarkdownPostProcessorContext, "sourcePath" | "getSectionInfo">;
@@ -26,18 +26,7 @@ function shapeMatches(table: MarkdownTable, domRows: string[][]): boolean {
 }
 
 function tableFromDomLayout(tableEl: HTMLTableElement): MarkdownTable | null {
-  const parsed = tableFromDom(tableEl);
-  if (!parsed) return null;
-  const columns = Math.max(1, ...parsed.rows.map((row) => row.length));
-  return {
-    startLine: 0,
-    endLine: parsed.rows.length - 1,
-    lineNumbers: parsed.rows.map((_, index) => index),
-    rows: parsed.rows,
-    aligns: new Array(columns).fill("default"),
-    columns,
-    prefix: "",
-  };
+  return tableFromDomRows(domRowTexts(tableEl).map((cells) => ({ cells })));
 }
 
 /**

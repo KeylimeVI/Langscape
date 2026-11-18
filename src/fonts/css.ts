@@ -17,6 +17,8 @@ export interface FontRecord {
   url?: string;
   /** CSS format() hint, e.g. "truetype". */
   format?: string;
+  /** Settings entry id when this font was added as a custom font. */
+  customId?: string;
 }
 
 export function fontFormatFromPath(filePath: string): string | undefined {

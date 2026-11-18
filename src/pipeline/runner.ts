@@ -226,17 +226,4 @@ export function collectChangePaths(order: PipelineStep[]): string[] {
     .filter((value) => Boolean(value));
 }
 
-export function graphSummary(graph: PipelineGraph): string {
-  const counts = new Map<string, number>();
-  for (const step of graph.steps) {
-    counts.set(step.kind, (counts.get(step.kind) ?? 0) + 1);
-  }
-  const parts: string[] = [];
-  if (counts.get("source")) parts.push(`${counts.get("source")} source`);
-  if (counts.get("words")) parts.push(`${counts.get("words")} word list`);
-  if (counts.get("sound-change")) parts.push(`${counts.get("sound-change")} sound change`);
-  if (counts.get("output")) parts.push(`${counts.get("output")} output`);
-  return parts.join(" · ") || "Empty pipeline";
-}
-
 export type { SourceStep, SoundChangeStep, WordsStep, OutputStep };

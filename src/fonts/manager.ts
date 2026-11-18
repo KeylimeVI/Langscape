@@ -83,7 +83,8 @@ export class FontManager {
 
   sampleFor(record: FontRecord): string {
     const settings = this.getSettings();
-    const config = settings.customFonts.find((font) => font.id === record.id);
+    const customId = record.customId ?? record.id;
+    const config = settings.customFonts.find((font) => font.id === customId);
     return config?.sample?.trim() || DEFAULT_SAMPLE;
   }
 
@@ -109,11 +110,23 @@ export class FontManager {
       records.push(record);
     };
 
+    const customByPath = new Map(
+      settings.customFonts
+        .filter((config) => config.enabled && Boolean(config.path))
+        .map((config) => [config.path as string, config] as const)
+    );
     const files = this.app.vault.getFiles().filter((file) => isFontFile(file.path));
     for (const file of files) {
       if (seenPaths.has(file.path)) continue;
       seenPaths.add(file.path);
-      const record = await this.recordForVaultFile(file, settings, warnings);
+      const custom = customByPath.get(file.path);
+      const record = await this.recordForVaultFile(
+        file,
+        settings,
+        warnings,
+        custom?.name,
+        custom?.id
+      );
       if (record) addRecord(record);
     }
 
@@ -148,6 +161,7 @@ export class FontManager {
           url: config.url,
           format: fontFormatFromPath(config.url),
           nickname: settings.fontNicknames[config.id]?.trim() || undefined,
+          customId: config.id,
         });
       }
     }
@@ -191,7 +205,8 @@ export class FontManager {
     file: TFile,
     settings: FontManagerSettings,
     warnings: string[],
-    forcedName?: string
+    forcedName?: string,
+    customId?: string
   ): Promise<FontRecord | undefined> {
     let family: string | undefined = settings.fontAliases[file.path]?.trim();
     if (!family) {
@@ -237,6 +252,7 @@ export class FontManager {
       path: file.path,
       format: fontFormatFromPath(file.path),
       nickname: settings.fontNicknames[file.path]?.trim() || undefined,
+      customId,
     };
   }
 }

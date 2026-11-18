@@ -130,26 +130,3 @@ class ConfirmModal extends Modal {
     }
   }
 }
-
-/** A small modal with arbitrary content and a right-aligned close button. */
-export class InfoModal extends Modal {
-  constructor(
-    app: App,
-    private readonly title: string,
-    private readonly build: (el: HTMLElement) => void
-  ) {
-    super(app);
-  }
-
-  onOpen(): void {
-    this.contentEl.createEl("h2", { text: this.title });
-    this.build(this.contentEl);
-    const actions = this.contentEl.createDiv({ cls: "langscape-modal-actions" });
-    const close = actions.createEl("button", { cls: "mod-cta", text: "Close" });
-    close.addEventListener("click", () => this.close());
-  }
-
-  onClose(): void {
-    this.contentEl.empty();
-  }
-}

@@ -701,12 +701,6 @@ body.langscape-resizing * {
   gap: 5px;
 }
 
-.langscape-status-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-
 .langscape-status-row {
   display: flex;
   gap: 10px;
@@ -717,21 +711,6 @@ body.langscape-resizing * {
   color: var(--text-muted);
   width: 70px;
   flex: 0 0 auto;
-}
-
-.langscape-license-note {
-  font-size: var(--font-ui-smaller);
-  color: var(--text-muted);
-  margin-top: 8px;
-  line-height: 1.5;
-}
-
-.langscape-code-snippet {
-  background: var(--background-secondary);
-  border-radius: var(--radius-s);
-  padding: 10px;
-  font-size: var(--font-ui-smaller);
-  overflow-x: auto;
 }
 
 .langscape-version {
@@ -883,11 +862,6 @@ body.langscape-resizing * {
   font-size: var(--font-ui-smaller);
   padding: 2px 8px;
   height: auto;
-}
-
-.langscape-node-hint {
-  font-size: var(--font-ui-smaller);
-  color: var(--text-faint);
 }
 
 /* ==========================================================================

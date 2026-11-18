@@ -78,8 +78,6 @@ export type TableEditResult =
   | { ok: true; rows: TableCell[][]; rect: TableRect }
   | { ok: false; reason: string };
 
-const MARKER_CHARS = new Set(["<", "^", ">"]);
-
 /* -------------------------------------------------------------------------- */
 /* Row parsing and serialization                                              */
 /* -------------------------------------------------------------------------- */
@@ -230,12 +228,6 @@ export function cloneRows(rows: TableCell[][]): TableCell[][] {
 function padCells(cells: TableCell[], columns: number): TableCell[] {
   const out = cells.slice(0, columns);
   while (out.length < columns) out.push({ text: "", marker: null });
-  return out;
-}
-
-function padSpans(spans: CellSpan[], columns: number): CellSpan[] {
-  const out = spans.slice(0, columns);
-  while (out.length < columns) out.push({ raw: "", start: 0, end: 0 });
   return out;
 }
 
@@ -562,12 +554,6 @@ export function resolveLayout(table: MarkdownTable): TableLayout {
 
 export function hasMerges(layout: TableLayout): boolean {
   return layout.groups.length > 0;
-}
-
-function groupRectAt(layout: TableLayout, r: number, c: number): TableRect | null {
-  const group = layout.byCell[r]?.[c];
-  if (!group) return null;
-  return rectOf(group);
 }
 
 export function expandRect(table: MarkdownTable, layout: TableLayout, rect: TableRect): TableRect {

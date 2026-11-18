@@ -1,4 +1,5 @@
-import { App, Notice, TFile, TFolder, normalizePath } from "obsidian";
+import { App, Notice, TFile, normalizePath } from "obsidian";
+import { ensureVaultFolder } from "./utils/vault";
 import { NOTO_GOTHIC_BASE64, NOTO_GOTHIC_LICENSE_BASE64 } from "./assets/noto-gothic";
 import { EXAMPLE_LSC } from "./soundchange/template";
 
@@ -12,11 +13,11 @@ export async function createStarterVault(
   root = "Langscape Demo"
 ): Promise<StarterVaultResult> {
   const folder = normalizePath(root);
-  await ensureFolder(app, folder);
-  await ensureFolder(app, `${folder}/Fonts`);
-  await ensureFolder(app, `${folder}/Words/Proto`);
-  await ensureFolder(app, `${folder}/Changes`);
-  await ensureFolder(app, `${folder}/Pipelines`);
+  await ensureVaultFolder(app, folder);
+  await ensureVaultFolder(app, `${folder}/Fonts`);
+  await ensureVaultFolder(app, `${folder}/Words/Proto`);
+  await ensureVaultFolder(app, `${folder}/Changes`);
+  await ensureVaultFolder(app, `${folder}/Pipelines`);
 
   await writeIfMissing(
     app,
@@ -66,7 +67,7 @@ export async function createStarterVault(
       "",
       "{tree: VP(NP({Noto-Sans-Gothic: 𐌰𐍆𐌰}), V(see), NP(Det(the), Adj(blue), N(sky)))}",
       "",
-      "Fonts render inside node labels. Hover for + and ×, click a label to rename it, drag a node to move its subtree, and use the top-right toggle to align the tree.",
+      "Fonts render inside node labels. Hover a node for its add and delete controls, click a label to rename it, drag a node to move its subtree, and use the top-right toggle to align the tree.",
       "",
     ].join("\n")
   );
@@ -184,7 +185,7 @@ export async function createStarterVault(
       "- `Pipelines/Demo.canvas` — a three-step sound-change pipeline.",
       "- `Words/Proto` — one note per proto-word, with `word:` frontmatter.",
       "- `Changes/Demo.lsc` — Lexurgy sound changes.",
-      "- `Fonts/Noto Sans Gothic` — an OFL font used by the font demo.",
+      "- `Fonts/NotoSansGothic-Regular.ttf` — an OFL font used by the font demo.",
       "- `Notes/Font demo.md` — inline `{nickname: text}` examples.",
       "- `Notes/Tree demo.md` — a syntax tree with a font inside a node label.",
       "",
@@ -203,25 +204,6 @@ export async function createStarterVault(
   return { folder, canvasPath };
 }
 
-async function ensureFolder(app: App, path: string): Promise<void> {
-  const normalized = normalizePath(path);
-  if (!normalized || normalized === "/") return;
-  const existing = app.vault.getAbstractFileByPath(normalized);
-  if (existing && existing instanceof TFolder) return;
-  const parts = normalized.split("/");
-  let current = "";
-  for (const part of parts) {
-    current = current ? `${current}/${part}` : part;
-    const found = app.vault.getAbstractFileByPath(current);
-    if (found && found instanceof TFolder) continue;
-    try {
-      await app.vault.createFolder(current);
-    } catch (error) {
-      if (!(await app.vault.adapter.exists(current))) throw error;
-    }
-  }
-}
-
 async function writeIfMissing(
   app: App,
   path: string,
@@ -231,7 +213,7 @@ async function writeIfMissing(
   const normalized = normalizePath(path);
   const existing = app.vault.getAbstractFileByPath(normalized);
   if (existing) return;
-  await ensureFolder(app, normalized.split("/").slice(0, -1).join("/"));
+  await ensureVaultFolder(app, normalized.split("/").slice(0, -1).join("/"));
   if (binary && content instanceof ArrayBuffer) {
     await app.vault.createBinary(normalized, content);
   } else {

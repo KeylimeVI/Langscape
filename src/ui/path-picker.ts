@@ -1,4 +1,4 @@
-import { App, setIcon } from "obsidian";
+import { setIcon } from "obsidian";
 
 export interface PathOption {
   path: string;
@@ -22,12 +22,11 @@ export interface PathPickerOptions {
 }
 
 export function pickPath(
-  app: App,
   options: PathPickerOptions,
   anchor?: HTMLElement
 ): Promise<string | null> {
   return new Promise((resolve) => {
-    new PathPickerPopover(app, options, anchor, resolve).open();
+    new PathPickerPopover(options, anchor, resolve).open();
   });
 }
 
@@ -52,7 +51,6 @@ export class PathPickerPopover {
   private readonly onResize = () => this.position();
 
   constructor(
-    private readonly app: App,
     private readonly settings: PathPickerOptions,
     private readonly anchor: HTMLElement | undefined,
     private readonly resolve: (value: string | null) => void

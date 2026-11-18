@@ -77,7 +77,7 @@ describe("Live Preview table controller", () => {
     fake.view.state = EditorState.create({
       doc: "> | A | B |\n> | --- | --- |\n> | a |  |",
     });
-    const controller = new MergedTableController({} as any, fake.view as any);
+    const controller = new MergedTableController(fake.view as any);
     fake.attach(controller);
     (controller as any).scan();
     fake.cell().dispatchEvent(
@@ -91,7 +91,7 @@ describe("Live Preview table controller", () => {
 
   it("appends merge actions to the native table menu", () => {
     const fake = fakeView();
-    const controller = new MergedTableController({} as any, fake.view as any);
+    const controller = new MergedTableController(fake.view as any);
     fake.attach(controller);
     (controller as any).scan();
     const restore = installTableMenuPatch();
@@ -117,9 +117,20 @@ describe("Live Preview table controller", () => {
     }
   });
 
+  it("restores the native menu methods when unloaded", () => {
+    const mouse = Menu.prototype.showAtMouseEvent;
+    const position = Menu.prototype.showAtPosition;
+    const restore = installTableMenuPatch();
+    expect(Menu.prototype.showAtMouseEvent).not.toBe(mouse);
+    expect(Menu.prototype.showAtPosition).not.toBe(position);
+    restore();
+    expect(Menu.prototype.showAtMouseEvent).toBe(mouse);
+    expect(Menu.prototype.showAtPosition).toBe(position);
+  });
+
   it("keeps a multi-cell selection when the table widget re-renders", () => {
     const fake = fakeView();
-    const controller = new MergedTableController({} as any, fake.view as any);
+    const controller = new MergedTableController(fake.view as any);
     fake.attach(controller);
     (controller as any).scan();
     const first = fake.table.rows[1].cells[0];
@@ -160,7 +171,7 @@ describe("Live Preview table controller", () => {
       ["v", "x", "y"],
       ["^", "h", "<"],
     ]);
-    const controller = new MergedTableController({} as any, fake.view as any);
+    const controller = new MergedTableController(fake.view as any);
     fake.attach(controller);
     (controller as any).scan();
 
@@ -205,7 +216,7 @@ describe("Live Preview table controller", () => {
             }
           : undefined,
     };
-    const controller = new MergedTableController({} as any, fake.view as any, fontManager as any);
+    const controller = new MergedTableController(fake.view as any, fontManager as any);
     fake.attach(controller);
     (controller as any).scan();
     expect(fake.table.querySelector("td .langscape-font")?.textContent).toBe("𐌰");
@@ -218,7 +229,7 @@ describe("Live Preview table controller", () => {
     table.rows[1].cells[0].textContent = "";
     table.rows[1].cells[1].textContent = "b";
     fake.view.state = EditorState.create({ doc: "| A | B |\n| --- | --- |\n|  | b |" });
-    const controller = new MergedTableController({} as any, fake.view as any);
+    const controller = new MergedTableController(fake.view as any);
     fake.attach(controller);
     (controller as any).scan();
 
@@ -236,7 +247,7 @@ describe("Live Preview table controller", () => {
 
   it("renders merges and turns a typed marker into a source merge", () => {
     const fake = fakeView();
-    const controller = new MergedTableController({} as any, fake.view as any);
+    const controller = new MergedTableController(fake.view as any);
     fake.attach(controller);
     (controller as any).scan();
     expect(fake.table.classList.contains("langscape-merged-table")).toBe(false);

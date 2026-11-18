@@ -77,6 +77,7 @@ function parseNameTable(
 ): ParsedFontNames {
   if (tableLength < 6) return {};
   const format = view.getUint16(tableOffset, false);
+  if (format !== 0 && format !== 1) return {};
   const count = view.getUint16(tableOffset + 2, false);
   const stringOffset = view.getUint16(tableOffset + 4, false);
   if (count > 4096) return {};
@@ -92,8 +93,10 @@ function parseNameTable(
     score: number;
   }> = [];
 
+  // Format 1 adds a language-tag count before the standard name records.
+  const recordsStart = tableOffset + (format === 1 ? 8 : 6);
   for (let i = 0; i < count; i++) {
-    const recordOffset = tableOffset + 6 + i * 12;
+    const recordOffset = recordsStart + i * 12;
     if (recordOffset + 12 > tableOffset + tableLength) break;
     const platform = view.getUint16(recordOffset, false);
     const encoding = view.getUint16(recordOffset + 2, false);

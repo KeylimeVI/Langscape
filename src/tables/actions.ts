@@ -3,13 +3,13 @@ import {
   cellIndexForColumn,
   findTable,
   mergeSelection,
+  rectFromEditorSelection,
   resolveLayout,
   rowForLine,
   serializeTable,
   splitCellAt,
   type MarkdownTable,
   type TableCell,
-  type TableRect,
 } from "./model";
 
 interface CursorTable {
@@ -68,16 +68,8 @@ export function mergeTableCells(editor: Editor): boolean {
     new Notice("The selection must stay inside one Markdown table.");
     return false;
   }
-  const startRow = rowForLine(table, from.line);
-  let endRow = rowForLine(table, to.line);
-  if (startRow === null || endRow === null) return false;
-  if (to.line !== from.line && to.ch === 0) endRow = Math.max(startRow, endRow - 1);
-  const rect: TableRect = {
-    r1: startRow,
-    c1: cellIndexForColumn(table, lines[from.line] ?? "", from.ch),
-    r2: endRow,
-    c2: cellIndexForColumn(table, lines[to.line] ?? "", to.ch),
-  };
+  const rect = rectFromEditorSelection(table, lines, from, to);
+  if (!rect) return false;
   const result = mergeSelection(table, rect);
   if (!result.ok) {
     new Notice(result.reason);

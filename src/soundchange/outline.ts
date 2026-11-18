@@ -15,7 +15,6 @@ export interface LexurgyOutline {
   classes: number;
   elements: number;
   romanizers: number;
-  errors: string[];
 }
 
 const DECLARATIONS =
@@ -37,17 +36,12 @@ export function parseOutline(source: string): LexurgyOutline {
   let elements = 0;
   let romanizers = 0;
   let current: LexurgyRule | undefined;
-  let inBlockComment = false;
 
   for (let index = 0; index < lines.length; index++) {
     const line = lines[index];
     const lineNumber = index + 1;
     const trimmed = line.trim();
 
-    if (inBlockComment) {
-      if (trimmed.includes("#")) inBlockComment = false;
-      continue;
-    }
     if (trimmed.startsWith("#")) continue;
 
     if (/^Feature\b/i.test(trimmed)) features++;
@@ -86,12 +80,7 @@ export function parseOutline(source: string): LexurgyOutline {
     classes,
     elements,
     romanizers,
-    errors: [],
   };
-}
-
-export function ruleNames(outline: LexurgyOutline): string[] {
-  return outline.rules.map((rule) => rule.name);
 }
 
 export function ruleAtLine(outline: LexurgyOutline, line: number): LexurgyRule | undefined {

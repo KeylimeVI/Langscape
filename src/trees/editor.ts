@@ -1,4 +1,3 @@
-import { syntaxTree } from "@codemirror/language";
 import { StateEffect } from "@codemirror/state";
 import {
   Decoration,
@@ -10,6 +9,7 @@ import {
 } from "@codemirror/view";
 import type { App } from "obsidian";
 import type { FontManager } from "../fonts/manager";
+import { isInCode } from "../utils/codemirror";
 import { confirmAction } from "../ui/modals";
 import {
   parseSyntaxTreeLine,
@@ -161,17 +161,4 @@ function build(view: EditorView, manager: FontManager, app?: App): DecorationSet
     decorations.map((entry) => entry.decoration.range(entry.from, entry.to)),
     true
   );
-}
-
-function isInCode(state: EditorView["state"], position: number): boolean {
-  try {
-    let node = syntaxTree(state).resolveInner(position, 1);
-    while (node) {
-      if (/code/i.test(node.name)) return true;
-      node = node.parent as typeof node;
-    }
-  } catch {
-    return false;
-  }
-  return false;
 }

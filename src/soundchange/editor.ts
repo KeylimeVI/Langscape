@@ -28,7 +28,6 @@ import { cleanLexurgyMessage } from "../lexurgy/protocol";
 import { LexurgyError } from "../lexurgy/server";
 import type { ValidationResult } from "../lexurgy/service";
 import { createLexurgyHighlightExtension } from "./language";
-import { lineRange } from "./outline";
 
 export interface SoundChangeEditorOptions {
   parent: HTMLElement;
@@ -207,11 +206,6 @@ export class SoundChangeEditor {
     this.view.focus();
   }
 
-  /** Highlight an erroneous line even if the linter has not caught up yet. */
-  markLine(line: number): void {
-    this.scrollToLine(line);
-  }
-
   destroy(): void {
     this.disposed = true;
     this.view.destroy();
@@ -232,14 +226,3 @@ export class SoundChangeEditor {
     return promise;
   }
 }
-
-/** Used by the view to render a compact error banner from a diagnostic. */
-export function diagnosticLine(result: ValidationResult, doc: string): number {
-  if (result.line) return result.line;
-  const match = /\(line\s+(\d+)\)/i.exec(result.error?.message ?? "");
-  if (!match) return 1;
-  const line = Number.parseInt(match[1], 10);
-  return Number.isFinite(line) ? Math.max(1, Math.min(line, doc.split("\n").length)) : 1;
-}
-
-export { lineRange };

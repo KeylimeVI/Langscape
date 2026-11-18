@@ -52,7 +52,7 @@ export async function detectLexurgyEnvironment(
     return {
       notes,
       error:
-        "Java was not found. Lexurgy needs Java 8 or newer. Install a JRE, " +
+        "Java was not found. Lexurgy recommends Java 17 or newer. Install a JRE, " +
         "then set its path in Langscape settings (or add java to PATH).",
     };
   }

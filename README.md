@@ -2,7 +2,9 @@
 
 Langscape is a conlanger's workbench for [Obsidian](https://obsidian.md). It brings custom writing-system fonts, a Lexurgy sound-change editor, and canvas-driven word-evolution pipelines into the same vault as your notes.
 
-> **Status:** 0.1.0 — desktop only. Built and tested against Obsidian 1.15.0 and Lexurgy 1.7.7.
+> **Status:** 1.0.0 — desktop only. Minimum Obsidian 1.5.0; built and tested against Obsidian 1.15.x and Lexurgy 1.7.7.
+>
+> See the [changelog](CHANGELOG.md) for the release history.
 
 ![Langscape canvas pipeline](docs/screenshots/canvas-pipeline.png)
 
@@ -51,7 +53,7 @@ The Remotion source is in [`trailer/`](trailer/); run `npm install && npm run re
 
 ### From a release
 
-A ready-to-install bundle is produced by `npm run package:release` at `dist/langscape-0.1.0.zip`. Unzip it into your plugin folder, or copy the three files manually.
+Download the release assets from [GitHub Releases](https://github.com/KeylimeVI/Langscape/releases), or build the bundle yourself with `npm run package:release` (output: `dist/langscape-1.0.0.zip`). Unzip it into your plugin folder, or copy the three files manually.
 
 1. Copy `main.js`, `manifest.json`, and `styles.css` into:
    ```
@@ -62,7 +64,7 @@ A ready-to-install bundle is produced by `npm run package:release` at `dist/lang
    - Open **Settings → Langscape → Lexurgy** and click **Install Lexurgy**, or
    - Point **Lexurgy path** at an existing installation, or
    - Put `lexurgy` on your `PATH`.
-4. Java 8 or newer is required for Lexurgy. Langscape checks for Java and shows the detected version.
+4. Java 17 or newer is recommended for Lexurgy. Langscape checks for Java and shows the detected version.
 
 ### Build and install into a vault
 
@@ -72,7 +74,7 @@ A ready-to-install bundle is produced by `npm run package:release` at `dist/lang
 npm run install:vault
 ```
 
-It defaults to `/home/keylime/Documents/Obsidian Vault`; use `--vault` for another vault:
+It defaults to `~/Documents/Obsidian Vault`; use `--vault` for another vault:
 
 ```bash
 npm run install:vault -- --vault "/path/to/vault"
@@ -98,7 +100,7 @@ Reload Obsidian, or disable/enable the plugin, after installing.
 
 ### Install a homelab build on another machine
 
-Use `scripts/install-from-homelab.sh` on a second Fedora/KDE machine to replace the installed plugin in its vault. It defaults to `/home/keylime/Documents/Obsidian Vault`, removes older `langscape*` plugin folders and build zips, and preserves `data.json` and the managed `lexurgy/` folder.
+Use `scripts/install-from-homelab.sh` on a second Fedora/KDE machine to replace the installed plugin in its vault. It defaults to `~/Documents/Obsidian Vault`, removes older `langscape*` plugin folders and build zips, and preserves `data.json` and the managed `lexurgy/` folder.
 
 Requirements: `curl` and `unzip` (`sudo dnf install curl unzip`); `ssh`/`scp` only for direct homelab mode.
 
@@ -115,7 +117,7 @@ curl -fsSL https://raw.githubusercontent.com/KeylimeVI/Langscape/main/scripts/in
 
 # Other sources
 ./scripts/install-from-homelab.sh --source url --url https://example.com/langscape.zip
-./scripts/install-from-homelab.sh --source file --zip dist/langscape-0.1.0.zip
+./scripts/install-from-homelab.sh --source file --zip dist/langscape-1.0.0.zip
 ```
 
 Options: `--vault <path>`, `--no-preserve`, `--dry-run`, `--host <user@host>`, `--remote-repo <path>`, and `--remote-build`. The default source is the `dist/langscape-*.zip` artifact published to GitHub; `--source ssh` reads the homelab checkout directly and `--remote-build` runs `npm run build` plus `npm run package:release` there first. Set `HOMELAB_HOST=user@host` to make direct SSH mode the default, or set `LANGSCAPE_SOURCE` to choose a source explicitly.
@@ -193,11 +195,11 @@ Ordinary Markdown tables can merge cells without turning into HTML. A cell whose
 | Region | Q1 | < | Q2 | < |
 | --- | --- | --- | --- | --- |
 | North | 10 | 12 | 14 | 16 |
-| South | 8 | 9 | 11 | 13 |
-| ^ | 22 | 28 | 30 | 34 |
+| ^ | 8 | 9 | 11 | 13 |
+| South | 22 | 28 | 30 | 34 |
 ```
 
-Here `Q1` spans two columns, `Q2` spans two columns, and `North` spans two rows. The markers stay in the source, so the file is still an ordinary Markdown table.
+Here `Q1` spans two columns, `Q2` spans two columns, and `North` spans two rows (the `^` under North joins it to the row above; `South` starts the next row). The markers stay in the source, so the file is still an ordinary Markdown table.
 
 - **Drag across cells** (or Shift-click) and **right-click** to get **Merge cells** and **Split cells**. If a selection touches an existing merged cell, it snaps to the full enclosing rectangle, so selections are always rectangular.
 - In Live Preview, type **`<`**, **`^`**, or **`>`** in an empty cell to merge it in that direction immediately. The caret moves into the merged cell so you can keep typing.
@@ -383,7 +385,9 @@ Langscape Demo/
   Changes/Demo.lsc
   Words/Proto/{apa,eke,pataka}.md
   Notes/Font demo.md
+  Notes/Tree demo.md
   Fonts/NotoSansGothic-Regular.ttf
+  Fonts/OFL-NotoSansGothic.txt
   README.md
 ```
 
@@ -409,12 +413,15 @@ Java is found through **Java path**, `JAVA_HOME`, or `java` on `PATH`. If Java i
 
 ## Development
 
+Node.js 22 or newer is recommended for the development and browser-automation scripts.
+
 ```bash
 npm install
 npm run dev          # rebuild on change
 npm run build        # typecheck + production bundle
 npm test             # unit tests + real-Lexurgy integration tests when available
 npm run typecheck
+npm run test:obsidian  # focused real-Obsidian smoke test
 ```
 
 The Lexurgy integration tests use `.tools/lexurgy.zip`. To fetch it:
@@ -427,14 +434,14 @@ curl -L -o .tools/lexurgy.zip \
 
 Tests skip the JVM integration suite automatically when the archive or Java is missing.
 
-For an end-to-end check against real Obsidian, the repository includes `scripts/e2e-obsidian.mjs` (see the file header for prerequisites). It launches a disposable Obsidian instance against `.tools/e2e-vault`, creates the starter vault, runs the demo pipeline and a single-output branch, tests the canvas add-step menu and card errors, exercises inline fonts and the `.lsc` test bench, checks syntax colours, and verifies the results through the Chrome DevTools Protocol.
+For the full end-to-end check against real Obsidian, the repository includes `scripts/e2e-obsidian.mjs` (see the file header for prerequisites). It launches a disposable Obsidian instance against `.tools/e2e-vault`, creates the starter vault, runs the demo pipeline and a single-output branch, tests the canvas add-step menu and card errors, exercises inline fonts and the `.lsc` test bench, checks syntax colours, and verifies the results through the Chrome DevTools Protocol.
 
 ```bash
 npm run build
 npm run test:e2e
 ```
 
-The e2e script keeps its Obsidian profile in `.tools/e2e-home` between runs, accepts Obsidian's trust prompt automatically, and closes the run-result modal before moving on, so it does not leave a “Pipeline complete” dialog on screen. Use `E2E_RESET=1` to start from a clean profile.
+The e2e script keeps its Obsidian profile in `.tools/e2e-home` between runs, accepts Obsidian's trust prompt automatically, and closes the run-result modal before moving on, so it does not leave a “Pipeline complete” dialog on screen. Use `E2E_RESET=1` to start from a clean profile. It requires the extracted Obsidian build at `.tools/obsidian/obsidian-1.15.0/obsidian` and the real Lexurgy archive/Java for the integration portions.
 
 For a fast table/font/clipboard check that needs no display server, run:
 
@@ -442,7 +449,7 @@ For a fast table/font/clipboard check that needs no display server, run:
 npm run test:obsidian
 ```
 
-This launches Obsidian in headless mode with a disposable vault and profile under `.tools/headless-obsidian`, drives it through the DevTools Protocol, checks merged tables, active font cells, clipboard font markup, and rectangular selection, then writes a screenshot to `.tools/headless-obsidian/last-run.png`. It requires the extracted Obsidian build at `.tools/obsidian/obsidian-1.15.0/obsidian` (or `OBSIDIAN_BIN`). All of its writes stay inside the repository, so it runs without Xvfb or system permissions. Pass `--keep` to keep the temporary vault and profile after a successful run; failed runs are kept automatically for debugging.
+This launches Obsidian in headless mode with a disposable vault and profile under `.tools/headless-obsidian`, drives it through the DevTools Protocol, checks merged tables, active font cells, clipboard font markup, and rectangular selection, then writes a screenshot to `.tools/headless-obsidian/last-run.png`. It requires the extracted Obsidian build at `.tools/obsidian/obsidian-1.15.0/obsidian` (or `OBSIDIAN_BIN`) and Node 22+. All of its writes stay inside the repository, so it runs without Xvfb or system permissions. Pass `--keep` to keep the temporary vault and profile after a successful run; failed runs are kept automatically for debugging.
 
 ## Project layout
 
@@ -451,15 +458,21 @@ src/
   main.ts                 plugin lifecycle, commands, canvas execution
   settings.ts             persisted settings
   settings-ui.ts          settings tab
-  fonts/                  discovery, OpenType name parsing, CSS, decorations, picker
-  tables/                 merged-cell parser, layout, Live Preview, Reading view
+  demo.ts                 starter-vault generator
+  assets/                 starter-vault font and licence data
+  fonts/                  discovery, OpenType name parsing, CSS, decorations, picker, clipboard
+  tables/                 merged-cell parser, layout, Live Preview, Reading view, commands
+  trees/                  syntax-tree parser, renderer, Live Preview editor
   lexurgy/                server protocol, process management, locator, installer
   soundchange/            .lsc view, syntax decorations, rule selectors, test bench
   pipeline/               canvas model, graph validation, words, card UI, runner, writer
-  ui/                     small prompt/confirm modals
-  scripts/                e2e, local installer, packaging, homelab installer
+  ui/                     prompt/confirm modals and anchored path picker
+  utils/                  shared CodeMirror and vault helpers
 tests/                    vitest unit + real-Lexurgy integration tests
-docs/                     screenshots and architecture notes
+scripts/                  e2e, headless smoke test, installers, packaging
+.github/workflows/        CI and tagged-release automation
+docs/                     screenshots, videos, and architecture notes
+trailer/                  Remotion trailer source
 ```
 
 ## Limitations

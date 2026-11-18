@@ -43,6 +43,46 @@ interface DragState {
 const ALIGNMENT_KEY = "langscape-tree-alignment";
 let treeAlignment: TreeAlignment | null = null;
 
+// One size observer per document. A mutation watcher prunes trees that have
+// been detached by Obsidian's Markdown rerender, so observers do not accumulate.
+const treeResizeCallbacks = new Map<HTMLElement, () => void>();
+let treeResizeObserver: ResizeObserver | null = null;
+let treeResizeMutation: MutationObserver | null = null;
+let treeResizeDocument: Document | null = null;
+
+function observeTreeSize(tree: HTMLElement, callback: () => void): void {
+  const doc = tree.ownerDocument;
+  const win = doc.defaultView;
+  if (!win?.ResizeObserver || !doc.body) return;
+  if (!treeResizeObserver || treeResizeDocument !== doc) {
+    treeResizeObserver?.disconnect();
+    treeResizeMutation?.disconnect();
+    treeResizeCallbacks.clear();
+    treeResizeObserver = new win.ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const target = entry.target as HTMLElement;
+        if (!target.isConnected) {
+          treeResizeObserver?.unobserve(target);
+          treeResizeCallbacks.delete(target);
+          continue;
+        }
+        treeResizeCallbacks.get(target)?.();
+      }
+    });
+    treeResizeMutation = new win.MutationObserver(() => {
+      for (const target of [...treeResizeCallbacks.keys()]) {
+        if (target.isConnected) continue;
+        treeResizeObserver?.unobserve(target);
+        treeResizeCallbacks.delete(target);
+      }
+    });
+    treeResizeMutation.observe(doc.body, { childList: true, subtree: true });
+    treeResizeDocument = doc;
+  }
+  treeResizeCallbacks.set(tree, callback);
+  treeResizeObserver.observe(tree);
+}
+
 export function renderSyntaxTree(
   root: SyntaxTreeNode,
   manager: FontManager,
@@ -814,11 +854,7 @@ export function renderSyntaxTree(
   };
   schedule();
 
-  const ResizeObserverCtor = doc.defaultView?.ResizeObserver;
-  if (ResizeObserverCtor) {
-    const observer = new ResizeObserverCtor(() => redrawEdges());
-    observer.observe(tree);
-  }
+  observeTreeSize(tree, () => redrawEdges());
 
   return block;
 }

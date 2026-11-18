@@ -1,9 +1,9 @@
-import { TextFileView, type TFile, type WorkspaceLeaf } from "obsidian";
+import { TextFileView, type WorkspaceLeaf } from "obsidian";
 import type LangscapePlugin from "../main";
 import type { ValidationResult } from "../lexurgy/service";
 import { cleanLexurgyMessage } from "../lexurgy/protocol";
 import { SoundChangeEditor } from "./editor";
-import { parseOutline, type LexurgyOutline, type LexurgyRule } from "./outline";
+import { parseOutline, type LexurgyOutline } from "./outline";
 import { SoundChangeTestPanel } from "./panel";
 
 export const SOUNDCHANGE_VIEW_TYPE = "langscape-sound-change";
@@ -240,9 +240,3 @@ export class SoundChangeView extends TextFileView {
   }
 
 }
-
-export function isSoundChangeFile(file: TFile | null | undefined): boolean {
-  return Boolean(file && file.extension.toLowerCase() === "lsc");
-}
-
-export type { LexurgyRule };

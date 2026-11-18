@@ -133,6 +133,22 @@ describe("pipeline writer", () => {
     expect(vault.files.get("Words/Modern/kade.md")).toContain('"old"');
   });
 
+  it("stops at the suffix cap without writing a colliding note", async () => {
+    const vault = new FakeVault();
+    const original = vault.getAbstractFileByPath.bind(vault);
+    vault.getAbstractFileByPath = (path: string) => {
+      if (path.startsWith("Words/Modern/kade")) {
+        return new (TFile as any)(path) as TFile;
+      }
+      return original(path);
+    };
+    vault.cachedRead = async () => "---\nword: human\n---\n";
+    const result = await writePipelineOutput(options(vault, {}));
+    expect(result.paths).toEqual([]);
+    expect(result.errors[0]).toMatch(/free filename/i);
+    expect(vault.files.size).toBe(0);
+  });
+
   it("never writes over its source note", async () => {
     const vault = new FakeVault();
     vault.files.set("Words/Modern/kade.md", "---\nword: human\n---\n");

@@ -11,11 +11,6 @@ export interface LoadStringRequest {
   changes: string;
 }
 
-export interface LoadFileRequest {
-  type: "load_file";
-  path: string;
-}
-
 export interface ApplyRequest {
   type: "apply";
   words: string[];
@@ -42,7 +37,7 @@ export interface ErrorResponse {
   stackTrace?: string[];
 }
 
-export type ServerRequest = LoadStringRequest | LoadFileRequest | ApplyRequest;
+export type ServerRequest = LoadStringRequest | ApplyRequest;
 export type ServerResponse = OkResponse | ChangedResponse | ErrorResponse;
 
 export function encodeRequest(request: ServerRequest): string {

@@ -1,4 +1,5 @@
 import { normalizePath, type App, type TFile } from "obsidian";
+import { ensureVaultFolder } from "../utils/vault";
 import type { OutputStep } from "./model";
 import {
   expandFilenameTemplate,
@@ -40,7 +41,7 @@ export async function writePipelineOutput(
 
 async function writeWli(options: WriteOutputOptions): Promise<WriteOutputResult> {
   const result: WriteOutputResult = { paths: [], skipped: [], errors: [] };
-  const target = resolveWliPath(options.step.path, options.words);
+  const target = resolveWliPath(options.step.path);
   const sourcePaths = new Set(options.words.map((word) => word.sourcePath).filter(Boolean));
   if (sourcePaths.has(target)) {
     result.errors.push(
@@ -49,7 +50,7 @@ async function writeWli(options: WriteOutputOptions): Promise<WriteOutputResult>
     return result;
   }
 
-  await ensureFolder(options.app, parentOf(target));
+  await ensureVaultFolder(options.app, parentOf(target));
   const existing = options.app.vault.getAbstractFileByPath(target);
   if (existing && "extension" in existing) {
     if (!options.step.overwrite) {
@@ -69,7 +70,7 @@ async function writeMarkdownNotes(options: WriteOutputOptions): Promise<WriteOut
     result.errors.push("The output step has an empty folder path.");
     return result;
   }
-  await ensureFolder(options.app, folder);
+  await ensureVaultFolder(options.app, folder);
   const pipelineName = options.step.name?.trim() || defaultPipelineName(options.step.path);
 
   const sourcePaths = new Set(
@@ -84,22 +85,17 @@ async function writeMarkdownNotes(options: WriteOutputOptions): Promise<WriteOut
       ? expandFilenameTemplate(template, word, index)
       : sanitizeFilename(word.form);
     const baseName = sanitizeFilename(rawName || word.form);
-    let target = normalizePath(`${folder}/${baseName}.md`);
-    let suffix = 2;
-
-    while (true) {
-      if (sourcePaths.has(target)) {
-        target = normalizePath(`${folder}/${baseName}-${suffix}.md`);
-        suffix++;
-        continue;
+    let target: string | null = null;
+    for (let suffix = 1; suffix <= 500; suffix++) {
+      const candidate = normalizePath(
+        `${folder}/${baseName}${suffix === 1 ? "" : `-${suffix}`}.md`
+      );
+      if (sourcePaths.has(candidate) || used.has(candidate)) continue;
+      const existing = options.app.vault.getAbstractFileByPath(candidate);
+      if (!existing || !("extension" in existing)) {
+        target = candidate;
+        break;
       }
-      if (used.has(target)) {
-        target = normalizePath(`${folder}/${baseName}-${suffix}.md`);
-        suffix++;
-        continue;
-      }
-      const existing = options.app.vault.getAbstractFileByPath(target);
-      if (!existing || !("extension" in existing)) break;
       const file = existing as TFile;
       let content = "";
       try {
@@ -110,15 +106,16 @@ async function writeMarkdownNotes(options: WriteOutputOptions): Promise<WriteOut
       const generated = isGeneratedNote(content);
       // Never clobber a human-written note, even when overwrite is enabled.
       // Generated notes are safe to refresh on subsequent runs.
-      if (generated && options.step.overwrite) break;
-      target = normalizePath(`${folder}/${baseName}-${suffix}.md`);
-      suffix++;
-      if (suffix > 500) {
-        result.errors.push(`Could not find a free filename for "${word.form}".`);
+      if (generated && options.step.overwrite) {
+        target = candidate;
         break;
       }
     }
 
+    if (!target) {
+      result.errors.push(`Could not find a free filename for "${word.form}".`);
+      continue;
+    }
     used.add(target);
     try {
       const content = renderMarkdownNote(word, {
@@ -137,35 +134,15 @@ async function writeMarkdownNotes(options: WriteOutputOptions): Promise<WriteOut
   return result;
 }
 
-export function resolveWliPath(path: string, words: OutputWord[]): string {
+export function resolveWliPath(path: string): string {
   const clean = normalizePath(path.replace(/^\/+|\/+$/g, ""));
   if (/\.wli$/i.test(clean)) return clean;
   if (!clean) return "evolved.wli";
   return normalizePath(`${clean}/evolved.wli`);
 }
 
-async function ensureFolder(app: App, folder: string): Promise<void> {
-  if (!folder || folder === ".") return;
-  const normalized = normalizePath(folder);
-  const existing = app.vault.getAbstractFileByPath(normalized);
-  if (existing && "children" in existing) return;
-  const parts = normalized.split("/");
-  let current = "";
-  for (const part of parts) {
-    current = current ? `${current}/${part}` : part;
-    const found = app.vault.getAbstractFileByPath(current);
-    if (found && "children" in found) continue;
-    try {
-      await app.vault.createFolder(current);
-    } catch (error) {
-      // A concurrent create or an existing hidden folder should not fail the run.
-      if (!(await app.vault.adapter.exists(current))) throw error;
-    }
-  }
-}
-
 async function writeText(app: App, path: string, content: string): Promise<void> {
-  await ensureFolder(app, parentOf(path));
+  await ensureVaultFolder(app, parentOf(path));
   const existing = app.vault.getAbstractFileByPath(path);
   if (existing && "extension" in existing) {
     await app.vault.modify(existing as TFile, content);
@@ -177,21 +154,4 @@ async function writeText(app: App, path: string, content: string): Promise<void>
 function parentOf(path: string): string {
   const index = path.lastIndexOf("/");
   return index <= 0 ? "" : path.slice(0, index);
-}
-
-/** Exported for tests that need to check the collision logic without a vault. */
-export function uniqueNotePath(
-  folder: string,
-  baseName: string,
-  used: Set<string>,
-  exists: (path: string) => boolean,
-  isReusable: (path: string) => boolean
-): string {
-  let suffix = 2;
-  let target = normalizePath(`${folder}/${baseName}.md`);
-  while (used.has(target) || (exists(target) && !isReusable(target))) {
-    target = normalizePath(`${folder}/${baseName}-${suffix}.md`);
-    suffix++;
-  }
-  return target;
 }

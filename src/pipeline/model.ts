@@ -210,7 +210,7 @@ export function parseCanvasPipeline(
     edges,
     issues,
   };
-  validatePipeline(graph);
+  graph.issues = validatePipeline(graph);
   return graph;
 }
 
@@ -336,7 +336,8 @@ export function stepConfigFromObject(
 }
 
 export function validatePipeline(graph: PipelineGraph): PipelineIssue[] {
-  const issues = graph.issues;
+  // Return a new list so callers can revalidate a graph without mutating it.
+  const issues = graph.issues.slice();
   const ids = new Set<string>();
   for (const step of graph.steps) {
     if (ids.has(step.id)) {

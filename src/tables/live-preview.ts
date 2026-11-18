@@ -1,4 +1,4 @@
-import { Menu, Notice, type App } from "obsidian";
+import { Menu, Notice } from "obsidian";
 import { Transaction, type Extension, type Text } from "@codemirror/state";
 import { ViewPlugin, type EditorView, type ViewUpdate } from "@codemirror/view";
 import type { FontManager } from "../fonts/manager";
@@ -171,13 +171,13 @@ function groupSpanAt(table: MarkdownTable, r: number, c: number): number {
  * cell to a source position. Covered cells are therefore hidden rather than
  * removed, which keeps cell editing and source mapping intact.
  */
-export function createMergedTableExtension(app: App, fontManager?: FontManager): Extension {
+export function createMergedTableExtension(fontManager?: FontManager): Extension {
   return ViewPlugin.fromClass(
     class {
       private readonly controller: MergedTableController;
 
       constructor(view: EditorView) {
-        this.controller = new MergedTableController(app, view, fontManager);
+        this.controller = new MergedTableController(view, fontManager);
       }
 
       update(update: ViewUpdate): void {
@@ -205,7 +205,6 @@ export class MergedTableController {
   private destroyed = false;
 
   constructor(
-    private readonly app: App,
     private readonly view: EditorView,
     private readonly fontManager?: FontManager
   ) {

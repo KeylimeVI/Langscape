@@ -84,14 +84,6 @@ export class LexurgyServer {
     return this.child !== null && !this.child.killed;
   }
 
-  get lastExitInfo(): { code: number | null; signal: NodeJS.Signals | null } | null {
-    return this.lastExit;
-  }
-
-  get stderrTail(): string {
-    return this.stderrBuffer;
-  }
-
   async start(): Promise<void> {
     if (this.isRunning) return;
     if (this.starting) return this.starting;

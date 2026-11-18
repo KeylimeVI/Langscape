@@ -102,7 +102,3 @@ export function isOfficialUrl(value: unknown): boolean {
     return false;
   }
 }
-
-export const LEXURGY_RELEASE_PAGE =
-  "https://github.com/def-gthill/lexurgy/releases/latest";
-export const LEXURGY_LICENSE_URL = LICENSE_URL;

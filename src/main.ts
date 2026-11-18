@@ -11,6 +11,7 @@ import {
 import { createStarterVault } from "./demo";
 import { installFontClipboard } from "./fonts/clipboard";
 import { isFontFile } from "./fonts/css";
+import { findFontSpans } from "./fonts/spans";
 import { FontManager } from "./fonts/manager";
 import { FontDomDecorator } from "./fonts/dom";
 import { FontPickerModal } from "./fonts/modal";
@@ -53,7 +54,7 @@ import {
   refreshSyntaxTrees,
 } from "./trees/editor";
 import { createSyntaxTreePostProcessor } from "./trees/postprocess";
-import { confirmAction, promptText } from "./ui/modals";
+import { confirmAction } from "./ui/modals";
 import { pickPath, type PathOption } from "./ui/path-picker";
 
 type CanvasHost = {
@@ -75,6 +76,7 @@ export default class LangscapePlugin extends Plugin {
   private testWordsSaveTimer: ReturnType<typeof setTimeout> | null = null;
   private pipelineRun: Promise<PipelineRunReport | null> | null = null;
   private fontRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+  private lexurgyProbeTimer: ReturnType<typeof setTimeout> | null = null;
   private canvasViews = new WeakSet<object>();
   private canvasActionEls = new Set<HTMLElement>();
 
@@ -94,9 +96,9 @@ export default class LangscapePlugin extends Plugin {
     // fonts inside each label itself.
     this.registerMarkdownPostProcessor(createSyntaxTreePostProcessor(this.fontManager));
     this.registerMarkdownPostProcessor(createMergedTablePostProcessor(this.app));
-    this.registerMarkdownPostProcessor(createFontPostProcessor(this.fontManager, this.app));
+    this.registerMarkdownPostProcessor(createFontPostProcessor(this.fontManager));
     this.registerEditorExtension(createSyntaxTreeExtension(this.fontManager, this.app));
-    this.registerEditorExtension(createMergedTableExtension(this.app, this.fontManager));
+    this.registerEditorExtension(createMergedTableExtension(this.fontManager));
     this.register(installTableMenuPatch());
     this.registerEditorExtension(createFontLivePreviewExtension(this.fontManager));
     this.registerEditorExtension(createNoteFontExtension(this.fontManager));
@@ -149,7 +151,8 @@ export default class LangscapePlugin extends Plugin {
     );
     this.app.workspace.onLayoutReady(() => this.ensureCanvasAction());
 
-    setTimeout(() => {
+    this.lexurgyProbeTimer = setTimeout(() => {
+      this.lexurgyProbeTimer = null;
       void this.lexurgy.getEnvironment().catch(() => undefined);
     }, 1500);
   }
@@ -157,6 +160,7 @@ export default class LangscapePlugin extends Plugin {
   onunload(): void {
     if (this.testWordsSaveTimer) clearTimeout(this.testWordsSaveTimer);
     if (this.fontRefreshTimer) clearTimeout(this.fontRefreshTimer);
+    if (this.lexurgyProbeTimer) clearTimeout(this.lexurgyProbeTimer);
     void this.lexurgy?.dispose();
     this.fontManager?.unload();
     for (const action of this.canvasActionEls) action.remove();
@@ -238,16 +242,7 @@ export default class LangscapePlugin extends Plugin {
       onChoose: (markup) => {
         const from = editor.getCursor("from");
         editor.replaceSelection(markup);
-        const brace = /^\{[^:{}]+:\s*/.exec(markup);
-        const triple = /^'''\S+\s+/.exec(markup);
-        const pipe = markup.indexOf("|");
-        const contentOffset = brace
-          ? brace[0].length
-          : triple
-            ? triple[0].length
-            : pipe >= 0
-              ? pipe + 1
-              : 0;
+        const contentOffset = findFontSpans(markup)[0]?.contentStart ?? 0;
         const offset = editor.posToOffset(from) + contentOffset;
         editor.setCursor(editor.offsetToPos(offset));
         editor.focus();
@@ -543,7 +538,7 @@ export default class LangscapePlugin extends Plugin {
         new Notice("No folders found. Create a folder of word notes first.");
         return null;
       }
-      return pickPath(this.app, {
+      return pickPath({
         title: "Add source words",
         placeholder: "Search folders or .wli files…",
         options: [...options, ...wli],
@@ -560,14 +555,14 @@ export default class LangscapePlugin extends Plugin {
         new Notice("No .lsc files found. Create a sound-change file first.");
         return null;
       }
-      return pickPath(this.app, {
+      return pickPath({
         title: "Add sound changes",
         placeholder: "Search sound-change files…",
         options,
       }, anchor);
     }
 
-    return pickPath(this.app, {
+    return pickPath({
       title: "Add output",
       placeholder: "Search folders or type a new path…",
       options: this.folderOptions(),

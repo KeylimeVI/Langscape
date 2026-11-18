@@ -1,6 +1,6 @@
 {
   "name": "langscape",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "A conlanger's workbench for Obsidian: custom writing-system fonts, a Lexurgy sound-change editor, and canvas pipelines.",
   "main": "main.js",
   "scripts": {
@@ -15,7 +15,8 @@
     "test:e2e": "node scripts/e2e-obsidian.mjs",
     "test:obsidian": "npm run build && node scripts/headless-obsidian-test.mjs",
     "package:release": "node scripts/package.mjs",
-    "install:vault": "node scripts/install-to-vault.mjs"
+    "install:vault": "node scripts/install-to-vault.mjs",
+    "test:release": "npm run verify && npm run package:release"
   },
   "keywords": [
     "obsidian",
@@ -46,6 +47,14 @@
     "vitest": "^3.2.4"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/KeylimeVI/Langscape.git"
+  },
+  "homepage": "https://github.com/KeylimeVI/Langscape",
+  "bugs": {
+    "url": "https://github.com/KeylimeVI/Langscape/issues"
   }
 }

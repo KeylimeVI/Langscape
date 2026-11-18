@@ -32,13 +32,8 @@ export class LexurgyService {
   private environmentAt = 0;
   private detecting: Promise<LexurgyEnvironment> | null = null;
   private installing: Promise<InstallResult> | null = null;
-  private lastError: string | undefined;
 
   constructor(private readonly plugin: LangscapePlugin) {}
-
-  get lastServerError(): string | undefined {
-    return this.lastError;
-  }
 
   get isRunning(): boolean {
     return Boolean(this.server?.isRunning);
@@ -102,10 +97,8 @@ export class LexurgyService {
     } catch (error) {
       this.server = null;
       this.serverKey = "";
-      this.lastError = error instanceof Error ? error.message : String(error);
       throw error;
     }
-    this.lastError = undefined;
     return this.server;
   }
 
@@ -122,9 +115,6 @@ export class LexurgyService {
         error instanceof LexurgyError
           ? error
           : new LexurgyError(error instanceof Error ? error.message : String(error));
-      if (!errorIsLexurgyError(error)) {
-        this.lastError = lexurgyError.message;
-      }
       return {
         valid: false,
         error: lexurgyError,
@@ -223,10 +213,6 @@ export class LexurgyService {
   }
 }
 
-function errorIsLexurgyError(error: unknown): boolean {
-  return error instanceof LexurgyError;
-}
-
 /**
  * Lexurgy sometimes names the failing rule without a source line (for example
  * `Error in expression 2 of rule "Umlaut"`). Point the editor at that rule's
@@ -269,5 +255,3 @@ const obsidianTransport: FetchTransport = {
     };
   },
 };
-
-export { LexurgyServer };

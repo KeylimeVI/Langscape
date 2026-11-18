@@ -91,6 +91,7 @@ describe("FontManager", () => {
     const vault = new Vault();
     const manager = new FontManager({ vault } as any, () =>
       settings({
+        fontNicknames: { web: "webby" },
         customFonts: [
           {
             id: "web",
@@ -106,10 +107,38 @@ describe("FontManager", () => {
       family: "Webfont",
       source: "url",
       format: "woff2",
+      customId: "web",
+      nickname: "webby",
     });
     expect(document.getElementById("langscape-font-faces")?.textContent).toContain(
       "https://example.com/font.woff2"
     );
+  });
+
+  it("applies custom path metadata and keeps the settings entry id", async () => {
+    const vault = new Vault();
+    vault.files.push(file("Fonts/A.ttf"));
+    const manager = new FontManager({ vault } as any, () =>
+      settings({
+        customFonts: [
+          {
+            id: "local",
+            name: "Renamed Script",
+            path: "Fonts/A.ttf",
+            enabled: true,
+            sample: "sample text",
+          },
+        ],
+      })
+    );
+    const fonts = await manager.refresh();
+    expect(fonts[0]).toMatchObject({
+      displayName: "Renamed Script",
+      source: "vault",
+      path: "Fonts/A.ttf",
+      customId: "local",
+    });
+    expect(manager.sampleFor(fonts[0])).toBe("sample text");
   });
 
   it("disambiguates duplicate family names", async () => {

@@ -1,6 +1,4 @@
-import type { App, MarkdownPostProcessorContext } from "obsidian";
-import { syntaxTree } from "@codemirror/language";
-import type { EditorState } from "@codemirror/state";
+import type { MarkdownPostProcessorContext } from "obsidian";
 import {
   Decoration,
   type DecorationSet,
@@ -9,6 +7,7 @@ import {
   type ViewUpdate,
 } from "@codemirror/view";
 import type { FontManager } from "./manager";
+import { isInCode } from "../utils/codemirror";
 import { findFontSpans, formatFontSpan, parseFontSpanSegments } from "./spans";
 
 /**
@@ -100,7 +99,6 @@ export function applyFrontmatterFont(
   el.dataset.langscapeFont = record.displayName;
 }
 
-/** Live Preview / source mode font decoration. */
 /**
  * Live Preview does not run markdown post-processors for ordinary text, so a
  * note-level `langscape-font` frontmatter value needs an editor extension.
@@ -174,19 +172,6 @@ export function createFontLivePreviewExtension(manager: FontManager) {
       decorations: (value) => value.decorations,
     }
   );
-}
-
-function isInCode(state: EditorState, position: number): boolean {
-  try {
-    let node = syntaxTree(state).resolveInner(position, 1);
-    while (node) {
-      if (/code/i.test(node.name)) return true;
-      node = node.parent as typeof node;
-    }
-  } catch {
-    return false;
-  }
-  return false;
 }
 
 function build(view: EditorView, manager: FontManager): DecorationSet {
@@ -276,12 +261,9 @@ function isEditable(element: HTMLElement): boolean {
 }
 
 /** Register the post-processor; returns a function for easy testing. */
-export function createFontPostProcessor(manager: FontManager, app: App) {
+export function createFontPostProcessor(manager: FontManager) {
   return (el: HTMLElement, context: MarkdownPostProcessorContext): void => {
     applyFrontmatterFont(el, context.frontmatter, manager);
     decorateFontSpans(el, manager);
-    // Avoid an unused parameter warning while keeping the app dependency
-    // explicit for future per-source resolution (e.g. embedded notes).
-    void app;
   };
 }

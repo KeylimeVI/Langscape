@@ -5,7 +5,7 @@
  * Prerequisites (not committed; see README):
  *   .tools/obsidian/obsidian-<version>/obsidian   (official Linux build)
  *   .tools/lexurgy/lexurgy-1.7.7/lib/*.jar       (official Lexurgy release)
- *   Java 8+ and a graphical session (DISPLAY).
+ *   Java 17+ and a graphical session (DISPLAY).
  *
  * Usage:
  *   npm run build
@@ -176,12 +176,12 @@ class Cdp {
 
 async function saveScreenshot(cdp, name) {
   const screenshot = await cdp.send("Page.captureScreenshot", { format: "png" });
-  await fs.mkdir(path.join(root, "docs/screenshots"), { recursive: true });
+  await fs.mkdir(path.join(root, ".tools/e2e-screenshots"), { recursive: true });
   await fs.writeFile(
-    path.join(root, "docs/screenshots", name),
+    path.join(root, ".tools/e2e-screenshots", name),
     Buffer.from(screenshot.data, "base64")
   );
-  log(`saved docs/screenshots/${name}`);
+  log(`saved .tools/e2e-screenshots/${name}`);
 }
 
 async function waitForEval(cdp, expression, timeoutMs = 20_000) {

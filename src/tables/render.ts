@@ -3,7 +3,6 @@ import {
   type MergeGroup,
   type TableLayout,
   type TableRect,
-  type TableCell,
 } from "./model";
 
 /** All <th>/<td> elements in visual row/column order (covered cells included). */
@@ -176,21 +175,4 @@ export function cellText(cell: HTMLTableCellElement): string {
 
 export function cellIsEmpty(cell: HTMLTableCellElement): boolean {
   return cellText(cell) === "";
-}
-
-/** Read a table model from rendered markup when source text is unavailable. */
-export function tableFromDom(tableEl: HTMLTableElement): { rows: TableCell[][] } | null {
-  const rows = domRowTexts(tableEl);
-  if (rows.length === 0) return null;
-  const columns = Math.max(1, ...rows.map((row) => row.length));
-  return {
-    rows: rows.map((row) => {
-      const cells = row.map((text) => ({
-        text,
-        marker: /^[<>^]+$/.test(text) ? text : null,
-      }));
-      while (cells.length < columns) cells.push({ text: "", marker: null });
-      return cells;
-    }),
-  };
 }

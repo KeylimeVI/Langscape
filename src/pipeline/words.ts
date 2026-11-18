@@ -135,7 +135,3 @@ export function parseSourceFile(
   if (extension === "wli" || extension === "wordlist") return parseWli(text, path);
   return extractMarkdownWords(text, path, field);
 }
-
-export function wordFieldLabel(field: string): string {
-  return field === "word" ? "word" : `“${field}” field`;
-}

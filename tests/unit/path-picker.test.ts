@@ -13,10 +13,7 @@ afterEach(() => {
 
 describe("path popover", () => {
   it("chooses an existing folder", async () => {
-    const promise = pickPath(
-      {} as any,
-      { title: "Choose", placeholder: "Search folders", options }
-    );
+    const promise = pickPath({ title: "Choose", placeholder: "Search folders", options });
     const rows = document.querySelectorAll(".langscape-path-item");
     expect(rows).toHaveLength(2);
     (rows[0] as HTMLButtonElement).click();
@@ -24,7 +21,7 @@ describe("path popover", () => {
   });
 
   it("filters the list as you type", () => {
-    pickPath({} as any, { title: "Choose", placeholder: "Search", options });
+    pickPath({ title: "Choose", placeholder: "Search", options });
     const input = document.querySelector(".langscape-path-search") as HTMLInputElement;
     input.value = "modern";
     input.dispatchEvent(new Event("input", { bubbles: true }));
@@ -34,7 +31,7 @@ describe("path popover", () => {
   });
 
   it("offers to create a typed new folder when allowed", async () => {
-    const promise = pickPath({} as any, {
+    const promise = pickPath({
       title: "Choose",
       placeholder: "Search",
       options,

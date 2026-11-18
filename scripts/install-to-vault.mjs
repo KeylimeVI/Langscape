@@ -21,7 +21,7 @@ import { fileURLToPath } from "node:url";
 import { unzipSync } from "fflate";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const DEFAULT_VAULT = "/home/keylime/Documents/Obsidian Vault";
+const DEFAULT_VAULT = path.join(os.homedir(), "Documents", "Obsidian Vault");
 const args = process.argv.slice(2);
 
 function help() {

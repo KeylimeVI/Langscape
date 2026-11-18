@@ -18,11 +18,11 @@
 #   ./install-from-homelab.sh --dry-run
 #   ./install-from-homelab.sh --vault "$HOME/Documents/Obsidian Vault"
 #   ./install-from-homelab.sh --source url --url https://example.com/langscape.zip
-#   ./install-from-homelab.sh --source file --zip ./dist/langscape-0.1.0.zip
+#   ./install-from-homelab.sh --source file --zip ./dist/langscape-1.0.0.zip
 #
 set -euo pipefail
 
-DEFAULT_VAULT="/home/keylime/Documents/Obsidian Vault"
+DEFAULT_VAULT="${HOME}/Documents/Obsidian Vault"
 GITHUB_REPO="${LANGSCAPE_REPO:-KeylimeVI/Langscape}"
 GITHUB_REF="${LANGSCAPE_REF:-main}"
 
@@ -70,7 +70,7 @@ Examples:
   ./install-from-homelab.sh
   ./install-from-homelab.sh --source ssh --host keylime@homelab
   ./install-from-homelab.sh --source ssh --host keylime@homelab --remote-build
-  ./install-from-homelab.sh --source file --zip ./dist/langscape-0.1.0.zip
+  ./install-from-homelab.sh --source file --zip ./dist/langscape-1.0.0.zip
 EOF
 }
 

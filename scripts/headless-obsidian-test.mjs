@@ -153,8 +153,8 @@ async function prepareVault() {
       "| Region | Q1 | < | Q2 | < |",
       "| --- | --- | --- | --- | --- |",
       "| North | 10 | 12 | 14 | 16 |",
-      "| South | 8 | 9 | 11 | 13 |",
-      "| ^ | 22 | 28 | 30 | 34 |",
+      "| ^ | 8 | 9 | 11 | 13 |",
+      "| South | 22 | 28 | 30 | 34 |",
       "",
       "| A | B | C |",
       "| --- | --- | --- |",
@@ -293,17 +293,17 @@ async function testMergedTable(cdp) {
   const result = await cdp.eval(`(() => {
     const table = document.querySelectorAll('.cm-table-widget table')[0];
     const q1 = table.rows[0].cells[1];
-    const south = table.rows[2].cells[0];
+    const north = table.rows[1].cells[0];
     return {
       q1ColSpan: q1.colSpan,
-      southRowSpan: south.rowSpan,
+      northRowSpan: north.rowSpan,
       merged: table.classList.contains('langscape-merged-table'),
       covered: table.querySelectorAll('.langscape-table-covered').length,
     };
   })()`);
   await ensure(result.merged, "Merged table was not marked as merged.");
   await ensure(result.q1ColSpan === 2, "Header colspan was not applied.");
-  await ensure(result.southRowSpan === 2, "Body rowspan was not applied.");
+  await ensure(result.northRowSpan === 2, "Body rowspan was not applied.");
   await ensure(result.covered > 0, "Covered cells were not hidden.");
   log("merged table renders correctly");
 }
@@ -465,9 +465,30 @@ async function main() {
     await testFontCellAndClipboard(cdp);
     await testRectangularSelection(cdp);
 
+    const tableRect = await cdp.eval(`(() => {
+      const table = document.querySelectorAll('.cm-table-widget table')[0];
+      const rect = table.getBoundingClientRect();
+      return { x: rect.left, y: rect.top, width: rect.width, height: rect.height };
+    })()`);
+    const tableShot = await cdp.send("Page.captureScreenshot", {
+      format: "png",
+      clip: {
+        x: Math.max(0, tableRect.x - 16),
+        y: Math.max(0, tableRect.y - 16),
+        width: tableRect.width + 32,
+        height: tableRect.height + 32,
+        scale: 2,
+      },
+    });
+    await fs.writeFile(
+      path.join(tools, "merged-table.png"),
+      Buffer.from(tableShot.data, "base64")
+    );
+
     const shot = await cdp.send("Page.captureScreenshot", { format: "png" });
     await fs.writeFile(screenshot, Buffer.from(shot.data, "base64"));
     log(`screenshot: ${path.relative(root, screenshot)}`);
+    log(`merged table: ${path.relative(root, path.join(tools, "merged-table.png"))}`);
     passed = true;
     log("all checks passed");
   } catch (error) {
