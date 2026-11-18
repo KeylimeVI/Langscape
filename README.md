@@ -436,6 +436,14 @@ npm run test:e2e
 
 The e2e script keeps its Obsidian profile in `.tools/e2e-home` between runs, accepts Obsidian's trust prompt automatically, and closes the run-result modal before moving on, so it does not leave a “Pipeline complete” dialog on screen. Use `E2E_RESET=1` to start from a clean profile.
 
+For a fast table/font/clipboard check that needs no display server, run:
+
+```bash
+npm run test:obsidian
+```
+
+This launches Obsidian in headless mode with a disposable vault and profile under `.tools/headless-obsidian`, drives it through the DevTools Protocol, checks merged tables, active font cells, clipboard font markup, and rectangular selection, then writes a screenshot to `.tools/headless-obsidian/last-run.png`. It requires the extracted Obsidian build at `.tools/obsidian/obsidian-1.15.0/obsidian` (or `OBSIDIAN_BIN`). All of its writes stay inside the repository, so it runs without Xvfb or system permissions. Pass `--keep` to keep the temporary vault and profile after a successful run; failed runs are kept automatically for debugging.
+
 ## Project layout
 
 ```
