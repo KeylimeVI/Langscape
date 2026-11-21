@@ -463,13 +463,13 @@ async function testSyntaxTreeDrag(cdp) {
   const current = () => cdp.eval("app.workspace.getMostRecentLeaf().view.editor.getValue()");
   await waitFor(() => cdp.eval(`Boolean(${tree})`), 10_000, "the syntax tree widget");
 
-  const center = (text, mark) => cdp.eval(`(() => {
+  const center = (text, side) => cdp.eval(`(() => {
     const tree = ${tree};
     if (!tree) return null;
     const label = [...tree.querySelectorAll('.langscape-tree-label')]
       .find((label) => label.textContent === ${JSON.stringify(text)});
-    const target = ${JSON.stringify(mark ?? null)}
-      ? label?.parentElement.querySelector('.langscape-tree-drop-mark.is-' + ${JSON.stringify(mark ?? null)})
+    const target = ${JSON.stringify(side ?? null)}
+      ? label?.parentElement.querySelector('.langscape-tree-drop-side.is-' + ${JSON.stringify(side ?? null)})
       : label;
     const rect = target?.getBoundingClientRect();
     return rect?.width && rect.height ? { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 } : null;
@@ -478,17 +478,17 @@ async function testSyntaxTreeDrag(cdp) {
     type, ...point, button: "left", buttons: type === "mouseReleased" ? 0 : 1,
     clickCount: 1,
   });
-  const drag = async (source, target, mark, expected) => {
+  const drag = async (source, target, side, expected) => {
     const start = await waitFor(() => center(source), 10_000, `the label ${source}`);
     const targetBeforeDrag = await center(target);
     await mouse("mousePressed", start);
     await mouse("mouseMoved", { x: start.x + 8, y: start.y });
-    const point = await waitFor(() => center(target, mark), 5_000, `the drop mark for ${target}`);
+    const point = await waitFor(() => center(target, side), 5_000, `the drop mark for ${target}`);
     await mouse("mouseMoved", point);
     const targetHit = await cdp.eval(`(() => {
       const active = (${tree}).querySelector('.is-tree-drop-active');
       return active && active.parentElement.querySelector('.langscape-tree-label').textContent === ${JSON.stringify(target)}
-        && (${JSON.stringify(mark ?? null)} ? active.classList.contains('is-' + ${JSON.stringify(mark ?? null)})
+        && (${JSON.stringify(side ?? null)} ? active.classList.contains('is-' + ${JSON.stringify(side ?? null)})
           : active.classList.contains('langscape-tree-label'));
     })()`);
     await ensure(targetHit, `The real pointer did not highlight the intended ${target} drop target.`);
@@ -501,7 +501,7 @@ async function testSyntaxTreeDrag(cdp) {
   await drag("NP", "VP", "after", "{tree: S(VP(V(see)), NP(N(cat), Adj(small)), P)}");
   await drag("N", "V", "before", "{tree: S(VP(N(cat), V(see)), NP(Adj(small)), P)}");
   const final = "{tree: S(VP(N(cat), V(see), P), NP(Adj(small)))}";
-  await drag("P", "VP", "below", final);
+  await drag("P", "VP", undefined, final);
 
   const source = await center("N");
   await mouse("mousePressed", source);
@@ -514,7 +514,7 @@ async function testSyntaxTreeDrag(cdp) {
   await mouse("mouseReleased", blank);
   await ensure((await current()) === final, "Dropping in blank space changed the tree source.");
   await ensure(await cdp.eval("!document.querySelector('.langscape-tree-drag-preview')"), "The drag preview was left behind.");
-  log("tree drag highlights and commits sibling ordering, bottom-mark reparenting, and blank-space cancellation");
+  log("tree drag highlights and commits sibling ordering, reparenting, and blank-space cancellation");
 }
 
 async function testLexurgyUi(cdp, liveDocs) {

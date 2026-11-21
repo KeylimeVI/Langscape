@@ -1331,59 +1331,39 @@ body.theme-light {
   outline: none;
 }
 
-.langscape-tree-drop-mark {
+.langscape-tree-drop-side {
   display: none;
-  --mark-thickness: 2px;
-  --mark-length: 65%;
 }
 
-.langscape-tree-drop-mark.is-tree-drop-zone {
+.langscape-tree-drop-side.is-tree-drop-zone {
   display: grid;
   position: absolute;
   z-index: 2;
+  inset-block: 0;
+  width: 10px;
   place-items: center;
 }
 
-.langscape-tree-drop-mark:not(.is-below) {
-  inset-block: 0;
-  width: 10px;
-}
-
-.langscape-tree-drop-mark.is-before {
+.langscape-tree-drop-side.is-before {
   right: 100%;
 }
 
-.langscape-tree-drop-mark.is-after {
+.langscape-tree-drop-side.is-after {
   left: 100%;
 }
 
-.langscape-tree-drop-mark.is-below {
-  inset-inline: 0;
-  top: 100%;
-  height: 12px;
-}
-
-.langscape-tree-drop-mark::before {
+.langscape-tree-drop-side::before {
   content: "";
-  width: var(--mark-thickness);
-  height: var(--mark-length);
+  width: 2px;
+  height: 65%;
   border-radius: 3px;
   background: var(--text-faint);
   pointer-events: none;
 }
 
-.langscape-tree-drop-mark.is-below::before {
-  width: calc(var(--mark-thickness) + 3px);
-  height: calc(var(--mark-thickness) + 3px);
-  border-radius: 50%;
-}
-
-.langscape-tree-drop-mark.is-tree-drop-active {
-  --mark-thickness: 4px;
-  --mark-length: 90%;
-}
-
-.langscape-tree-drop-mark.is-tree-drop-active::before {
+.langscape-tree-drop-side.is-tree-drop-active::before {
+  width: 4px;
+  height: 90%;
   background: var(--interactive-accent);
 }
 
@@ -1399,7 +1379,7 @@ body.theme-light {
 }
 
 .is-tree-dragging .langscape-tree-label,
-.is-tree-dragging .langscape-tree-drop-mark {
+.is-tree-dragging .langscape-tree-drop-side {
   cursor: grabbing;
 }
 
