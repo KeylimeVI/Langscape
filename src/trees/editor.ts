@@ -16,6 +16,7 @@ import {
   serializeSyntaxTree,
   type SyntaxTreeNode,
 } from "./model";
+import { cancelTreeDrag } from "./drag";
 import { renderSyntaxTree } from "./render";
 
 /** Force tree widgets to re-render after asynchronous font loading. */
@@ -49,6 +50,7 @@ class SyntaxTreeWidget extends WidgetType {
       onChange: (tree) => {
         try {
           const line = view.state.doc.lineAt(this.from);
+          if (line.from !== this.from || line.text !== this.source) return;
           view.dispatch({
             changes: {
               from: line.from,
@@ -87,6 +89,10 @@ class SyntaxTreeWidget extends WidgetType {
     });
     el.classList.add("langscape-tree-widget");
     return el;
+  }
+
+  destroy(dom: HTMLElement): void {
+    cancelTreeDrag(dom);
   }
 
   ignoreEvent(): boolean {

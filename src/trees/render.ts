@@ -1,4 +1,5 @@
 import type { FontManager } from "../fonts/manager";
+import { createTreeDrag } from "./drag";
 import { decorateFontSpans } from "../fonts/render";
 import { isValidSyntaxTreeLabel, type SyntaxTreeNode } from "./model";
 
@@ -23,22 +24,7 @@ interface NodeContext {
   label: HTMLSpanElement;
 }
 
-type DropMode = "child" | "before" | "after";
 type TreeAlignment = "center" | "left";
-
-interface DragState {
-  node: SyntaxTreeNode;
-  parent: SyntaxTreeNode;
-  source: HTMLDivElement;
-  preview: HTMLDivElement;
-  overlay: SVGSVGElement;
-  target: {
-    node: SyntaxTreeNode;
-    item: HTMLDivElement;
-    mode: DropMode;
-    index: number;
-  } | null;
-}
 
 const ALIGNMENT_KEY = "langscape-tree-alignment";
 let treeAlignment: TreeAlignment | null = null;
@@ -109,13 +95,7 @@ export function renderSyntaxTree(
   svg.setAttribute("aria-hidden", "true");
   tree.appendChild(svg);
 
-  const byItem = new Map<HTMLElement, SyntaxTreeNode>();
-  const itemByNode = new Map<SyntaxTreeNode, HTMLDivElement>();
-  const parentByNode = new Map<SyntaxTreeNode, SyntaxTreeNode | null>();
   const editable = Boolean(actions.onChange);
-
-  let currentDrag: DragState | null = null;
-
   const redrawEdges = () => drawEdges(tree, svg);
 
   const notify = () => {
@@ -123,317 +103,13 @@ export function renderSyntaxTree(
     actions.onChange(root);
   };
 
+  const drag = editable ? createTreeDrag(block, notify) : null;
+
   const centerWideTree = () => {
     if (block.scrollWidth <= block.clientWidth + 1) return;
     block.scrollLeft = tree.classList.contains("is-align-left")
       ? 0
       : Math.round((block.scrollWidth - block.clientWidth) / 2);
-  };
-
-  const redrawSoon = () => {
-    const win = doc.defaultView;
-    if (win?.requestAnimationFrame) {
-      win.requestAnimationFrame(redrawEdges);
-    } else {
-      redrawEdges();
-    }
-  };
-
-
-  const childIndexAt = (targetItem: HTMLElement, clientX: number): number => {
-    const drag = currentDrag;
-    const container = targetItem.querySelector<HTMLElement>(
-      ":scope > .langscape-tree-children"
-    );
-    if (!container) return 0;
-    const nodes = [...container.children].filter(
-      (child): child is HTMLElement =>
-        child instanceof HTMLElement &&
-        child.classList.contains("langscape-tree-node") &&
-        child !== drag?.source &&
-        child !== drag?.preview
-    );
-    let index = 0;
-    let measured = false;
-    for (const child of nodes) {
-      const label = child.querySelector<HTMLElement>(
-        ":scope > .langscape-tree-label-row > .langscape-tree-label"
-      );
-      const rect = label?.getBoundingClientRect();
-      if (!rect || !rect.width) continue;
-      measured = true;
-      if (clientX > rect.left + rect.width / 2) index++;
-      else break;
-    }
-    return measured ? index : nodes.length;
-  };
-
-  const gapTargetAt = (
-    clientX: number,
-    clientY: number
-  ): { node: SyntaxTreeNode; item: HTMLDivElement; index: number } | null => {
-    const drag = currentDrag;
-    if (!drag) return null;
-
-    type ParentEntry = {
-      node: SyntaxTreeNode;
-      item: HTMLDivElement;
-      label: HTMLElement;
-      bottom: number;
-    };
-    type SlotEntry = {
-      parent: ParentEntry;
-      index: number;
-      center: number;
-      parentSlot: boolean;
-    };
-
-    // Find every parent whose label-to-children band contains the cursor.
-    // The shallowest matches are discarded; the deepest row is the cursor's
-    // actual layer, independent of the dragged node's own depth.
-    const candidates: ParentEntry[] = [];
-    for (const [node, item] of itemByNode) {
-      if (node.children.length === 0) continue;
-      if (node === drag.node || isDescendant(drag.node, node)) continue;
-      const label = item.querySelector<HTMLElement>(
-        ":scope > .langscape-tree-label-row > .langscape-tree-label"
-      );
-      if (!label) continue;
-      const childTops: number[] = [];
-      for (const child of node.children) {
-        const childItem = itemByNode.get(child);
-        if (!childItem) continue;
-        const childLabel = childItem.querySelector<HTMLElement>(
-          ":scope > .langscape-tree-label-row > .langscape-tree-label"
-        );
-        const rect = childLabel?.getBoundingClientRect();
-        if (rect && rect.width) childTops.push(rect.top);
-      }
-      if (childTops.length === 0) continue;
-      const labelRect = label.getBoundingClientRect();
-      if (!labelRect.width) continue;
-      const childTop = Math.min(...childTops);
-      if (clientY < labelRect.bottom || clientY > childTop + 1) continue;
-      candidates.push({
-        node,
-        item,
-        label,
-        bottom: labelRect.bottom,
-      });
-    }
-    if (candidates.length === 0) return null;
-
-    const bestBottom = Math.max(...candidates.map((candidate) => candidate.bottom));
-    const layer = candidates.filter((candidate) => candidate.bottom >= bestBottom - 2);
-    const slots: SlotEntry[] = [];
-    for (const parent of layer) {
-      const remaining = parent.node.children.filter((child) => child !== drag.node);
-      let visible = 0;
-      for (let index = 0; index < remaining.length; index++) {
-        const item = itemByNode.get(remaining[index]);
-        if (!item) continue;
-        const childLabel = item.querySelector<HTMLElement>(
-          ":scope > .langscape-tree-label-row > .langscape-tree-label"
-        );
-        const rect = childLabel?.getBoundingClientRect();
-        if (!rect || !rect.width) continue;
-        visible++;
-        slots.push({
-          parent,
-          index,
-          center: rect.left + rect.width / 2,
-          parentSlot: false,
-        });
-      }
-      if (visible === 0) {
-        const rect = parent.label.getBoundingClientRect();
-        slots.push({
-          parent,
-          index: 0,
-          center: rect.left + rect.width / 2,
-          parentSlot: true,
-        });
-      }
-    }
-    if (slots.length === 0) return null;
-
-    slots.sort((a, b) => a.center - b.center);
-    const first = slots[0];
-    const last = slots[slots.length - 1];
-    if (clientX < first.center) {
-      return {
-        node: first.parent.node,
-        item: first.parent.item,
-        index: first.parentSlot ? 0 : first.index,
-      };
-    }
-    for (let i = 0; i < slots.length - 1; i++) {
-      const left = slots[i];
-      const right = slots[i + 1];
-      if (clientX > right.center) continue;
-      if (!left.parentSlot && !right.parentSlot && left.parent.node === right.parent.node) {
-        return {
-          node: right.parent.node,
-          item: right.parent.item,
-          index: right.index,
-        };
-      }
-      const midpoint = (left.center + right.center) / 2;
-      if (clientX <= midpoint) {
-        return {
-          node: left.parent.node,
-          item: left.parent.item,
-          index: left.parentSlot ? 0 : left.index + 1,
-        };
-      }
-      return {
-        node: right.parent.node,
-        item: right.parent.item,
-        index: right.parentSlot ? 0 : right.index,
-      };
-    }
-    return {
-      node: last.parent.node,
-      item: last.parent.item,
-      index: last.parentSlot ? 0 : last.index + 1,
-    };
-  };
-
-  const positionGhost = (left: number, top: number) => {
-    const drag = currentDrag;
-    if (!drag) return;
-    drag.preview.style.left = `${left}px`;
-    drag.preview.style.top = `${top}px`;
-    drag.preview.style.transform = "translateX(-50%)";
-    drawDragOverlay(drag);
-  };
-
-  const positionGhostForTarget = (target: DragState["target"]) => {
-    const drag = currentDrag;
-    if (!drag || !target) return;
-    const item = target.item;
-    const label = item.querySelector<HTMLElement>(
-      ":scope > .langscape-tree-label-row > .langscape-tree-label"
-    );
-    if (!label) return;
-    const labelRect = label.getBoundingClientRect();
-
-    let x = labelRect.left + labelRect.width / 2;
-    let y = labelRect.top;
-    if (target.mode === "child") {
-      const container = item.querySelector<HTMLElement>(
-        ":scope > .langscape-tree-children"
-      );
-      const childLabels = container
-        ? [...container.children]
-            .filter(
-              (child): child is HTMLElement =>
-                child instanceof HTMLElement &&
-                child.classList.contains("langscape-tree-node") &&
-                child !== drag.source
-            )
-            .map((child) =>
-              child.querySelector<HTMLElement>(
-                ":scope > .langscape-tree-label-row > .langscape-tree-label"
-              )
-            )
-            .filter((childLabel): childLabel is HTMLElement => Boolean(childLabel))
-        : [];
-      if (childLabels.length === 0) {
-        x = labelRect.left + labelRect.width / 2;
-        y = labelRect.bottom + 32;
-      } else if (target.index < childLabels.length) {
-        const first = childLabels[target.index].getBoundingClientRect();
-        x = first.left - 8;
-        y = first.top;
-      } else {
-        const last = childLabels[childLabels.length - 1].getBoundingClientRect();
-        x = last.right + 8;
-        y = last.top;
-      }
-    } else if (target.mode === "before") {
-      x = labelRect.left - 8;
-    } else {
-      x = labelRect.right + 8;
-    }
-    positionGhost(x, y);
-  };
-
-  const drawDragOverlay = (drag: DragState) => {
-    const win = doc.defaultView;
-    const width = win?.innerWidth ?? 0;
-    const height = win?.innerHeight ?? 0;
-    if (!width || !height) return;
-    const svg = drag.overlay;
-    svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
-    svg.setAttribute("width", String(width));
-    svg.setAttribute("height", String(height));
-    svg.replaceChildren();
-
-    const addLine = (
-      x1: number,
-      y1: number,
-      x2: number,
-      y2: number
-    ) => {
-      const line = doc.createElementNS("http://www.w3.org/2000/svg", "line");
-      line.setAttribute("x1", String(x1));
-      line.setAttribute("y1", String(y1));
-      line.setAttribute("x2", String(x2));
-      line.setAttribute("y2", String(y2));
-      line.setAttribute("stroke", "currentColor");
-      line.setAttribute("stroke-width", "1.5");
-      svg.appendChild(line);
-    };
-
-    for (const parent of drag.preview.querySelectorAll<HTMLElement>(
-      ".langscape-tree-node"
-    )) {
-      const parentLabel = parent.querySelector<HTMLElement>(
-        ":scope > .langscape-tree-label-row > .langscape-tree-label"
-      );
-      const children = parent.querySelector<HTMLElement>(
-        ":scope > .langscape-tree-children"
-      );
-      if (!parentLabel || !children) continue;
-      const parentRect = parentLabel.getBoundingClientRect();
-      for (const child of children.querySelectorAll<HTMLElement>(
-        ":scope > .langscape-tree-node"
-      )) {
-        const childLabel = child.querySelector<HTMLElement>(
-          ":scope > .langscape-tree-label-row > .langscape-tree-label"
-        );
-        if (!childLabel) continue;
-        const childRect = childLabel.getBoundingClientRect();
-        addLine(
-          parentRect.left + parentRect.width / 2,
-          parentRect.bottom,
-          childRect.left + childRect.width / 2,
-          childRect.top
-        );
-      }
-    }
-
-    const target = drag.target;
-    const ghostLabel = drag.preview.querySelector<HTMLElement>(
-      ":scope > .langscape-tree-label-row > .langscape-tree-label"
-    );
-    if (!target || !ghostLabel) return;
-    const parentNode =
-      target.mode === "child" ? target.node : parentByNode.get(target.node);
-    const parentItem = parentNode ? itemByNode.get(parentNode) : undefined;
-    const parentLabel = parentItem?.querySelector<HTMLElement>(
-      ":scope > .langscape-tree-label-row > .langscape-tree-label"
-    );
-    if (!parentLabel) return;
-    const parentRect = parentLabel.getBoundingClientRect();
-    const ghostRect = ghostLabel.getBoundingClientRect();
-    addLine(
-      parentRect.left + parentRect.width / 2,
-      parentRect.bottom,
-      ghostRect.left + ghostRect.width / 2,
-      ghostRect.top
-    );
   };
 
   const setAlignment = (next: TreeAlignment) => {
@@ -535,210 +211,12 @@ export function renderSyntaxTree(
     input.select();
   };
 
-  const startDrag = (context: NodeContext, event: PointerEvent): boolean => {
-    if (!editable || !context.parent || currentDrag) return false;
-    const preview = context.item.cloneNode(true) as HTMLDivElement;
-    preview.classList.add("langscape-tree-drag-preview", "is-drag-ghost");
-    preview.querySelectorAll(
-      ".langscape-tree-add, .langscape-tree-delete, .langscape-tree-edit"
-    ).forEach((element) => element.remove());
-    preview.querySelectorAll("[tabindex]").forEach((element) => {
-      element.removeAttribute("tabindex");
-    });
-    doc.body.appendChild(preview);
-
-    const overlay = doc.createElementNS("http://www.w3.org/2000/svg", "svg");
-    overlay.classList.add("langscape-tree-drag-overlay");
-    overlay.setAttribute("aria-hidden", "true");
-    doc.body.appendChild(overlay);
-
-    context.item.classList.add("is-dragging-source");
-    currentDrag = {
-      node: context.node,
-      parent: context.parent,
-      source: context.item,
-      preview,
-      overlay,
-      target: null,
-    };
-    redrawSoon();
-    positionGhost(event.clientX + 16, event.clientY + 16);
-    return true;
-  };
-
-  const updateDrag = (event: PointerEvent) => {
-    const drag = currentDrag;
-    if (!drag) return;
-
-    const gapTarget = gapTargetAt(event.clientX, event.clientY);
-    const under = doc.elementFromPoint(event.clientX, event.clientY);
-    let item = gapTarget?.item ?? under?.closest<HTMLElement>(".langscape-tree-node") ?? null;
-    if (item?.closest(".is-drag-ghost")) item = null;
-    const targetNode = gapTarget?.node ?? (item ? byItem.get(item) : undefined);
-    const targetParent = targetNode ? parentByNode.get(targetNode) : null;
-    const label = item?.querySelector<HTMLElement>(
-      ":scope > .langscape-tree-label-row > .langscape-tree-label"
-    );
-    const rect = label?.getBoundingClientRect();
-
-    let mode: DropMode = "child";
-    if (
-      !gapTarget &&
-      targetNode &&
-      targetParent &&
-      rect &&
-      rect.width > 0 &&
-      event.clientY >= rect.top &&
-      event.clientY <= rect.bottom
-    ) {
-      const ratio = (event.clientX - rect.left) / rect.width;
-      if (ratio < 0.28) mode = "before";
-      else if (ratio > 0.72) mode = "after";
-    }
-    const index = gapTarget
-      ? gapTarget.index
-      : item && mode === "child"
-        ? childIndexAt(item, event.clientX)
-        : -1;
-
-    const valid =
-      Boolean(item) &&
-      Boolean(targetNode) &&
-      targetNode !== drag.node &&
-      !isDescendant(drag.node, targetNode as SyntaxTreeNode) &&
-      (mode === "child" || Boolean(targetParent));
-
-    if (!valid || !item || !targetNode) {
-      drag.target = null;
-      positionGhost(event.clientX + 16, event.clientY + 16);
-      return;
-    }
-
-    if (
-      !drag.target ||
-      drag.target.item !== item ||
-      drag.target.mode !== mode ||
-      drag.target.index !== index
-    ) {
-      drag.target = {
-        node: targetNode,
-        item: item as HTMLDivElement,
-        mode,
-        index,
-      };
-      positionGhostForTarget(drag.target);
-    }
-  };
-
-  const finishDrag = (dropped: boolean) => {
-    const drag = currentDrag;
-    if (!drag) return;
-    currentDrag = null;
-    drag.preview.remove();
-    drag.overlay.remove();
-    drag.source.classList.remove("is-dragging-source");
-
-    if (!dropped || !drag.target) {
-      redrawSoon();
-      return;
-    }
-    const target = drag.target;
-    const newParent =
-      target.mode === "child" ? target.node : parentByNode.get(target.node) ?? null;
-    if (!newParent || newParent === drag.node || isDescendant(drag.node, newParent)) {
-      redrawSoon();
-      return;
-    }
-
-    const oldIndex = drag.parent.children.indexOf(drag.node);
-    if (oldIndex < 0) {
-      redrawSoon();
-      return;
-    }
-    drag.parent.children.splice(oldIndex, 1);
-
-    let index: number;
-    if (target.mode === "child") {
-      index = Math.min(target.index, newParent.children.length);
-    } else {
-      index = newParent.children.indexOf(target.node);
-      if (index < 0) {
-        drag.parent.children.splice(oldIndex, 0, drag.node);
-        redrawSoon();
-        return;
-      }
-      if (target.mode === "after") index++;
-    }
-    newParent.children.splice(index, 0, drag.node);
-    notify();
-  };
-
   const bindLabel = (context: NodeContext) => {
     if (!editable) return;
     const { label } = context;
     label.tabIndex = 0;
     label.setAttribute("role", "button");
-
-    label.addEventListener("pointerdown", (event) => {
-      if (event.button !== 0) return;
-      event.preventDefault();
-      event.stopPropagation();
-      const startX = event.clientX;
-      const startY = event.clientY;
-      let dragging = false;
-      let finished = false;
-
-      const move = (moveEvent: PointerEvent) => {
-        if (finished) return;
-        if (!dragging) {
-          if (Math.hypot(moveEvent.clientX - startX, moveEvent.clientY - startY) < 5) {
-            return;
-          }
-          dragging = startDrag(context, moveEvent);
-          if (!dragging) return;
-        }
-        moveEvent.preventDefault();
-        moveEvent.stopPropagation();
-        updateDrag(moveEvent);
-      };
-      const end = (endEvent: PointerEvent) => {
-        if (finished) return;
-        finished = true;
-        label.removeEventListener("pointermove", move);
-        label.removeEventListener("pointerup", end);
-        label.removeEventListener("pointercancel", cancel);
-        try {
-          if (label.hasPointerCapture?.(endEvent.pointerId)) {
-            label.releasePointerCapture(endEvent.pointerId);
-          }
-        } catch {
-          // Pointer capture is an enhancement; editing still works without it.
-        }
-        if (dragging) {
-          endEvent.preventDefault();
-          finishDrag(true);
-        } else {
-          beginEdit(context);
-        }
-      };
-      const cancel = () => {
-        if (finished) return;
-        finished = true;
-        label.removeEventListener("pointermove", move);
-        label.removeEventListener("pointerup", end);
-        label.removeEventListener("pointercancel", cancel);
-        finishDrag(false);
-      };
-
-      try {
-        label.setPointerCapture?.(event.pointerId);
-      } catch {
-        // Pointer capture is an enhancement; editing still works without it.
-      }
-      label.addEventListener("pointermove", move);
-      label.addEventListener("pointerup", end);
-      label.addEventListener("pointercancel", cancel);
-    });
+    drag?.addNode(context, () => beginEdit(context));
 
     label.addEventListener("keydown", (event) => {
       if (event.key === "Enter" || event.key === "F2") {
@@ -767,9 +245,6 @@ export function renderSyntaxTree(
     row.appendChild(label);
 
     const context: NodeContext = { node, parent, item, row, label };
-    byItem.set(item, node);
-    itemByNode.set(node, item);
-    parentByNode.set(node, parent);
     bindLabel(context);
 
     if (editable) {
@@ -953,13 +428,6 @@ function paintLabelText(
   decorateFontSpans(label, manager, doc, { includeEditable: true });
 }
 
-function isDescendant(ancestor: SyntaxTreeNode, node: SyntaxTreeNode): boolean {
-  for (const child of ancestor.children) {
-    if (child === node || isDescendant(child, node)) return true;
-  }
-  return false;
-}
-
 /**
  * Draw one line from the bottom of each parent label to the top of each child
  * label. SVG coordinates keep the edges diagonal at every fan-out instead of
@@ -1012,12 +480,6 @@ function drawEdges(tree: HTMLElement, svg: SVGSVGElement): void {
       line.setAttribute("y2", String(childRect.top - treeRect.top));
       line.setAttribute("stroke-width", "1");
       line.setAttribute("stroke", "currentColor");
-      if (
-        parent.closest(".is-dragging-source") ||
-        child.closest(".is-dragging-source")
-      ) {
-        continue;
-      }
       svg.appendChild(line);
     }
   }

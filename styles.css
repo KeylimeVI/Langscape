@@ -1300,6 +1300,11 @@ body.theme-light {
   padding: 0 4px;
 }
 
+/* Leave room for both drop marks without shifting the tree during a drag. */
+.langscape-tree-widget .langscape-tree-children > .langscape-tree-node {
+  padding-inline: 8px;
+}
+
 .langscape-tree-label {
   display: inline-block;
   max-width: 22rem;
@@ -1326,36 +1331,80 @@ body.theme-light {
   outline: none;
 }
 
-.langscape-tree-node.is-dragging-source {
-  visibility: hidden;
+.langscape-tree-drop-side {
+  display: none;
 }
 
-.langscape-tree-node.is-drag-ghost {
+.langscape-tree-drop-side.is-tree-drop-zone {
+  display: grid;
+  position: absolute;
+  z-index: 2;
+  inset-block: 0;
+  width: 10px;
+  place-items: center;
+}
+
+.langscape-tree-drop-side.is-before {
+  right: 100%;
+}
+
+.langscape-tree-drop-side.is-after {
+  left: 100%;
+}
+
+.langscape-tree-drop-side::before {
+  content: "";
+  width: 2px;
+  height: 65%;
+  border-radius: 3px;
+  background: var(--text-faint);
   pointer-events: none;
-  opacity: 0.9;
+}
+
+.langscape-tree-drop-side.is-tree-drop-active::before {
+  width: 4px;
+  height: 90%;
+  background: var(--interactive-accent);
+}
+
+.langscape-tree-label.is-tree-drop-active {
+  border-radius: var(--radius-s);
+  box-shadow: inset 0 0 0 2px var(--interactive-accent);
+  background: var(--background-modifier-hover);
+  color: var(--text-accent);
+}
+
+.is-tree-dragging .langscape-tree-node.is-dragging-source {
+  opacity: 0.25;
+}
+
+.is-tree-dragging .langscape-tree-label,
+.is-tree-dragging .langscape-tree-drop-side {
+  cursor: grabbing;
+}
+
+.is-tree-dragging .langscape-tree-label-row::after,
+.is-tree-dragging .langscape-tree-add,
+.is-tree-dragging .langscape-tree-delete {
+  visibility: hidden;
 }
 
 .langscape-tree-drag-preview {
   position: fixed;
-  z-index: 9998;
+  z-index: var(--layer-tooltip, 9998);
+  display: grid;
+  justify-items: start;
+  padding: 4px 8px;
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  box-shadow: var(--shadow-s);
   pointer-events: none;
-  transform: translateX(-50%);
 }
 
-.langscape-tree-drag-overlay {
-  position: fixed;
-  inset: 0;
-  width: 100vw;
-  height: 100vh;
-  overflow: visible;
-  pointer-events: none;
-  color: var(--text-accent);
-  z-index: 9997;
-}
-
-.langscape-tree-node.is-drag-ghost .langscape-tree-label,
-.langscape-tree-node.is-drag-ghost .langscape-tree-label * {
-  color: var(--text-accent) !important;
+.langscape-tree-drag-preview small {
+  padding-inline: 6px;
+  color: var(--text-muted);
 }
 
 .langscape-tree-empty {
@@ -1365,11 +1414,6 @@ body.theme-light {
   font-weight: 400;
 }
 
-
-.langscape-tree-node.is-drag-ghost .langscape-tree-empty {
-  color: var(--text-accent) !important;
-  opacity: 0.8;
-}
 
 .langscape-tree-add,
 .langscape-tree-delete,

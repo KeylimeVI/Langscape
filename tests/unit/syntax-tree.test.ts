@@ -7,6 +7,7 @@ import {
   serializeSyntaxTree,
 } from "../../src/trees/model";
 import { createSyntaxTreePostProcessor } from "../../src/trees/postprocess";
+import { cancelTreeDrag } from "../../src/trees/drag";
 import { renderSyntaxTree } from "../../src/trees/render";
 
 const record: FontRecord = {
@@ -165,37 +166,6 @@ describe("syntax tree rendering", () => {
     root.remove();
   });
 
-  it("moves a subtree when dragged onto another node", () => {
-    const tree = parseSyntaxTreeLine("{tree: S(NP(N(cat)), VP(V(see)))}")!;
-    let changes = 0;
-    const root = renderSyntaxTree(tree, manager, document, {
-      onChange: () => {
-        changes++;
-      },
-    });
-    document.body.appendChild(root);
-    const labels = [...root.querySelectorAll<HTMLElement>(".langscape-tree-label")];
-    const source = labels.find((label) => label.textContent === "N")!;
-    const target = labels.find((label) => label.textContent === "VP")!;
-    const original = (document as any).elementFromPoint;
-    (document as any).elementFromPoint = () => target;
-    source.dispatchEvent(
-      new MouseEvent("pointerdown", { bubbles: true, button: 0, clientX: 10, clientY: 10 })
-    );
-    source.dispatchEvent(
-      new MouseEvent("pointermove", { bubbles: true, button: 0, clientX: 30, clientY: 30 })
-    );
-    source.dispatchEvent(
-      new MouseEvent("pointerup", { bubbles: true, button: 0, clientX: 30, clientY: 30 })
-    );
-    (document as any).elementFromPoint = original;
-    expect(tree.children.map((child) => child.label)).toEqual(["NP", "VP"]);
-    expect(tree.children[0].children).toEqual([]);
-    expect(tree.children[1].children.map((child) => child.label)).toEqual(["V", "N"]);
-    expect(changes).toBe(1);
-    root.remove();
-  });
-
   it("keeps the original label in place while editing", () => {
     const tree = parseSyntaxTreeLine("{tree: S(NP(N(cat)))}")!;
     const root = renderSyntaxTree(tree, manager, document, { onChange: () => undefined });
@@ -263,37 +233,6 @@ describe("syntax tree rendering", () => {
     root.remove();
   });
 
-  it("can drop a node before a sibling", () => {
-    const tree = parseSyntaxTreeLine("{tree: S(A, B, C)}")!;
-    let changes = 0;
-    const root = renderSyntaxTree(tree, manager, document, {
-      onChange: () => {
-        changes++;
-      },
-    });
-    document.body.appendChild(root);
-    const labels = [...root.querySelectorAll<HTMLElement>(".langscape-tree-label")];
-    const source = labels.find((label) => label.textContent === "C")!;
-    const target = labels.find((label) => label.textContent === "A")!;
-    target.getBoundingClientRect = () =>
-      ({ left: 100, right: 200, top: 50, bottom: 70, width: 100, height: 20, x: 100, y: 50, toJSON: () => ({}) }) as DOMRect;
-    const original = (document as any).elementFromPoint;
-    (document as any).elementFromPoint = () => target;
-    source.dispatchEvent(
-      new MouseEvent("pointerdown", { bubbles: true, button: 0, clientX: 10, clientY: 10 })
-    );
-    source.dispatchEvent(
-      new MouseEvent("pointermove", { bubbles: true, button: 0, clientX: 110, clientY: 55 })
-    );
-    source.dispatchEvent(
-      new MouseEvent("pointerup", { bubbles: true, button: 0, clientX: 110, clientY: 55 })
-    );
-    (document as any).elementFromPoint = original;
-    expect(tree.children.map((child) => child.label)).toEqual(["C", "A", "B"]);
-    expect(changes).toBe(1);
-    root.remove();
-  });
-
   it("confirms before deleting a multi-node subtree", () => {
     const tree = parseSyntaxTreeLine("{tree: S(NP(N(cat)), VP(V(see)))}")!;
     let changes = 0;
@@ -317,35 +256,98 @@ describe("syntax tree rendering", () => {
     expect(changes).toBe(0);
     root.remove();
   });
+});
 
-  it("inserts a child at the pointer's position instead of always appending", () => {
-    const tree = parseSyntaxTreeLine("{tree: S(A, B, C)}")!;
-    const root = renderSyntaxTree(tree, manager, document, { onChange: () => undefined });
-    document.body.appendChild(root);
-    const labels = [...root.querySelectorAll<HTMLElement>(".langscape-tree-label")];
-    const source = labels.find((label) => label.textContent === "C")!;
-    const target = labels.find((label) => label.textContent === "S")!;
-    const a = labels.find((label) => label.textContent === "A")!;
-    const b = labels.find((label) => label.textContent === "B")!;
-    const rect = (left: number, top: number, width = 40) =>
-      ({ left, right: left + width, top, bottom: top + 20, width, height: 20, x: left, y: top, toJSON: () => ({}) }) as DOMRect;
-    target.getBoundingClientRect = () => rect(0, 0, 100);
-    a.getBoundingClientRect = () => rect(10, 60);
-    b.getBoundingClientRect = () => rect(70, 60);
-    const original = (document as any).elementFromPoint;
-    (document as any).elementFromPoint = () => target;
-    source.dispatchEvent(
-      new MouseEvent("pointerdown", { bubbles: true, button: 0, clientX: 10, clientY: 10 })
-    );
-    source.dispatchEvent(
-      new MouseEvent("pointermove", { bubbles: true, button: 0, clientX: 50, clientY: 10 })
-    );
-    source.dispatchEvent(
-      new MouseEvent("pointerup", { bubbles: true, button: 0, clientX: 50, clientY: 10 })
-    );
-    (document as any).elementFromPoint = original;
-    expect(tree.children.map((child) => child.label)).toEqual(["A", "C", "B"]);
+function withDrag(
+  source: string,
+  test: (ui: {
+    root: HTMLElement;
+    label: (text: string) => HTMLElement;
+    side: (text: string, kind: "before" | "after") => HTMLElement;
+    pointer: (type: string, target: HTMLElement | null, x: number) => void;
+    changes: string[];
+  }) => void
+): void {
+  const changes: string[] = [];
+  const tree = parseSyntaxTreeLine(source)!;
+  const root = renderSyntaxTree(tree, manager, document, {
+    onChange: (next) => changes.push(serializeSyntaxTree(next)),
+  });
+  document.body.appendChild(root);
+  let under: HTMLElement | null = null;
+  const original = document.elementFromPoint;
+  document.elementFromPoint = () => under;
+  const label = (text: string) => [...root.querySelectorAll<HTMLElement>(".langscape-tree-label")]
+    .find((element) => element.textContent === text)!;
+  try {
+    test({
+      root,
+      label,
+      side: (text, kind) => label(text).parentElement!.querySelector<HTMLElement>(`.langscape-tree-drop-side.is-${kind}`)!,
+      pointer: (type, target, x) => {
+        under = target;
+        (target ?? document.body).dispatchEvent(new MouseEvent(type, {
+          bubbles: true, button: 0, clientX: x, clientY: 10,
+        }));
+      },
+      changes,
+    });
+  } finally {
+    cancelTreeDrag(root);
+    document.elementFromPoint = original;
     root.remove();
+  }
+}
+
+describe("syntax tree drag targets", () => {
+  it("drops on a label to append the entire subtree as a child", () => {
+    withDrag("{tree: S(NP(N(cat)), VP(V(see)))}", ({ label, pointer, changes }) => {
+      pointer("pointerdown", label("N"), 10);
+      pointer("pointermove", label("VP"), 30);
+      expect(label("VP").classList.contains("is-tree-drop-active")).toBe(true);
+      pointer("pointerup", label("VP"), 30);
+      expect(changes).toEqual(["{tree: S(NP, VP(V(see), N(cat)))}"]);
+    });
   });
 
+  it("can move a subtree across parents without dropping it into the sibling", () => {
+    withDrag("{tree: S(NP(N(cat)), VP(V(see)))}", ({ label, side, pointer, changes }) => {
+      pointer("pointerdown", label("N"), 10);
+      const before = side("V", "before");
+      pointer("pointermove", before, 30);
+      expect(before.classList.contains("is-tree-drop-active")).toBe(true);
+      pointer("pointerup", before, 30);
+      expect(changes).toEqual(["{tree: S(NP, VP(N(cat), V(see)))}"]);
+    });
+  });
+
+  it("uses the point of release and handles moving forward in the same list", () => {
+    withDrag("{tree: S(A, B, C)}", ({ label, side, pointer, changes }) => {
+      pointer("pointerdown", label("A"), 10);
+      pointer("pointermove", label("B"), 30);
+      pointer("pointerup", side("C", "after"), 90);
+      expect(changes).toEqual(["{tree: S(B, C, A)}"]);
+    });
+  });
+
+  it.each(["blank space", "a descendant", "the original position", "Escape", "pointer cancellation"])(
+    "does not edit Markdown after dropping on %s",
+    (reason) => {
+      withDrag("{tree: S(A(X), B, C)}", ({ root, label, side, pointer, changes }) => {
+        pointer("pointerdown", label("A"), 10);
+        pointer("pointermove", label("C"), 30);
+        expect(label("C").classList.contains("is-tree-drop-active")).toBe(true);
+        expect(label("X").classList.contains("is-tree-drop-zone")).toBe(false);
+        if (reason === "Escape") window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+        if (reason === "pointer cancellation") pointer("pointercancel", label("C"), 30);
+        const target = reason === "blank space" ? root
+          : reason === "a descendant" ? label("X")
+          : reason === "the original position" ? side("B", "before") : label("C");
+        pointer("pointerup", target, 50);
+        expect(changes).toEqual([]);
+        expect(root.querySelector(".is-tree-drop-zone, .is-dragging-source")).toBeNull();
+        expect(document.querySelector(".langscape-tree-drag-preview")).toBeNull();
+      });
+    }
+  );
 });

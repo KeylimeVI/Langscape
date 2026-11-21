@@ -4,7 +4,7 @@
  *
  * The test launches the extracted Obsidian build in headless mode with a
  * disposable vault and profile under .tools/, drives it through the Chrome
- * DevTools Protocol, and checks the table/font/clipboard features and Lexurgy UI.
+ * DevTools Protocol, and checks tables, fonts, tree editing and the Lexurgy UI.
  *
  * Usage:
  *   npm run test:obsidian
@@ -453,6 +453,70 @@ async function testRectangularSelection(cdp) {
   log("selection expands to a full rectangle");
 }
 
+async function testSyntaxTreeDrag(cdp) {
+  const original = "{tree: S(NP(N(cat), Adj(small)), VP(V(see)), P)}";
+  await cdp.eval(`(async () => {
+    const file = await app.vault.create('Drag tree.md', ${JSON.stringify(original)});
+    await app.workspace.getLeaf('tab').openFile(file, { active: true });
+  })()`);
+  const tree = "app.workspace.getMostRecentLeaf().view.contentEl.querySelector('.langscape-tree-widget')";
+  const current = () => cdp.eval("app.workspace.getMostRecentLeaf().view.editor.getValue()");
+  await waitFor(() => cdp.eval(`Boolean(${tree})`), 10_000, "the syntax tree widget");
+
+  const center = (text, side) => cdp.eval(`(() => {
+    const tree = ${tree};
+    if (!tree) return null;
+    const label = [...tree.querySelectorAll('.langscape-tree-label')]
+      .find((label) => label.textContent === ${JSON.stringify(text)});
+    const target = ${JSON.stringify(side ?? null)}
+      ? label?.parentElement.querySelector('.langscape-tree-drop-side.is-' + ${JSON.stringify(side ?? null)})
+      : label;
+    const rect = target?.getBoundingClientRect();
+    return rect?.width && rect.height ? { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 } : null;
+  })()`);
+  const mouse = (type, point) => cdp.send("Input.dispatchMouseEvent", {
+    type, ...point, button: "left", buttons: type === "mouseReleased" ? 0 : 1,
+    clickCount: 1,
+  });
+  const drag = async (source, target, side, expected) => {
+    const start = await waitFor(() => center(source), 10_000, `the label ${source}`);
+    const targetBeforeDrag = await center(target);
+    await mouse("mousePressed", start);
+    await mouse("mouseMoved", { x: start.x + 8, y: start.y });
+    const point = await waitFor(() => center(target, side), 5_000, `the drop mark for ${target}`);
+    await mouse("mouseMoved", point);
+    const targetHit = await cdp.eval(`(() => {
+      const active = (${tree}).querySelector('.is-tree-drop-active');
+      return active && active.parentElement.querySelector('.langscape-tree-label').textContent === ${JSON.stringify(target)}
+        && (${JSON.stringify(side ?? null)} ? active.classList.contains('is-' + ${JSON.stringify(side ?? null)})
+          : active.classList.contains('langscape-tree-label'));
+    })()`);
+    await ensure(targetHit, `The real pointer did not highlight the intended ${target} drop target.`);
+    const during = await center(target);
+    await ensure(during.x === targetBeforeDrag.x && during.y === targetBeforeDrag.y, "The layout moved during the drag.");
+    await mouse("mouseReleased", point);
+    await waitFor(async () => (await current()) === expected, 5_000, `Markdown after moving ${source}`);
+  };
+
+  await drag("NP", "VP", "after", "{tree: S(VP(V(see)), NP(N(cat), Adj(small)), P)}");
+  await drag("N", "V", "before", "{tree: S(VP(N(cat), V(see)), NP(Adj(small)), P)}");
+  const final = "{tree: S(VP(N(cat), V(see), P), NP(Adj(small)))}";
+  await drag("P", "VP", undefined, final);
+
+  const source = await center("N");
+  await mouse("mousePressed", source);
+  await mouse("mouseMoved", await center("NP"));
+  const blank = await cdp.eval(`(() => {
+    const rect = (${tree}).getBoundingClientRect();
+    return { x: rect.left + 2, y: rect.top + 2 };
+  })()`);
+  await mouse("mouseMoved", blank);
+  await mouse("mouseReleased", blank);
+  await ensure((await current()) === final, "Dropping in blank space changed the tree source.");
+  await ensure(await cdp.eval("!document.querySelector('.langscape-tree-drag-preview')"), "The drag preview was left behind.");
+  log("tree drag highlights and commits sibling ordering, reparenting, and blank-space cancellation");
+}
+
 async function testLexurgyUi(cdp, liveDocs) {
   const ribbonRemoved = await cdp.eval(`!document.querySelector(
     '[aria-label="Langscape: new sound-change file"], [aria-label="Langscape: insert custom-font text"]'
@@ -552,6 +616,7 @@ async function main() {
     await fs.writeFile(screenshot, Buffer.from(shot.data, "base64"));
     log(`screenshot: ${path.relative(root, screenshot)}`);
     log(`merged table: ${path.relative(root, path.join(tools, "merged-table.png"))}`);
+    await testSyntaxTreeDrag(cdp);
     await testLexurgyUi(cdp, process.argv.includes("--live-docs"));
     passed = true;
     log("all checks passed");
