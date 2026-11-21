@@ -59,6 +59,14 @@ export class SoundChangeTestPanel {
     });
     this.statusEl = title.createSpan({ cls: "langscape-lexurgy-status is-unknown", text: "Lexurgy" });
     const actions = header.createDiv({ cls: "langscape-test-header-actions" });
+    this.runButton = actions.createEl("button", {
+      cls: "mod-cta langscape-run-button",
+      attr: { "aria-label": "Apply sound changes to the test words" },
+    });
+    setIcon(this.runButton, "play");
+    this.runButton.createSpan({ text: "Run" });
+    this.runButton.addEventListener("click", () => void this.run());
+
     const docsButton = actions.createEl("button", {
       cls: "langscape-docs-button",
       attr: { "aria-label": "Open Lexurgy documentation" },
@@ -68,13 +76,6 @@ export class SoundChangeTestPanel {
     docsButton.addEventListener("click", () => {
       void this.options.onOpenDocs().catch(() => new Notice("Could not open the Lexurgy Docs tab."));
     });
-    this.runButton = actions.createEl("button", {
-      cls: "mod-cta langscape-run-button",
-      attr: { "aria-label": "Apply sound changes to the test words" },
-    });
-    setIcon(this.runButton, "play");
-    this.runButton.createSpan({ text: "Run" });
-    this.runButton.addEventListener("click", () => void this.run());
 
     this.setupEl = this.root.createDiv({ cls: "langscape-setup-banner is-hidden" });
 

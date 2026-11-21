@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Install Langscape
+Comment=Install or update Langscape in your Obsidian vault
+Icon=system-software-install
+Terminal=true
+Exec=bash -c "bash \\"\\$(dirname -- \\"\\$1\\")/install-from-homelab.sh\\"; status=\\$?; echo; read -r -p 'Press Enter to close...' || :; exit \\"\\$status\\"" langscape-installer %k

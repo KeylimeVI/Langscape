@@ -102,11 +102,16 @@ Reload Obsidian, or disable/enable the plugin, after installing.
 
 Use `scripts/install-from-homelab.sh` on a second Fedora/KDE machine to replace the installed plugin in its vault. It defaults to `~/Documents/Obsidian Vault`, removes older `langscape*` plugin folders and build zips, and preserves `data.json` and the managed `lexurgy/` folder.
 
+On Linux, open **Install Langscape.desktop** from the `scripts` folder to run the installer in a terminal. Keep it beside `install-from-homelab.sh`. If your file manager asks, mark the launcher as trusted or allow it to run. The launcher uses the default vault path; use the command-line version for a custom vault.
+
 Requirements: `curl` and `unzip` (`sudo dnf install curl unzip`); `ssh`/`scp` only for direct homelab mode.
 
 ```bash
-# Published build (the same dist/langscape-*.zip the homelab pushes)
-curl -fsSL https://raw.githubusercontent.com/KeylimeVI/Langscape/main/scripts/install-from-homelab.sh | bash
+# Latest beta build
+curl -fsSL https://raw.githubusercontent.com/KeylimeVI/Langscape/beta/scripts/install-from-homelab.sh | bash
+
+# Install the build from main instead
+LANGSCAPE_REF=main ./scripts/install-from-homelab.sh
 
 # Plan only
 ./scripts/install-from-homelab.sh --dry-run
@@ -120,9 +125,11 @@ curl -fsSL https://raw.githubusercontent.com/KeylimeVI/Langscape/main/scripts/in
 ./scripts/install-from-homelab.sh --source file --zip dist/langscape-1.0.0.zip
 ```
 
-Options: `--vault <path>`, `--no-preserve`, `--dry-run`, `--host <user@host>`, `--remote-repo <path>`, and `--remote-build`. The default source is the `dist/langscape-*.zip` artifact published to GitHub; `--source ssh` reads the homelab checkout directly and `--remote-build` runs `npm run build` plus `npm run package:release` there first. Set `HOMELAB_HOST=user@host` to make direct SSH mode the default, or set `LANGSCAPE_SOURCE` to choose a source explicitly.
+Options: `--vault <path>`, `--no-preserve`, `--dry-run`, `--host <user@host>`, `--remote-repo <path>`, and `--remote-build`. By default the installer resolves GitHub’s `beta` branch to a commit and downloads its `dist/langscape-*.zip`. Use `--source ssh` to read the homelab checkout directly, optionally with `--remote-build` to rebuild it first. `HOMELAB_HOST` supplies the SSH host without switching the source; use `LANGSCAPE_SOURCE` to change the default source.
 
-Publishing a new build from the homelab means running `npm run build` and `npm run package:release`, then committing/pushing `main.js` and `dist/langscape-*.zip`. Reload Obsidian, or disable/enable Langscape, after installing.
+### Development and releases
+
+Push ongoing work to `beta`, including the rebuilt `main.js` and `dist/langscape-*.zip` when the plugin changes. Promote batches of tested changes to `main` roughly every one to two weeks. Public GitHub releases are published separately from a version tag, not from ordinary pushes to either branch. Reload Obsidian, or disable/enable Langscape, after installing.
 
 ### From source
 

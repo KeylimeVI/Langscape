@@ -2,8 +2,8 @@
 #
 # Install the newest Langscape build from the homelab into an Obsidian vault.
 #
-# The default source is the build artifact published to GitHub by the homelab:
-#   https://github.com/KeylimeVI/Langscape/blob/main/dist/langscape-*.zip
+# By default, install the current beta build from GitHub:
+#   https://github.com/KeylimeVI/Langscape/tree/beta/dist
 #
 # The homelab can also be read directly over Tailscale/SSH:
 #   ./install-from-homelab.sh --source ssh --host keylime@homelab
@@ -14,7 +14,7 @@
 #   - lexurgy/ (the managed Lexurgy installation)
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/KeylimeVI/Langscape/main/scripts/install-from-homelab.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/KeylimeVI/Langscape/beta/scripts/install-from-homelab.sh | bash
 #   ./install-from-homelab.sh --dry-run
 #   ./install-from-homelab.sh --vault "$HOME/Documents/Obsidian Vault"
 #   ./install-from-homelab.sh --source url --url https://example.com/langscape.zip
@@ -24,7 +24,7 @@ set -euo pipefail
 
 DEFAULT_VAULT="${HOME}/Documents/Obsidian Vault"
 GITHUB_REPO="${LANGSCAPE_REPO:-KeylimeVI/Langscape}"
-GITHUB_REF="${LANGSCAPE_REF:-main}"
+GITHUB_REF="${LANGSCAPE_REF:-beta}"
 
 SOURCE="${LANGSCAPE_SOURCE:-github}"
 VAULT="${OBSIDIAN_VAULT:-$DEFAULT_VAULT}"
@@ -32,10 +32,6 @@ ZIP_URL="${LANGSCAPE_ZIP_URL:-}"
 ZIP_FILE=""
 SSH_HOST="${HOMELAB_HOST:-}"
 REMOTE_REPO="${HOMELAB_REPO:-/projects/Langscape}"
-# If a homelab SSH target is configured, read from it directly by default.
-if [ -z "${LANGSCAPE_SOURCE:-}" ] && [ -n "$SSH_HOST" ]; then
-  SOURCE="ssh"
-fi
 REMOTE_BUILD=0
 PRESERVE=1
 DRY_RUN=0
@@ -45,7 +41,7 @@ usage() {
 Install the newest Langscape build into an Obsidian vault.
 
 Options:
-  --vault <path>        Vault path (default: /home/keylime/Documents/Obsidian Vault)
+  --vault <path>        Vault path (default: ~/Documents/Obsidian Vault)
   --source <kind>       github (default), url, file, or ssh
   --url <url>           Zip URL for --source url
   --zip <path>          Zip file for --source file
@@ -61,7 +57,7 @@ Environment:
   HOMELAB_HOST          Default SSH target
   HOMELAB_REPO          Default remote checkout path
   LANGSCAPE_REPO        GitHub owner/repo (default: KeylimeVI/Langscape)
-  LANGSCAPE_REF         Git ref/branch (default: main)
+  LANGSCAPE_REF         GitHub branch, tag, or full commit SHA (default: beta)
   LANGSCAPE_ZIP_URL     Default zip URL for --source url
   LANGSCAPE_SOURCE      Default source kind (default: github)
   GITHUB_TOKEN          Optional token for private repos / API rate limits
@@ -146,8 +142,35 @@ trap cleanup EXIT
 
 ZIP="$TMP_DIR/langscape.zip"
 
+github_commit() {
+  local ref="$GITHUB_REF" response=""
+  if [[ "$ref" =~ ^[[:xdigit:]]{40}$ ]]; then
+    printf '%s\n' "${ref,,}"
+    return 0
+  fi
+
+  local headers=(-H 'Accept: application/vnd.github.sha' -H 'Cache-Control: no-cache')
+  if [ -n "${GITHUB_TOKEN:-}" ]; then
+    headers+=(-H "Authorization: Bearer $GITHUB_TOKEN")
+  fi
+  if response="$(curl -fsSL --connect-timeout 15 "${headers[@]}" \
+    "https://api.github.com/repos/$GITHUB_REPO/commits/$ref" 2>/dev/null)"; then
+    if [[ "$response" =~ ^[[:xdigit:]]{40}$ ]]; then
+      printf '%s\n' "$response"
+      return 0
+    fi
+    # Some caches may return the JSON representation of the commit instead.
+    if [[ "$response" =~ \"sha\"[[:space:]]*:[[:space:]]*\"([[:xdigit:]]{40})\" ]]; then
+      printf '%s\n' "${BASH_REMATCH[1]}"
+      return 0
+    fi
+  fi
+  return 1
+}
+
 latest_github_zip() {
-  local api="https://api.github.com/repos/$GITHUB_REPO/contents/dist?ref=$GITHUB_REF"
+  local commit="$1"
+  local api="https://api.github.com/repos/$GITHUB_REPO/contents/dist?ref=$commit"
   local json=""
   local download=""
   local version=""
@@ -164,23 +187,27 @@ latest_github_zip() {
       | sort -V \
       | tail -1 || true)"
     if [ -n "$download" ]; then
-      printf '%s\n' "$download"
+      printf 'https://raw.githubusercontent.com/%s/%s/dist/%s\n' \
+        "$GITHUB_REPO" "$commit" "${download##*/}"
       return 0
     fi
   fi
 
-  # Fallback for API rate limits: use the version from manifest.json.
-  version="$(curl -fsSL "https://raw.githubusercontent.com/$GITHUB_REPO/$GITHUB_REF/manifest.json" 2>/dev/null \
+  # If the listing is unavailable, use the manifest from the same commit.
+  version="$(curl -fsSL "https://raw.githubusercontent.com/$GITHUB_REPO/$commit/manifest.json" 2>/dev/null \
     | tr -d '\r\n' \
     | sed -nE 's/.*"version"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/p' || true)"
   [ -n "$version" ] || return 1
   printf 'https://raw.githubusercontent.com/%s/%s/dist/langscape-%s.zip\n' \
-    "$GITHUB_REPO" "$GITHUB_REF" "$version"
+    "$GITHUB_REPO" "$commit" "$version"
 }
 
 case "$SOURCE" in
   github)
-    ZIP_URL="$(latest_github_zip)" || die "Could not find a Langscape build in $GITHUB_REPO/$GITHUB_REF/dist"
+    # The bundle name can stay the same across pushes. A raw branch URL can
+    # serve an older ZIP from GitHub's cache, so download by immutable commit.
+    commit="$(github_commit)" || die "Could not resolve $GITHUB_REPO/$GITHUB_REF to a commit. If the GitHub API is unavailable, set LANGSCAPE_REF to the full commit SHA or use --zip."
+    ZIP_URL="$(latest_github_zip "$commit")" || die "Could not find a Langscape build in $GITHUB_REPO/$commit/dist"
     ;;
   url)
     [ -n "$ZIP_URL" ] || die "--source url needs --url or LANGSCAPE_ZIP_URL"
@@ -199,7 +226,7 @@ if [ "$SOURCE" = "ssh" ]; then
     printf 'Building on %s:%s ...\n' "$SSH_HOST" "$REMOTE_REPO"
     # shellcheck disable=SC2029  # remote path is quoted with printf %q
     if ! remote_zip="$(ssh "$SSH_HOST" \
-      "cd $(printf '%q' "$REMOTE_REPO") && npm run build && npm run package:release && ls -1t $(printf '%q' "$REMOTE_REPO")/dist/langscape-*.zip | head -1")"; then
+      "cd $(printf '%q' "$REMOTE_REPO") && npm run build >&2 && npm run package:release >&2 && ls -1t $(printf '%q' "$REMOTE_REPO")/dist/langscape-*.zip | head -1")"; then
       die "Remote build failed on $SSH_HOST:$REMOTE_REPO"
     fi
   else
