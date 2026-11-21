@@ -1373,8 +1373,9 @@ body.theme-light {
 }
 
 .langscape-tree-drop-mark.is-below::before {
-  width: var(--mark-length);
-  height: var(--mark-thickness);
+  width: calc(var(--mark-thickness) + 3px);
+  height: calc(var(--mark-thickness) + 3px);
+  border-radius: 50%;
 }
 
 .langscape-tree-drop-mark.is-tree-drop-active {
