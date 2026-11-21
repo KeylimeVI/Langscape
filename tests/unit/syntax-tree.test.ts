@@ -263,7 +263,7 @@ function withDrag(
   test: (ui: {
     root: HTMLElement;
     label: (text: string) => HTMLElement;
-    side: (text: string, kind: "before" | "after") => HTMLElement;
+    mark: (text: string, position: "before" | "after" | "below") => HTMLElement;
     pointer: (type: string, target: HTMLElement | null, x: number) => void;
     changes: string[];
   }) => void
@@ -283,7 +283,7 @@ function withDrag(
     test({
       root,
       label,
-      side: (text, kind) => label(text).parentElement!.querySelector<HTMLElement>(`.langscape-tree-drop-side.is-${kind}`)!,
+      mark: (text, position) => label(text).parentElement!.querySelector<HTMLElement>(`.langscape-tree-drop-mark.is-${position}`)!,
       pointer: (type, target, x) => {
         under = target;
         (target ?? document.body).dispatchEvent(new MouseEvent(type, {
@@ -300,20 +300,21 @@ function withDrag(
 }
 
 describe("syntax tree drag targets", () => {
-  it("drops on a label to append the entire subtree as a child", () => {
-    withDrag("{tree: S(NP(N(cat)), VP(V(see)))}", ({ label, pointer, changes }) => {
+  it.each(["label", "bottom mark"])("drops on a %s to append the entire subtree as a child", (target) => {
+    withDrag("{tree: S(NP(N(cat)), VP(V(see)))}", ({ label, mark, pointer, changes }) => {
+      const destination = target === "label" ? label("VP") : mark("VP", "below");
       pointer("pointerdown", label("N"), 10);
-      pointer("pointermove", label("VP"), 30);
-      expect(label("VP").classList.contains("is-tree-drop-active")).toBe(true);
-      pointer("pointerup", label("VP"), 30);
+      pointer("pointermove", destination, 30);
+      expect(destination.classList.contains("is-tree-drop-active")).toBe(true);
+      pointer("pointerup", destination, 30);
       expect(changes).toEqual(["{tree: S(NP, VP(V(see), N(cat)))}"]);
     });
   });
 
   it("can move a subtree across parents without dropping it into the sibling", () => {
-    withDrag("{tree: S(NP(N(cat)), VP(V(see)))}", ({ label, side, pointer, changes }) => {
+    withDrag("{tree: S(NP(N(cat)), VP(V(see)))}", ({ label, mark, pointer, changes }) => {
       pointer("pointerdown", label("N"), 10);
-      const before = side("V", "before");
+      const before = mark("V", "before");
       pointer("pointermove", before, 30);
       expect(before.classList.contains("is-tree-drop-active")).toBe(true);
       pointer("pointerup", before, 30);
@@ -322,10 +323,10 @@ describe("syntax tree drag targets", () => {
   });
 
   it("uses the point of release and handles moving forward in the same list", () => {
-    withDrag("{tree: S(A, B, C)}", ({ label, side, pointer, changes }) => {
+    withDrag("{tree: S(A, B, C)}", ({ label, mark, pointer, changes }) => {
       pointer("pointerdown", label("A"), 10);
       pointer("pointermove", label("B"), 30);
-      pointer("pointerup", side("C", "after"), 90);
+      pointer("pointerup", mark("C", "after"), 90);
       expect(changes).toEqual(["{tree: S(B, C, A)}"]);
     });
   });
@@ -333,7 +334,7 @@ describe("syntax tree drag targets", () => {
   it.each(["blank space", "a descendant", "the original position", "Escape", "pointer cancellation"])(
     "does not edit Markdown after dropping on %s",
     (reason) => {
-      withDrag("{tree: S(A(X), B, C)}", ({ root, label, side, pointer, changes }) => {
+      withDrag("{tree: S(A(X), B, C)}", ({ root, label, mark, pointer, changes }) => {
         pointer("pointerdown", label("A"), 10);
         pointer("pointermove", label("C"), 30);
         expect(label("C").classList.contains("is-tree-drop-active")).toBe(true);
@@ -342,7 +343,7 @@ describe("syntax tree drag targets", () => {
         if (reason === "pointer cancellation") pointer("pointercancel", label("C"), 30);
         const target = reason === "blank space" ? root
           : reason === "a descendant" ? label("X")
-          : reason === "the original position" ? side("B", "before") : label("C");
+          : reason === "the original position" ? mark("B", "before") : label("C");
         pointer("pointerup", target, 50);
         expect(changes).toEqual([]);
         expect(root.querySelector(".is-tree-drop-zone, .is-dragging-source")).toBeNull();

@@ -21,6 +21,7 @@ interface Destination {
 }
 
 const activeGestures = new WeakMap<HTMLElement, () => void>();
+const dropHint = "Drop on a label or a drop mark";
 const dropDescriptions: Record<DropKind, string> = {
   child: "Add as last child",
   before: "Insert before",
@@ -38,14 +39,13 @@ export function createTreeDrag(block: HTMLElement, onChange: () => void) {
 
   const addNode = (anchor: TreeDragNode, edit: () => void): void => {
     zones.push({ element: anchor.label, anchor, kind: "child" });
-    if (anchor.parent) {
-      for (const kind of ["before", "after"] as const) {
-        const element = doc.createElement("span");
-        element.className = `langscape-tree-drop-side is-${kind}`;
-        element.setAttribute("aria-hidden", "true");
-        anchor.row.appendChild(element);
-        zones.push({ element, anchor, kind });
-      }
+    for (const [position, kind] of [["below", "child"], ["before", "before"], ["after", "after"]] as const) {
+      if (kind !== "child" && !anchor.parent) continue;
+      const element = doc.createElement("span");
+      element.className = `langscape-tree-drop-mark is-${position}`;
+      element.setAttribute("aria-hidden", "true");
+      anchor.row.appendChild(element);
+      zones.push({ element, anchor, kind });
     }
 
     anchor.label.addEventListener("pointerdown", (event) => {
@@ -90,7 +90,7 @@ export function createTreeDrag(block: HTMLElement, onChange: () => void) {
         replica.removeAttribute("role");
         preview.appendChild(replica);
         hint = preview.appendChild(doc.createElement("small"));
-        hint.textContent = "Drop on a label or a side mark";
+        hint.textContent = dropHint;
         doc.body.appendChild(preview);
       };
 
@@ -111,7 +111,7 @@ export function createTreeDrag(block: HTMLElement, onChange: () => void) {
           highlighted?.element.classList.remove("is-tree-drop-active");
           next?.element.classList.add("is-tree-drop-active");
           highlighted = next;
-          hint.textContent = next ? dropDescriptions[next.kind] : "Drop on a label or a side mark";
+          hint.textContent = next ? dropDescriptions[next.kind] : dropHint;
         }
         preview.style.left = `${Math.max(4, Math.min(pointer.clientX + 14, win.innerWidth - preview.offsetWidth - 4))}px`;
         preview.style.top = `${Math.max(4, pointer.clientY - preview.offsetHeight - 12)}px`;
