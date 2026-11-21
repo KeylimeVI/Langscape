@@ -4,10 +4,11 @@
  *
  * The test launches the extracted Obsidian build in headless mode with a
  * disposable vault and profile under .tools/, drives it through the Chrome
- * DevTools Protocol, and checks the table/font/clipboard features.
+ * DevTools Protocol, and checks the table/font/clipboard features and Lexurgy UI.
  *
  * Usage:
  *   npm run test:obsidian
+ *   npm run test:obsidian -- --live-docs  # also check the official manual over HTTPS
  *   node scripts/headless-obsidian-test.mjs --keep
  *
  * Requires the Obsidian Linux build at
@@ -452,6 +453,68 @@ async function testRectangularSelection(cdp) {
   log("selection expands to a full rectangle");
 }
 
+async function testLexurgyUi(cdp, liveDocs) {
+  const ribbonRemoved = await cdp.eval(`!document.querySelector(
+    '[aria-label="Langscape: new sound-change file"], [aria-label="Langscape: insert custom-font text"]'
+  )`);
+  await ensure(ribbonRemoved, "The Langscape ribbon buttons are still present.");
+
+  for (const [selector, expectedPath] of [
+    [".nav-files-container", "Sound Changes.lsc"],
+    ['.nav-folder-title[data-path="Fonts"]', "Fonts/Sound Changes.lsc"],
+  ]) {
+    const clicked = await cdp.eval(`(() => {
+      const target = document.querySelector(${JSON.stringify(selector)});
+      if (!target) return false;
+      const rect = target.getBoundingClientRect();
+      target.dispatchEvent(new MouseEvent('contextmenu', {
+        bubbles: true, cancelable: true, button: 2, clientX: rect.left + 6, clientY: rect.top + 6,
+      }));
+      const items = [...document.querySelectorAll('.menu-item-title')]
+        .filter((item) => item.textContent === 'New Lexurgy file');
+      if (items.length !== 1) return false;
+      items[0].closest('.menu-item').click();
+      return true;
+    })()`);
+    await ensure(clicked, `Could not click New Lexurgy file in the menu for ${selector}.`);
+    await waitFor(() => cdp.eval(
+      `app.workspace.getActiveFile()?.path === ${JSON.stringify(expectedPath)}`,
+    ), 10_000, `the new ${expectedPath} editor`);
+  }
+  log("native explorer menu creates and opens Lexurgy files in the root and clicked folder");
+
+  await cdp.eval(`app.workspace.getMostRecentLeaf().view.contentEl.querySelector('.langscape-docs-button').click()`);
+  await waitFor(() => cdp.eval(`(() => {
+    const docs = app.workspace.getLeavesOfType('langscape-lexurgy-docs');
+    return docs.length === 1 && app.workspace.getMostRecentLeaf() === docs[0]
+      && app.workspace.getLeavesOfType('langscape-sound-change').length > 0
+      && Boolean(docs[0].view.contentEl.querySelector('.langscape-docs-article'));
+  })()`), 10_000, "the native Lexurgy Docs tab alongside the editor");
+  log("the test bench Docs button opens a separate native tab");
+  if (!liveDocs) return;
+
+  const link = async (path) => {
+    const selector = `.langscape-docs-article a[href="https://www.lexurgy.com/sc/docs${path}"]`;
+    await waitFor(() => cdp.eval(`Boolean(document.querySelector(${JSON.stringify(selector)}))`), 20_000, `manual link ${path}`);
+    await cdp.eval(`document.querySelector(${JSON.stringify(selector)}).click()`);
+  };
+  await link("/tutorial");
+  await link("/tutorial/basics");
+  await waitFor(() => cdp.eval(`document.querySelector('.langscape-docs-example code')?.textContent.includes('lot-thought-merger')`),
+    20_000, "a tutorial example rendered as code");
+  await cdp.eval(`(() => {
+    const sections = document.querySelector('.langscape-docs-toolbar select');
+    sections.value = 'conditions';
+    sections.dispatchEvent(new Event('change'));
+  })()`);
+  await ensure(await cdp.eval(`document.querySelector('.langscape-docs-article').scrollTop > 0`), "Jump to section did not scroll the article.");
+  await cdp.eval(`[...document.querySelectorAll('.langscape-docs-toolbar button')].find((button) => button.textContent === 'Contents').click()`);
+  await link("/cheatsheet");
+  await waitFor(() => cdp.eval(`Boolean(document.querySelector('.langscape-docs-article table code'))`),
+    20_000, "a cheat sheet table rendered in the tab");
+  log("the live manual renders navigation, jump links, tutorial examples and cheat sheet tables");
+}
+
 async function main() {
   await ensure(existsSync(obsidianBin), `Obsidian binary not found: ${obsidianBin}`);
   await prepareVault();
@@ -489,6 +552,7 @@ async function main() {
     await fs.writeFile(screenshot, Buffer.from(shot.data, "base64"));
     log(`screenshot: ${path.relative(root, screenshot)}`);
     log(`merged table: ${path.relative(root, path.join(tools, "merged-table.png"))}`);
+    await testLexurgyUi(cdp, process.argv.includes("--live-docs"));
     passed = true;
     log("all checks passed");
   } catch (error) {

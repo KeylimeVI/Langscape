@@ -223,12 +223,57 @@ body.langscape-resizing * {
   font-weight: 700;
 }
 
+.langscape-test-header-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.langscape-docs-button,
 .langscape-run-button {
   display: inline-flex;
   align-items: center;
   gap: 5px;
   padding: 4px 11px;
   height: auto;
+}
+
+.langscape-docs-view {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+}
+
+.langscape-docs-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.langscape-docs-toolbar select {
+  max-width: min(100%, 24rem);
+}
+
+.langscape-docs-article {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 16px max(16px, calc((100% - 58rem) / 2)) 32px;
+  scroll-padding-top: 16px;
+}
+
+.langscape-docs-example {
+  padding: 12px;
+  margin-block: 1em;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+}
+
+.langscape-docs-example pre:last-child {
+  margin-bottom: 0;
 }
 
 .langscape-run-button.is-loading svg {

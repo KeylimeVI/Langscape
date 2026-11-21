@@ -20,6 +20,7 @@ import {
   createFontPostProcessor,
   createNoteFontExtension,
 } from "./fonts/render";
+import { LEXURGY_DOCS_VIEW_TYPE, LexurgyDocsView } from "./lexurgy/docs-view";
 import { LexurgyService } from "./lexurgy/service";
 import {
   PipelineError,
@@ -88,6 +89,7 @@ export default class LangscapePlugin extends Plugin {
     this.lexurgy = new LexurgyService(this);
 
     this.registerView(SOUNDCHANGE_VIEW_TYPE, (leaf) => new SoundChangeView(leaf, this));
+    this.registerView(LEXURGY_DOCS_VIEW_TYPE, (leaf) => new LexurgyDocsView(leaf));
     this.registerExtensions(["lsc"], SOUNDCHANGE_VIEW_TYPE);
     this.addSettingTab(new LangscapeSettingTab(this));
 
@@ -110,7 +112,19 @@ export default class LangscapePlugin extends Plugin {
     this.register(() => this.fontDomDecorator?.stop());
     this.registerFontEvents();
     this.addCommands();
-    this.addRibbonIcons();
+    // Obsidian passes the vault root for a right-click on blank explorer space.
+    this.registerEvent(
+      this.app.workspace.on("file-menu", (menu, file, source) => {
+        if (source !== "file-explorer-context-menu" || !(file instanceof TFolder)) return;
+        menu.addItem((item) => {
+          item
+            .setTitle("New Lexurgy file")
+            .setIcon("languages")
+            .setSection("action-primary")
+            .onClick(() => void this.createSoundChangeFile(file));
+        });
+      })
+    );
     this.registerEvent(
       this.app.workspace.on("editor-menu", (menu, editor) => {
         if (!this.app.workspace.getActiveViewOfType(MarkdownView)) return;
@@ -166,6 +180,7 @@ export default class LangscapePlugin extends Plugin {
     for (const action of this.canvasActionEls) action.remove();
     this.canvasActionEls.clear();
     this.app.workspace.detachLeavesOfType(SOUNDCHANGE_VIEW_TYPE);
+    this.app.workspace.detachLeavesOfType(LEXURGY_DOCS_VIEW_TYPE);
   }
 
   async loadSettings(): Promise<void> {
@@ -263,10 +278,8 @@ export default class LangscapePlugin extends Plugin {
     target.focus();
   }
 
-  async createSoundChangeFile(): Promise<void> {
-    const active = this.app.workspace.getActiveFile();
-    const folder = active?.parent?.path && active.parent.path !== "/" ? active.parent.path : "";
-    const base = folder ? `${folder}/Sound Changes` : "Sound Changes";
+  async createSoundChangeFile(folder = this.app.workspace.getActiveFile()?.parent): Promise<void> {
+    const base = folder && !folder.isRoot() ? `${folder.path}/Sound Changes` : "Sound Changes";
     const path = await this.availablePath(base, "lsc");
     const file = await this.app.vault.create(path, NEW_LSC_TEMPLATE);
     await this.app.workspace.getLeaf(true).openFile(file);
@@ -774,15 +787,6 @@ export default class LangscapePlugin extends Plugin {
       id: "open-settings",
       name: "Open settings",
       callback: () => this.openSettings(),
-    });
-  }
-
-  private addRibbonIcons(): void {
-    this.addRibbonIcon("type", "Langscape: insert custom-font text", () => {
-      void this.insertFontSpan();
-    });
-    this.addRibbonIcon("languages", "Langscape: new sound-change file", () => {
-      void this.createSoundChangeFile();
     });
   }
 

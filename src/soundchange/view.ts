@@ -2,6 +2,7 @@ import { TextFileView, type WorkspaceLeaf } from "obsidian";
 import type LangscapePlugin from "../main";
 import type { ValidationResult } from "../lexurgy/service";
 import { cleanLexurgyMessage } from "../lexurgy/protocol";
+import { openLexurgyDocs } from "../lexurgy/docs-view";
 import { SoundChangeEditor } from "./editor";
 import { parseOutline, type LexurgyOutline } from "./outline";
 import { SoundChangeTestPanel } from "./panel";
@@ -127,6 +128,7 @@ export class SoundChangeView extends TextFileView {
       run: (changes, words, options) => this.plugin.lexurgy.apply(changes, words, options),
       getEnvironment: () => this.plugin.lexurgy.getEnvironment(),
       onOpenSettings: () => this.plugin.openSettings(),
+      onOpenDocs: () => openLexurgyDocs(this.app.workspace),
       onInstall: () => this.plugin.installLexurgyFromUi(),
       onWordsChange: (words) => {
         const path = this.file?.path;

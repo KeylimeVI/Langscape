@@ -177,7 +177,7 @@ All text in this note uses the font. Inline spans can still override it.
 - Copying rendered font text puts its `{nickname: text}` markup on the clipboard, so pasting it back into a note keeps the font. Other applications will see the markup rather than just the plain text.
 - Fonts are injected with `@font-face` from the vault's local resource URL. This works for desktop Obsidian and exported HTML. Mobile Obsidian is not supported in this version.
 
-Use **Langscape: Insert custom-font text** or the ribbon type icon to pick a font visually. It inserts the `{nickname: text}` syntax for you.
+Use **Langscape: Insert custom-font text** in the command palette to pick a font visually. It inserts the `{nickname: text}` syntax for you.
 
 ### Bases
 
@@ -257,7 +257,9 @@ The test bench remembers the last words used for each file. Press **Run** (or `M
 
 The **From rule** / **Stop before** selectors map to Lexurgy's `startAt` and `stopBefore` options, which is useful for inspecting intermediate stages.
 
-Create a new file with **Langscape: Create sound-change file**. The starter template includes remarks and a working feature set.
+Right-click empty space in the file explorer (or a folder) and choose **New Lexurgy file**. You can also run **Langscape: Create sound-change file** from the command palette. Both actions open a new `.lsc` file with the starter template.
+
+Click **Docs** in the test bench to open the [official Lexurgy manual](https://www.lexurgy.com/sc/docs) in a separate Obsidian tab. The tutorial, cheat sheet, how-to, and reference use Obsidian’s theme and link to one another inside the tab. Pages load from the web, and example rules and input words are shown as selectable code. Use **View online** to run the official site’s interactive examples.
 
 ## Canvas pipelines
 
@@ -443,13 +445,13 @@ npm run test:e2e
 
 The e2e script keeps its Obsidian profile in `.tools/e2e-home` between runs, accepts Obsidian's trust prompt automatically, and closes the run-result modal before moving on, so it does not leave a “Pipeline complete” dialog on screen. Use `E2E_RESET=1` to start from a clean profile. It requires the extracted Obsidian build at `.tools/obsidian/obsidian-1.15.0/obsidian` and the real Lexurgy archive/Java for the integration portions.
 
-For a fast table/font/clipboard check that needs no display server, run:
+For a fast table, font, clipboard, and Lexurgy UI check that needs no display server, run:
 
 ```bash
 npm run test:obsidian
 ```
 
-This launches Obsidian in headless mode with a disposable vault and profile under `.tools/headless-obsidian`, drives it through the DevTools Protocol, checks merged tables, active font cells, clipboard font markup, and rectangular selection, then writes a screenshot to `.tools/headless-obsidian/last-run.png`. It requires the extracted Obsidian build at `.tools/obsidian/obsidian-1.15.0/obsidian` (or `OBSIDIAN_BIN`) and Node 22+. All of its writes stay inside the repository, so it runs without Xvfb or system permissions. Pass `--keep` to keep the temporary vault and profile after a successful run; failed runs are kept automatically for debugging.
+This launches Obsidian in headless mode with a disposable vault and profile under `.tools/headless-obsidian`, drives it through the DevTools Protocol, checks merged tables, active font cells, clipboard font markup, and rectangular selection, then writes a screenshot to `.tools/headless-obsidian/last-run.png`. It also checks that the explorer menu creates `.lsc` files and that the test bench opens the Docs tab. Add `-- --live-docs` to verify the live manual, including navigation and examples. The smoke test requires the extracted Obsidian build at `.tools/obsidian/obsidian-1.15.0/obsidian` (or `OBSIDIAN_BIN`) and Node 22+. All of its writes stay inside the repository, so it runs without Xvfb or system permissions. Pass `--keep` to keep the temporary vault and profile after a successful run; failed runs are kept automatically for debugging.
 
 ## Project layout
 

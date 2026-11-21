@@ -15,6 +15,7 @@ export interface TestPanelOptions {
   ) => Promise<LexurgyApplyResult>;
   getEnvironment: () => Promise<LexurgyEnvironment>;
   onOpenSettings: () => void;
+  onOpenDocs: () => Promise<void>;
   onInstall: () => Promise<void>;
   onWordsChange: (words: string) => void;
   initialWords: string;
@@ -57,7 +58,17 @@ export class SoundChangeTestPanel {
       text: "Not checked",
     });
     this.statusEl = title.createSpan({ cls: "langscape-lexurgy-status is-unknown", text: "Lexurgy" });
-    this.runButton = header.createEl("button", {
+    const actions = header.createDiv({ cls: "langscape-test-header-actions" });
+    const docsButton = actions.createEl("button", {
+      cls: "langscape-docs-button",
+      attr: { "aria-label": "Open Lexurgy documentation" },
+    });
+    setIcon(docsButton, "book-open");
+    docsButton.createSpan({ text: "Docs" });
+    docsButton.addEventListener("click", () => {
+      void this.options.onOpenDocs().catch(() => new Notice("Could not open the Lexurgy Docs tab."));
+    });
+    this.runButton = actions.createEl("button", {
       cls: "mod-cta langscape-run-button",
       attr: { "aria-label": "Apply sound changes to the test words" },
     });
