@@ -15,9 +15,9 @@
   drop, sibling insertion, alignment, and horizontal scrolling.
 - Lexurgy integration with a native `.lsc` editor, syntax highlighting, live
   validation, test bench, rule traces, and a managed installer.
-- Canvas pipelines with source, inline words, sound-change, and output cards;
-  branch execution, safe generated-note updates, and anchored path pickers.
-- Guided starter vault with a demo pipeline, font, syntax tree, and lexurgy
+- Native `.recipe` cards for applying ordered Lexurgy changes to a property on
+  Markdown notes and saving the evolved copies without overwriting files.
+- Guided starter vault with a demo recipe, font, syntax tree, and Lexurgy
   changes.
 - Desktop-only Obsidian 1.5+ build; package, install, and headless test scripts.
 

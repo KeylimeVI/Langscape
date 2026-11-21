@@ -2,22 +2,19 @@ import { App, Notice, TFile, normalizePath } from "obsidian";
 import { ensureVaultFolder } from "./utils/vault";
 import { NOTO_GOTHIC_BASE64, NOTO_GOTHIC_LICENSE_BASE64 } from "./assets/noto-gothic";
 import { EXAMPLE_LSC } from "./soundchange/template";
-
-export interface StarterVaultResult {
-  folder: string;
-  canvasPath: string;
-}
+import { serializeRecipe } from "./recipes/model";
 
 export async function createStarterVault(
   app: App,
   root = "Langscape Demo"
-): Promise<StarterVaultResult> {
+): Promise<void> {
   const folder = normalizePath(root);
   await ensureVaultFolder(app, folder);
   await ensureVaultFolder(app, `${folder}/Fonts`);
   await ensureVaultFolder(app, `${folder}/Words/Proto`);
   await ensureVaultFolder(app, `${folder}/Changes`);
-  await ensureVaultFolder(app, `${folder}/Pipelines`);
+  await ensureVaultFolder(app, `${folder}/Recipes`);
+  await ensureVaultFolder(app, `${folder}/Words/Modern`);
 
   await writeIfMissing(
     app,
@@ -42,7 +39,7 @@ export async function createStarterVault(
       "---",
       "# apa",
       "",
-      "A reconstructed proto-form used by the demo pipeline.",
+      "A reconstructed proto-form used by the demo recipe.",
       "",
     ].join("\n")
   );
@@ -96,83 +93,13 @@ export async function createStarterVault(
     ].join("\n")
   );
 
-  const canvas = {
-    nodes: [
-      {
-        id: "proto-source",
-        type: "text",
-        text: [
-          "```langscape",
-          "type: source",
-          "path: Langscape Demo/Words/Proto",
-          "```",
-        ].join("\n"),
-        x: -660,
-        y: -120,
-        width: 340,
-        height: 260,
-      },
-      {
-        id: "sound-changes",
-        type: "text",
-        text: [
-          "```langscape",
-          "type: sound-change",
-          "file: Langscape Demo/Changes/Demo.lsc",
-          "```",
-        ].join("\n"),
-        x: -230,
-        y: -120,
-        width: 340,
-        height: 260,
-      },
-      {
-        id: "modern-output",
-        type: "text",
-        text: [
-          "```langscape",
-          "type: output",
-          "path: Langscape Demo/Words/Modern",
-          "format: markdown",
-          "```",
-        ].join("\n"),
-        x: 200,
-        y: -120,
-        width: 340,
-        height: 260,
-      },
-      {
-        id: "instructions",
-        type: "text",
-        text: [
-          "Select the output card and press **Run**. Use the Langscape menu in the canvas header for **Run all**.",
-        ].join("\n"),
-        x: -230,
-        y: 220,
-        width: 500,
-        height: 180,
-      },
-    ],
-    edges: [
-      {
-        id: "e1",
-        fromNode: "proto-source",
-        fromSide: "right",
-        toNode: "sound-changes",
-        toSide: "left",
-      },
-      {
-        id: "e2",
-        fromNode: "sound-changes",
-        fromSide: "right",
-        toNode: "modern-output",
-        toSide: "left",
-      },
-    ],
-  };
-
-  const canvasPath = normalizePath(`${folder}/Pipelines/Demo.canvas`);
-  await writeIfMissing(app, canvasPath, JSON.stringify(canvas, null, 2));
+  const recipePath = `${folder}/Recipes/Demo.recipe`;
+  await writeIfMissing(app, recipePath, serializeRecipe({
+    inputFolder: `${folder}/Words/Proto`,
+    property: "word",
+    changes: [{ path: `${folder}/Changes/Demo.lsc`, disabledRules: [] }],
+    outputFolder: `${folder}/Words/Modern`,
+  }));
 
   await writeIfMissing(
     app,
@@ -182,26 +109,23 @@ export async function createStarterVault(
       "",
       "This folder was created by the **Langscape: Create starter vault** command.",
       "",
-      "- `Pipelines/Demo.canvas` — a three-step sound-change pipeline.",
+      "- `Recipes/Demo.recipe` — applies Lexurgy changes to the `word` property.",
       "- `Words/Proto` — one note per proto-word, with `word:` frontmatter.",
       "- `Changes/Demo.lsc` — Lexurgy sound changes.",
       "- `Fonts/NotoSansGothic-Regular.ttf` — an OFL font used by the font demo.",
       "- `Notes/Font demo.md` — inline `{nickname: text}` examples.",
       "- `Notes/Tree demo.md` — a syntax tree with a font inside a node label.",
       "",
-      "Open the canvas, use the Langscape menu in the canvas header, and press **Run**.",
+      "Open the recipe and press **Run recipe**. The copies appear in `Words/Modern`; the proto notes stay untouched.",
       "",
       "Lexurgy must be installed. Langscape can download the official CLI from the plugin settings.",
       "",
     ].join("\n")
   );
 
-  const canvasFile = app.vault.getAbstractFileByPath(canvasPath);
-  if (canvasFile && "extension" in canvasFile) {
-    await app.workspace.getLeaf(true).openFile(canvasFile as TFile);
-  }
-  new Notice("Langscape starter vault created. Press Run on the output card.");
-  return { folder, canvasPath };
+  const recipeFile = app.vault.getAbstractFileByPath(recipePath);
+  if (recipeFile instanceof TFile) await app.workspace.getLeaf("tab").openFile(recipeFile);
+  new Notice("Langscape starter vault created. Open Demo.recipe and press Run recipe.");
 }
 
 async function writeIfMissing(

@@ -3,7 +3,7 @@
   "name": "Langscape",
   "version": "1.0.0",
   "minAppVersion": "1.5.0",
-  "description": "A conlanger's workbench: custom writing-system fonts, a Lexurgy sound-change editor, and canvas-based sound-change pipelines.",
+  "description": "A conlanger's workbench: custom writing-system fonts, a Lexurgy sound-change editor, and sound-change recipes.",
   "author": "Langscape contributors",
   "isDesktopOnly": true,
   "authorUrl": "https://github.com/KeylimeVI"

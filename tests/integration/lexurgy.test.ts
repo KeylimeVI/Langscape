@@ -8,6 +8,8 @@ import {
 } from "../../src/lexurgy/locator";
 import { extractLexurgyArchive } from "../../src/lexurgy/installer";
 import { LexurgyServer } from "../../src/lexurgy/server";
+import { LexurgyService } from "../../src/lexurgy/service";
+import type LangscapePlugin from "../../src/main";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const tools = path.join(root, ".tools");
@@ -63,6 +65,25 @@ describe.skipIf(!hasArchive || !java)("real Lexurgy integration", () => {
     await expect(server.load(changes)).rejects.toMatchObject({
       name: "LexurgyError",
     });
+  });
+
+  it("keeps a run's load and apply together during concurrent validation and runs", async () => {
+    const service = new LexurgyService({
+      settings: { lexurgyPath: installDir },
+      app: { vault: { adapter: {} } },
+    } as unknown as LangscapePlugin);
+    try {
+      const [first, validation, second] = await Promise.all([
+        service.apply("First:\n  a => b\n", ["a"]),
+        service.validate("Validation:\n  a => z\n"),
+        service.apply("Second:\n  a => c\n", ["a"]),
+      ]);
+      expect(validation.valid).toBe(true);
+      expect(first.words).toEqual(["b"]);
+      expect(second.words).toEqual(["c"]);
+    } finally {
+      await service.dispose();
+    }
   });
 
   it("can apply a suffix of the rule list", async () => {

@@ -31,6 +31,7 @@ export class LexurgyService {
   private environment: LexurgyEnvironment | null = null;
   private environmentAt = 0;
   private detecting: Promise<LexurgyEnvironment> | null = null;
+  private ensuringServer: Promise<LexurgyServer> | null = null;
   private installing: Promise<InstallResult> | null = null;
 
   constructor(private readonly plugin: LangscapePlugin) {}
@@ -71,7 +72,13 @@ export class LexurgyService {
     return this.detecting;
   }
 
-  async ensureServer(): Promise<LexurgyServer> {
+  ensureServer(): Promise<LexurgyServer> {
+    return (this.ensuringServer ??= this.startServer().finally(() => {
+      this.ensuringServer = null;
+    }));
+  }
+
+  private async startServer(): Promise<LexurgyServer> {
     const env = await this.getEnvironment();
     if (!env.installation) {
       throw new LexurgyError(
@@ -84,22 +91,26 @@ export class LexurgyService {
     if (this.server?.isRunning && this.serverKey === key) return this.server;
 
     await this.server?.stop();
-    this.server = new LexurgyServer(launch, {
+    const server = new LexurgyServer(launch, {
       requestTimeoutMs: 45_000,
       onExit: () => {
+        if (this.server !== server) return;
         this.server = null;
         this.serverKey = "";
       },
     });
+    this.server = server;
     this.serverKey = key;
     try {
-      await this.server.start();
+      await server.start();
     } catch (error) {
-      this.server = null;
-      this.serverKey = "";
+      if (this.server === server) {
+        this.server = null;
+        this.serverKey = "";
+      }
       throw error;
     }
-    return this.server;
+    return server;
   }
 
   async validate(changes: string): Promise<ValidationResult> {

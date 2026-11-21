@@ -1,12 +1,10 @@
 # Langscape
 
-Langscape is a conlanger's workbench for [Obsidian](https://obsidian.md). It brings custom writing-system fonts, a Lexurgy sound-change editor, and canvas-driven word-evolution pipelines into the same vault as your notes.
+Langscape is a conlanger's workbench for [Obsidian](https://obsidian.md). It brings custom writing-system fonts, a Lexurgy sound-change editor, and sound-change recipes into the same vault as your notes.
 
 > **Status:** 1.0.0 — desktop only. Minimum Obsidian 1.5.0; built and tested against Obsidian 1.15.x and Lexurgy 1.7.7.
 >
 > See the [changelog](CHANGELOG.md) for the release history.
-
-![Langscape canvas pipeline](docs/screenshots/canvas-pipeline.png)
 
 ## Screenshots
 
@@ -15,29 +13,9 @@ Langscape is a conlanger's workbench for [Obsidian](https://obsidian.md). It bri
 | ![Inline custom font](docs/screenshots/font-demo.png) | ![Sound-change editor](docs/screenshots/sound-change-editor.png) |
 
 
-![Anchored folder picker](docs/screenshots/path-picker.png)
-
 ![Vertical Lexurgy rule trace](docs/screenshots/trace-table.png)
 
 ![Syntax tree with diagonal branches and custom-font labels](docs/screenshots/syntax-tree.png)
-
-## Video overview
-
-A short, no-voiceover tour of fonts, Lexurgy, pipelines, and Bases:
-
-[Watch the Langscape overview](docs/video/langscape-overview.webm)
-
-[![Langscape overview poster](docs/video/langscape-overview-poster.jpg)](docs/video/langscape-overview.webm)
-
-## Trailer
-
-A 25-second motion-graphic trailer in Langscape's near-black and green-turquoise palette. No voiceover; the feature copy and app stills do the talking.
-
-[Watch the Langscape trailer](docs/video/langscape-trailer.mp4)
-
-[![Langscape trailer poster](docs/video/langscape-trailer-poster.jpg)](docs/video/langscape-trailer.mp4)
-
-The Remotion source is in [`trailer/`](trailer/); run `npm install && npm run render` there to rebuild it.
 
 ## Features
 
@@ -46,8 +24,8 @@ The Remotion source is in [`trailer/`](trailer/); run `npm install && npm run re
 - **Merged table cells** — select cells and right-click to merge or split them, or type `<`, `^`, or `>` in an empty cell to join it to the cell in that direction. Merges render in Live Preview, Reading view, and exports while the note stays plain Markdown.
 - **Sound-change workbench** — `.lsc` files open in a dedicated editor with Lexurgy syntax highlighting, live validation, and a test bench with rule-by-rule traces.
 - **Lexurgy integration** — Langscape runs the official Lexurgy CLI as a persistent local server, so applying changes is fast. Install or update the official CLI from settings, or point at an existing installation.
-- **Canvas pipelines** — the canvas header has a Langscape menu for adding sources, sound changes, and outputs. Connect the cards with arrows, then press **Run** on an output card. **Run all** is in the same canvas menu.
-- **Safe output** — generated notes are refreshed on every run, but human-written notes are never overwritten. Writing output into the source folder is rejected to prevent feedback loops.
+- **Sound-change recipes** — choose an input folder and note property, apply one or more Lexurgy files, and save the changed notes as copies in a separate folder.
+- **Safe output** — recipes leave source notes untouched and never overwrite files in the output folder.
 
 ## Installation
 
@@ -268,121 +246,17 @@ Right-click empty space in the file explorer (or a folder) and choose **New Lexu
 
 Click **Docs** in the test bench to open the [official Lexurgy manual](https://www.lexurgy.com/sc/docs) in a separate Obsidian tab. The tutorial, cheat sheet, how-to, and reference use Obsidian’s theme and link to one another inside the tab. Pages load from the web, and example rules and input words are shown as selectable code. Use **View online** to run the official site’s interactive examples.
 
-## Canvas pipelines
+## Sound-change recipes
 
-Langscape reads ordinary Obsidian Canvas files. Any text card containing a fenced `langscape` block is a pipeline step. Connect the cards with Canvas arrows; data flows along those arrows.
+![A configured recipe card in Obsidian](docs/screenshots/recipe-card.png)
 
-### Node types
+Right-click a folder or blank space in the file explorer and choose **New recipe**. The `.recipe` opens as a card with three sections:
 
-Source folder — reads the `word` field from every Markdown note in a folder. `.wli` files are also supported.
+1. **Input:** choose a folder and a text property, such as `word`. Only Markdown notes directly in that folder with a nonblank text value for that property are processed. Subfolders and other files are ignored.
+2. **Sound changes:** add one or more `.lsc` files. They run from top to bottom. Open **Advanced** on a file to disable individual rules for this recipe without editing the `.lsc` file.
+3. **Output:** choose a different folder and press **Run recipe**. Each copy keeps the original filename, all other properties, and the Markdown body. Only the selected property gets the evolved value.
 
-````markdown
-```langscape
-type: source
-path: Words/Proto
-# optional:
-field: word
-format: markdown
-```
-
-Words from `Words/Proto` become the pipeline input.
-````
-
-Inline words — useful for quick experiments.
-
-````markdown
-```langscape
-type: words
-words:
-  - apa
-  - eke
-  - pataka
-```
-````
-
-Sound changes — apply a Lexurgy file. Multiple incoming paths are merged.
-
-````markdown
-```langscape
-type: sound-change
-file: Changes/Modern.lsc
-# optional:
-startAt: Lenition
-stopBefore: Raising
-```
-````
-
-Output — write one Markdown note per evolved word, or a single `.wli` word list.
-
-````markdown
-```langscape
-type: output
-path: Words/Modern
-format: markdown
-# optional:
-field: word
-name: Modern
-filename: "{word}"
-overwrite: true
-```
-````
-
-````markdown
-```langscape
-type: output
-path: Build/evolved.wli
-format: wli
-```
-````
-
-**Paths are vault-relative**, not relative to the canvas. An optional `label:` gives a step a friendlier name on the canvas card.
-
-### Running
-
-- Open the canvas and use the **Langscape** menu in the canvas header (workflow icon) to add sources, sound changes, and outputs. The pickers are searchable in-vault lists, not native OS dialogs; the output picker also accepts a typed new folder path.
-- Source and output cards have a **field** textbox for the word property. Output cards also have an editable title for the pipeline/language name.
-- Double-click a folder or file name on a card to change it. Double-click a sound-change card to open the `.lsc` file. Double-clicking other parts of a card does not open the block's YAML metadata.
-- Press **Run** on an output card to run only that output's branch.
-- Use **Run all** in the same header menu to run every output.
-- The command palette also has **Langscape: Run all pipelines in the active canvas**.
-
-A successful run writes to the output folder and shows a short notification summary. Generated notes contain:
-
-```yaml
----
-source: "[[Words/Proto/word]]"
-original: "proto-form"
-word: "evolved-form"
-pipeline: "Modern"
----
-```
-
-Generated notes contain only those properties; there is no body or stage table. The `pipeline` value defaults to the output folder name (the “final language”) and can be overridden with `name:` on the output block. Re-running updates notes that Langscape generated; human notes are left alone and a numbered filename is used instead.
-
-The property that holds the word can be changed per block:
-
-```langscape
-# Source block: which property to read
-type: source
-path: Words/Proto
-field: word
-```
-
-```langscape
-# Output block: which property to write, and the language name
-type: output
-path: Words/Modern
-field: word
-name: Modern
-```
-
-### Canvas pipeline rules
-
-- Sources and inline-word steps cannot have incoming arrows.
-- Sound-change and output steps need at least one incoming arrow.
-- Cycles are rejected.
-- An output folder inside a source folder is rejected (it would feed generated notes back into the next run).
-- A step with no incoming data is an error; a valid pipeline needs at least one source and one output.
+The recipe refuses to overwrite a note with the same name. Choose an empty output folder for a fresh run. If an enabled rule calls a disabled deferred rule, Lexurgy reports the missing dependency before any copies are written. Existing `.canvas` files are not modified, but Langscape no longer runs sound changes from them.
 
 ### Starter vault
 
@@ -390,9 +264,10 @@ Run **Langscape: Create starter vault**, or use the button in settings. It creat
 
 ```
 Langscape Demo/
-  Pipelines/Demo.canvas
+  Recipes/Demo.recipe
   Changes/Demo.lsc
   Words/Proto/{apa,eke,pataka}.md
+  Words/Modern/
   Notes/Font demo.md
   Notes/Tree demo.md
   Fonts/NotoSansGothic-Regular.ttf
@@ -400,7 +275,7 @@ Langscape Demo/
   README.md
 ```
 
-The demo is a working three-step pipeline and includes an OFL font for the font demo.
+Open the demo recipe and press **Run recipe** to copy the evolved notes to `Words/Modern`. The starter vault also includes an OFL font for the font demo.
 
 ## Lexurgy
 
@@ -443,14 +318,14 @@ curl -L -o .tools/lexurgy.zip \
 
 Tests skip the JVM integration suite automatically when the archive or Java is missing.
 
-For the full end-to-end check against real Obsidian, the repository includes `scripts/e2e-obsidian.mjs` (see the file header for prerequisites). It launches a disposable Obsidian instance against `.tools/e2e-vault`, creates the starter vault, runs the demo pipeline and a single-output branch, tests the canvas add-step menu and card errors, exercises inline fonts and the `.lsc` test bench, checks syntax colours, and verifies the results through the Chrome DevTools Protocol.
+For the full end-to-end check against real Obsidian, the repository includes `scripts/e2e-obsidian.mjs` (see the file header for prerequisites). It launches a disposable Obsidian instance against `.tools/e2e-vault`, creates the starter vault, exercises inline fonts, syntax trees and the `.lsc` test bench, checks syntax colours, and verifies the results through the Chrome DevTools Protocol.
 
 ```bash
 npm run build
 npm run test:e2e
 ```
 
-The e2e script keeps its Obsidian profile in `.tools/e2e-home` between runs, accepts Obsidian's trust prompt automatically, and closes the run-result modal before moving on, so it does not leave a “Pipeline complete” dialog on screen. Use `E2E_RESET=1` to start from a clean profile. It requires the extracted Obsidian build at `.tools/obsidian/obsidian-1.15.0/obsidian` and the real Lexurgy archive/Java for the integration portions.
+The e2e script keeps its Obsidian profile in `.tools/e2e-home` between runs, accepts Obsidian's trust prompt automatically. Use `E2E_RESET=1` to start from a clean profile. It requires the extracted Obsidian build at `.tools/obsidian/obsidian-1.15.0/obsidian` and the real Lexurgy archive/Java for the integration portions.
 
 For a fast table, font, clipboard, and Lexurgy UI check that needs no display server, run:
 
@@ -458,13 +333,13 @@ For a fast table, font, clipboard, and Lexurgy UI check that needs no display se
 npm run test:obsidian
 ```
 
-This launches Obsidian in headless mode with a disposable vault and profile under `.tools/headless-obsidian`, drives it through the DevTools Protocol, checks merged tables, active font cells, clipboard font markup, and rectangular selection, then writes a screenshot to `.tools/headless-obsidian/last-run.png`. It also checks that the explorer menu creates `.lsc` files and that the test bench opens the Docs tab. Add `-- --live-docs` to verify the live manual, including navigation and examples. The smoke test requires the extracted Obsidian build at `.tools/obsidian/obsidian-1.15.0/obsidian` (or `OBSIDIAN_BIN`) and Node 22+. All of its writes stay inside the repository, so it runs without Xvfb or system permissions. Pass `--keep` to keep the temporary vault and profile after a successful run; failed runs are kept automatically for debugging.
+This launches Obsidian in headless mode with a disposable vault and profile under `.tools/headless-obsidian`, drives it through the DevTools Protocol, checks merged tables, active font cells, clipboard font markup, and rectangular selection, then writes a screenshot to `.tools/headless-obsidian/last-run.png`. It also checks that the explorer can create `.lsc` and `.recipe` files, that the test bench opens the Docs tab, and that a recipe copies notes with the selected property changed. Add `-- --live-docs` to verify the live manual, including navigation and examples. The smoke test requires the extracted Obsidian build at `.tools/obsidian/obsidian-1.15.0/obsidian` (or `OBSIDIAN_BIN`) and Node 22+. All of its writes stay inside the repository, so it runs without Xvfb or system permissions. Pass `--keep` to keep the temporary vault and profile after a successful run; failed runs are kept automatically for debugging.
 
 ## Project layout
 
 ```
 src/
-  main.ts                 plugin lifecycle, commands, canvas execution
+  main.ts                 plugin lifecycle and commands
   settings.ts             persisted settings
   settings-ui.ts          settings tab
   demo.ts                 starter-vault generator
@@ -474,7 +349,7 @@ src/
   trees/                  syntax-tree parser, renderer, Live Preview editor
   lexurgy/                server protocol, process management, locator, installer
   soundchange/            .lsc view, syntax decorations, rule selectors, test bench
-  pipeline/               canvas model, graph validation, words, card UI, runner, writer
+  recipes/                recipe card, file format, rule selection, note processing
   ui/                     prompt/confirm modals and anchored path picker
   utils/                  shared CodeMirror and vault helpers
 tests/                    vitest unit + real-Lexurgy integration tests
@@ -487,9 +362,7 @@ trailer/                  Remotion trailer source
 ## Limitations
 
 - Desktop only. Lexurgy is a JVM program and the plugin uses Node child processes.
-- Lexurgy is the sound-change engine. Langscape does not implement its own phonology engine yet; the `pipeline` layer is deliberately independent of the Lexurgy client so another engine can be added later.
-- Canvas has no public plugin API for adding or editing nodes from another plugin, but Langscape uses the Canvas view's runtime node API for its Add menu. Cards render their own controls and errors.
-- The canvas menu is the main control surface; there is no separate pipeline sidebar.
+- Lexurgy is the sound-change engine. Langscape does not implement its own phonology engine.
 - The font span syntax is intentionally simple and single-block; use note-level frontmatter for long passages.
 
 ## License

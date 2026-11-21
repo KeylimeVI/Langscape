@@ -71,6 +71,7 @@ export class LexurgyServer {
   private starting: Promise<void> | null = null;
   private pending: Pending | null = null;
   private queue: Pending[] = [];
+  private operations: Promise<void> = Promise.resolve();
   private stopped = false;
   private stderrBuffer = "";
   private lastExit: { code: number | null; signal: NodeJS.Signals | null } | null = null;
@@ -169,11 +170,19 @@ export class LexurgyServer {
     }
   }
 
-  async load(changes: string): Promise<void> {
+  load(changes: string): Promise<void> {
+    return this.enqueueOperation(() => this.loadChanges(changes));
+  }
+
+  apply(words: string[], options: LexurgyApplyOptions = {}): Promise<LexurgyApplyResult> {
+    return this.enqueueOperation(() => this.applyLoaded(words, options));
+  }
+
+  private async loadChanges(changes: string): Promise<void> {
     await this.request({ type: "load_string", changes });
   }
 
-  async apply(words: string[], options: LexurgyApplyOptions = {}): Promise<LexurgyApplyResult> {
+  private async applyLoaded(words: string[], options: LexurgyApplyOptions): Promise<LexurgyApplyResult> {
     const request: ApplyRequest = {
       type: "apply",
       words,
@@ -190,14 +199,22 @@ export class LexurgyServer {
     return normalizeChanged(response);
   }
 
-  /** Load changes and apply words in one call (the common path). */
-  async run(
+  /** Keep the load and apply together; validation must not swap the loaded rules. */
+  run(
     changes: string,
     words: string[],
     options: LexurgyApplyOptions = {}
   ): Promise<LexurgyApplyResult> {
-    await this.load(changes);
-    return this.apply(words, options);
+    return this.enqueueOperation(async () => {
+      await this.loadChanges(changes);
+      return this.applyLoaded(words, options);
+    });
+  }
+
+  private enqueueOperation<T>(operation: () => Promise<T>): Promise<T> {
+    const result = this.operations.then(operation);
+    this.operations = result.then(() => undefined, () => undefined);
+    return result;
   }
 
   async stop(): Promise<void> {

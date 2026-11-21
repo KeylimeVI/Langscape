@@ -1,7 +1,7 @@
 {
   "name": "langscape",
   "version": "1.0.0",
-  "description": "A conlanger's workbench for Obsidian: custom writing-system fonts, a Lexurgy sound-change editor, and canvas pipelines.",
+  "description": "A conlanger's workbench for Obsidian: custom writing-system fonts, a Lexurgy sound-change editor, and sound-change recipes.",
   "main": "main.js",
   "scripts": {
     "dev": "node esbuild.config.mjs",
@@ -36,7 +36,8 @@
     "@codemirror/search": "^6.5.11",
     "@codemirror/state": "^6.5.2",
     "@codemirror/view": "^6.38.1",
-    "fflate": "^0.8.2"
+    "fflate": "^0.8.2",
+    "yaml": "^2.9.1"
   },
   "devDependencies": {
     "@types/node": "^22.15.0",

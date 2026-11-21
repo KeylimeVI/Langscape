@@ -28,7 +28,7 @@ const TIMING = {
   intro: { from: 0, duration: 120 },
   fonts: { from: 120, duration: 135 },
   lexurgy: { from: 255, duration: 105 },
-  canvas: { from: 360, duration: 105 },
+  recipe: { from: 360, duration: 105 },
   trees: { from: 465, duration: 135 },
   bases: { from: 600, duration: 75 },
   outro: { from: 675, duration: 75 },
@@ -839,18 +839,18 @@ const LexurgyScene: React.FC = () => (
   </SceneFade>
 );
 
-const CanvasScene: React.FC = () => (
+const RecipeScene: React.FC = () => (
   <SceneFade duration={105}>
     <div style={{ position: "absolute", left: 138, top: 112, width: 720 }}>
-      <Kicker>03 / PIPELINES</Kicker>
+      <Kicker>03 / RECIPES</Kicker>
       <Headline delay={10} size={68} style={{ marginTop: 20 }}>
         WORDS IN.
         <br />
         <AccentText>WORLDS OUT.</AccentText>
       </Headline>
       <Body delay={26} width={610} style={{ marginTop: 17, fontSize: 22 }}>
-        Chain source words, sound changes, and outputs together
-        on a canvas. Run the whole evolution in one pass.
+        Choose a property, apply your sound changes, and save
+        the evolved notes without touching the originals.
       </Body>
     </div>
     <Rise delay={36} style={{ position: "absolute", left: 980, top: 350, display: "flex", gap: 15 }}>
@@ -872,16 +872,32 @@ const CanvasScene: React.FC = () => (
         </React.Fragment>
       ))}
     </Rise>
-    <AppPanel
-      src="canvas.png"
-      left={480}
-      top={430}
-      width={1100}
-      height={619}
-      delay={8}
-      rotate={-1.5}
-      label="CANVAS / PIPELINE"
-    />
+    <Rise delay={8} style={{ position: "absolute", left: 570, top: 430, width: 910 }}>
+      <div style={{
+        background: "#101B1A",
+        border: "1px solid rgba(185, 232, 217, 0.3)",
+        borderRadius: 20,
+        padding: "30px 40px",
+        fontFamily: MONO,
+        color: "#B9E8D9",
+      }}>
+        <div style={{ fontSize: 30, color: "white", marginBottom: 20 }}>Demo.recipe</div>
+        {[
+          ["01  INPUT", "Words/Proto · word"],
+          ["02  SOUND CHANGES", "Changes/Demo.lsc"],
+          ["03  OUTPUT", "Words/Modern"],
+        ].map(([step, value]) => (
+          <div key={step} style={{
+            display: "flex", justifyContent: "space-between", padding: "14px 0",
+            borderTop: "1px solid rgba(185, 232, 217, 0.15)", fontSize: 19,
+          }}>
+            <span style={{ color: ACCENT, fontSize: 14 }}>{step}</span>
+            <span>{value}</span>
+          </div>
+        ))}
+        <div style={{ textAlign: "right", color: ACCENT, fontSize: 19, marginTop: 14 }}>▶ Run recipe</div>
+      </div>
+    </Rise>
     <div
       style={{
         position: "absolute",
@@ -893,7 +909,7 @@ const CanvasScene: React.FC = () => (
         letterSpacing: 2,
       }}
     >
-      CONNECT CARDS WITH CANVAS ARROWS / PRESS RUN
+      APPLY RULES IN ORDER / KEEP ORIGINALS
     </div>
   </SceneFade>
 );
@@ -1392,8 +1408,8 @@ export const Trailer: React.FC = () => {
       <Sequence from={TIMING.lexurgy.from} durationInFrames={TIMING.lexurgy.duration}>
         <LexurgyScene />
       </Sequence>
-      <Sequence from={TIMING.canvas.from} durationInFrames={TIMING.canvas.duration}>
-        <CanvasScene />
+      <Sequence from={TIMING.recipe.from} durationInFrames={TIMING.recipe.duration}>
+        <RecipeScene />
       </Sequence>
       <Sequence from={TIMING.trees.from} durationInFrames={TIMING.trees.duration}>
         <TreeScene />

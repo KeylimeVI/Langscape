@@ -4,17 +4,22 @@
  *
  * The test launches the extracted Obsidian build in headless mode with a
  * disposable vault and profile under .tools/, drives it through the Chrome
- * DevTools Protocol, and checks tables, fonts, tree editing and the Lexurgy UI.
+ * DevTools Protocol, and checks tables, fonts, tree editing, the Lexurgy UI,
+ * and recipe execution.
  *
  * Usage:
  *   npm run test:obsidian
  *   npm run test:obsidian -- --live-docs  # also check the official manual over HTTPS
+ *   npm run test:obsidian -- --capture-recipe  # save a cropped recipe card screenshot
  *   node scripts/headless-obsidian-test.mjs --keep
  *
  * Requires the Obsidian Linux build at
  *   .tools/obsidian/obsidian-1.15.0/obsidian
  * or OBSIDIAN_BIN pointing at an obsidian executable.
+ * Set OBSIDIAN_TEST_LEXURGY_PATH to an installed Lexurgy directory (with Java
+ * on PATH) to run the recipe against the JVM instead of the test double.
  */
+import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { promises as fs } from "node:fs";
 import { existsSync } from "node:fs";
@@ -28,6 +33,7 @@ const home = path.join(tools, "home");
 const screenshot = path.join(tools, "last-run.png");
 const port = Number(process.env.OBSIDIAN_CDP_PORT ?? 9245);
 const keep = process.argv.includes("--keep");
+const testLexurgyPath = process.env.OBSIDIAN_TEST_LEXURGY_PATH;
 const obsidianBin =
   process.env.OBSIDIAN_BIN ??
   path.join(root, ".tools", "obsidian", "obsidian-1.15.0", "obsidian");
@@ -142,7 +148,8 @@ async function prepareVault() {
     path.join(vault, "Fonts/NotoSansGothic-Regular.ttf")
   );
   await fs.writeFile(path.join(vault, ".obsidian/community-plugins.json"), '["langscape"]\n');
-  await fs.writeFile(path.join(vault, ".obsidian/plugins/langscape/data.json"), "{}\n");
+  const settings = testLexurgyPath ? { lexurgyPath: path.resolve(testLexurgyPath) } : {};
+  await fs.writeFile(path.join(vault, ".obsidian/plugins/langscape/data.json"), JSON.stringify(settings));
 
   await fs.writeFile(
     path.join(vault, note),
@@ -517,6 +524,25 @@ async function testSyntaxTreeDrag(cdp) {
   log("tree drag highlights and commits sibling ordering, reparenting, and blank-space cancellation");
 }
 
+async function clickExplorerMenuItem(cdp, selector, title) {
+  await waitFor(() => cdp.eval(`Boolean(document.querySelector(${JSON.stringify(selector)}))`),
+    10_000, `the explorer target ${selector}`);
+  const clicked = await cdp.eval(`(() => {
+    const target = document.querySelector(${JSON.stringify(selector)});
+    if (!target) return false;
+    const rect = target.getBoundingClientRect();
+    target.dispatchEvent(new MouseEvent('contextmenu', {
+      bubbles: true, cancelable: true, button: 2, clientX: rect.left + 6, clientY: rect.top + 6,
+    }));
+    const items = [...document.querySelectorAll('.menu-item-title')]
+      .filter((item) => item.textContent === ${JSON.stringify(title)});
+    if (items.length !== 1) return false;
+    items[0].closest('.menu-item').click();
+    return true;
+  })()`);
+  await ensure(clicked, `Could not click ${title} in the menu for ${selector}.`);
+}
+
 async function testLexurgyUi(cdp, liveDocs) {
   const ribbonRemoved = await cdp.eval(`!document.querySelector(
     '[aria-label="Langscape: new sound-change file"], [aria-label="Langscape: insert custom-font text"]'
@@ -527,20 +553,7 @@ async function testLexurgyUi(cdp, liveDocs) {
     [".nav-files-container", "Sound Changes.lsc"],
     ['.nav-folder-title[data-path="Fonts"]', "Fonts/Sound Changes.lsc"],
   ]) {
-    const clicked = await cdp.eval(`(() => {
-      const target = document.querySelector(${JSON.stringify(selector)});
-      if (!target) return false;
-      const rect = target.getBoundingClientRect();
-      target.dispatchEvent(new MouseEvent('contextmenu', {
-        bubbles: true, cancelable: true, button: 2, clientX: rect.left + 6, clientY: rect.top + 6,
-      }));
-      const items = [...document.querySelectorAll('.menu-item-title')]
-        .filter((item) => item.textContent === 'New Lexurgy file');
-      if (items.length !== 1) return false;
-      items[0].closest('.menu-item').click();
-      return true;
-    })()`);
-    await ensure(clicked, `Could not click New Lexurgy file in the menu for ${selector}.`);
+    await clickExplorerMenuItem(cdp, selector, "New Lexurgy file");
     await waitFor(() => cdp.eval(
       `app.workspace.getActiveFile()?.path === ${JSON.stringify(expectedPath)}`,
     ), 10_000, `the new ${expectedPath} editor`);
@@ -577,6 +590,165 @@ async function testLexurgyUi(cdp, liveDocs) {
   await waitFor(() => cdp.eval(`Boolean(document.querySelector('.langscape-docs-article table code'))`),
     20_000, "a cheat sheet table rendered in the tab");
   log("the live manual renders navigation, jump links, tutorial examples and cheat sheet tables");
+}
+
+async function testRecipe(cdp) {
+  const input = "Recipe input";
+  const output = "Recipe output";
+  const filename = "A source note.md";
+  const property = "proto-form";
+  const first = "First.lsc";
+  const second = "Second.lsc";
+  const body = "\n# Source heading\n\nThe body is unchanged.\n\n- Including this list\n";
+  const sources = {
+    [`${input}/${filename}`]: `---\n${property}: apa\ngloss: father\ntags: [kin]\nattested: false\n---\n${body}`,
+    [`${input}/Unmatched.md`]: "---\ngloss: not a match\n---\n# Unmatched\n",
+    "Outside.md": `---\n${property}: aka\n---\n# Outside the selected folder\n`,
+  };
+  const fixtures = {
+    ...sources,
+    [first]: "Keep-First:\n  a => e\n\nDiscard-First:\n  e => i\n",
+    [second]: "Keep-Second:\n  p => b\n",
+  };
+  await cdp.eval(`(async () => {
+    for (const folder of ${JSON.stringify([input, output])}) await app.vault.createFolder(folder);
+    for (const [path, contents] of Object.entries(${JSON.stringify(fixtures)})) {
+      await app.vault.create(path, contents);
+    }
+  })()`);
+
+  const recipePath = `${input}/Recipe.recipe`;
+  const view = "app.workspace.getMostRecentLeaf()?.view";
+  for (const [selector, expectedPath] of [
+    [".nav-files-container", "Recipe.recipe"],
+    [`.nav-folder-title[data-path="${input}"]`, recipePath],
+  ]) {
+    await clickExplorerMenuItem(cdp, selector, "New recipe");
+    await waitFor(() => cdp.eval(
+      `${view}?.getViewType() === 'langscape-recipe' && ${view}?.file?.path === ${JSON.stringify(expectedPath)}`,
+    ), 10_000, `the new ${expectedPath} card`);
+  }
+
+  const control = (selector) => `${view}?.contentEl?.querySelector(${JSON.stringify(selector)})`;
+  const click = (selector) => waitFor(() => cdp.eval(`(() => {
+    const el = ${control(selector)};
+    if (!el || el.disabled) return false;
+    el.click();
+    return true;
+  })()`), 10_000, `the enabled ${selector} control`);
+  const pick = async (selector, path) => {
+    await click(selector);
+    await waitFor(() => cdp.eval(`(() => {
+      const label = [...document.querySelectorAll('.langscape-path-popover .langscape-path-label')]
+        .find((el) => el.textContent === ${JSON.stringify(path)});
+      if (!label) return false;
+      label.closest('.langscape-path-item').click();
+      return true;
+    })()`), 10_000, `the picker option ${path}`);
+  };
+  await pick(".langscape-recipe-input-folder", input);
+  const propertySelect = control(".langscape-recipe-property");
+  await waitFor(() => cdp.eval(`(() => {
+    const select = ${propertySelect};
+    if (!select || select.disabled || ![...select.options].some((option) => option.value === ${JSON.stringify(property)})) {
+      return false;
+    }
+    select.value = ${JSON.stringify(property)};
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    return true;
+  })()`), 10_000, `the discovered ${property} property`);
+
+  for (const path of [first, second]) {
+    await pick(".langscape-recipe-add-change", path);
+    await waitFor(() => cdp.eval(`Boolean(${control(`.langscape-recipe-change[data-path="${path}"]`)})`),
+      10_000, `the added ${path} change`);
+  }
+  const firstRow = `.langscape-recipe-change[data-path="${first}"]`;
+  const rule = `${firstRow} input[type="checkbox"][data-rule="Discard-First"]`;
+  await click(`${firstRow} .langscape-recipe-advanced > summary`);
+  await waitFor(() => cdp.eval(`${control(rule)}?.checked === true`), 10_000, "the enabled Discard-First rule");
+  await click(rule);
+  await pick(".langscape-recipe-output-folder", output);
+
+  const outputPath = `${output}/${filename}`;
+  try {
+    // Keep the real recipe and vault operations; normally substitute only the JVM call.
+    if (!testLexurgyPath) await cdp.eval(`(() => {
+      const lexurgy = app.plugins.plugins.langscape.lexurgy;
+      const original = Object.getOwnPropertyDescriptor(lexurgy, 'apply');
+      const mock = window.__recipeSmoke = {
+        calls: 0,
+        restore() {
+          if (original) Object.defineProperty(lexurgy, 'apply', original);
+          else delete lexurgy.apply;
+          delete window.__recipeSmoke;
+        },
+      };
+      const stages = [
+        { rule: 'Keep-First:', input: 'apa', output: 'epe' },
+        { rule: 'Keep-Second:', input: 'epe', output: 'ebe' },
+      ];
+      lexurgy.apply = async (changes, words) => {
+        const stage = stages[mock.calls++];
+        if (!stage || !changes.includes(stage.rule) || changes.includes('Discard-First:')
+          || words.length !== 1 || words[0] !== stage.input) {
+          throw new Error('Unexpected recipe stage ' + mock.calls + ': ' + JSON.stringify({ changes, words }));
+        }
+        return { words: [stage.output], intermediates: {}, traceLines: [] };
+      };
+    })()`);
+    await click(".langscape-recipe-run");
+    const result = await waitFor(() => cdp.eval(`(() => {
+      const el = ${control('.langscape-recipe-result[data-state="success"], .langscape-recipe-result[data-state="error"]')};
+      return el && { state: el.dataset.state, text: el.textContent };
+    })()`), 10_000, "the recipe run result");
+    await ensure(result.state === "success", `The recipe failed: ${result.text}`);
+    if (!testLexurgyPath) {
+      assert.equal(await cdp.eval("window.__recipeSmoke.calls"), 2, "Both changes must run once, in order.");
+    }
+  } finally {
+    if (!testLexurgyPath) await cdp.eval("window.__recipeSmoke?.restore()");
+  }
+
+  const saved = JSON.parse(await fs.readFile(path.join(vault, recipePath), "utf8"));
+  assert.deepEqual(saved, {
+    inputFolder: input,
+    property,
+    changes: [{ path: first, disabledRules: ["Discard-First"] }, { path: second, disabledRules: [] }],
+    outputFolder: output,
+  }, "The configured recipe should be saved to the recipe file.");
+  assert.deepEqual(await fs.readdir(path.join(vault, output)), [filename], "Only the matching filename should be copied.");
+  const contents = await fs.readFile(path.join(vault, outputPath), "utf8");
+  const header = /^---\n[\s\S]*?\n---\n/.exec(contents);
+  await ensure(header, "The output is missing YAML frontmatter.");
+  assert.equal(contents.slice(header[0].length), body, "The output body changed.");
+  const properties = await waitFor(() => cdp.eval(`(() => {
+    const file = app.vault.getAbstractFileByPath(${JSON.stringify(outputPath)});
+    const frontmatter = file && app.metadataCache.getFileCache(file)?.frontmatter;
+    if (!frontmatter) return null;
+    const { position, ...properties } = frontmatter;
+    return properties;
+  })()`), 10_000, "the output frontmatter cache");
+  assert.deepEqual(properties, {
+    [property]: "ebe", gloss: "father", tags: ["kin"], attested: false,
+  }, "Only the selected property should change.");
+  for (const [pathInVault, original] of Object.entries(sources)) {
+    assert.equal(await fs.readFile(path.join(vault, pathInVault), "utf8"), original, `${pathInVault} changed.`);
+  }
+  log(`native recipe card run ${testLexurgyPath ? "with real Lexurgy " : ""}preserves filenames, other properties, bodies and source notes`);
+  if (process.argv.includes("--capture-recipe")) {
+    const clip = await cdp.eval(`(() => {
+      const { left, top, right, bottom } = ${control(".langscape-recipe-card")}.getBoundingClientRect();
+      const x = Math.max(0, left - 12);
+      const y = Math.max(0, top - 12);
+      const width = Math.min(innerWidth, right + 12) - x;
+      const height = Math.min(innerHeight, bottom + 12) - y;
+      return { x, y, width, height, scale: 1 };
+    })()`);
+    const image = await cdp.send("Page.captureScreenshot", { format: "png", clip });
+    await fs.writeFile(path.join(tools, "recipe-card.png"), Buffer.from(image.data, "base64"));
+    log("recipe screenshot: .tools/headless-obsidian/recipe-card.png");
+  }
 }
 
 async function main() {
@@ -618,6 +790,7 @@ async function main() {
     log(`merged table: ${path.relative(root, path.join(tools, "merged-table.png"))}`);
     await testSyntaxTreeDrag(cdp);
     await testLexurgyUi(cdp, process.argv.includes("--live-docs"));
+    await testRecipe(cdp);
     passed = true;
     log("all checks passed");
   } catch (error) {

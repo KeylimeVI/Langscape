@@ -1,6 +1,6 @@
 /* ==========================================================================
    Langscape
-   Shared layout, sound-change workbench, fonts, and canvas pipeline panel.
+   Shared layout, sound-change workbench, fonts, and recipe cards.
    ========================================================================== */
 
 .langscape-muted {
@@ -780,135 +780,6 @@ body.langscape-resizing * {
   padding-top: 8px;
 }
 
-/* Canvas card rendering for ```langscape blocks */
-
-.langscape-node-card {
-  border: 1px solid var(--background-modifier-border);
-  border-radius: var(--radius-m);
-  background: var(--background-secondary);
-  padding: 7px 9px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: var(--font-ui-small);
-}
-
-.langscape-node-card.is-invalid {
-  border-color: var(--text-error);
-}
-
-.langscape-node-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.langscape-node-icon {
-  display: inline-flex;
-  color: var(--text-accent);
-}
-
-.langscape-node-label {
-  font-weight: 600;
-}
-
-.langscape-node-detail {
-  color: var(--text-muted);
-  font-size: var(--font-ui-smaller);
-  overflow-wrap: anywhere;
-}
-
-.langscape-node-path {
-  border-radius: var(--radius-s);
-  cursor: pointer;
-  margin: 0 -3px;
-  padding: 1px 3px;
-}
-
-.langscape-node-path:hover {
-  background: var(--background-modifier-hover);
-  color: var(--text-normal);
-}
-
-.langscape-node-title-input {
-  flex: 1 1 auto;
-  min-width: 0;
-  height: auto;
-  padding: 1px 3px;
-  border: 1px solid transparent;
-  border-radius: var(--radius-s);
-  background: transparent;
-  color: var(--text-normal);
-  font-family: inherit;
-  font-size: var(--font-ui-small);
-  font-weight: 600;
-}
-
-.langscape-node-title-input:hover {
-  border-color: var(--background-modifier-border);
-}
-
-.langscape-node-title-input:focus {
-  border-color: var(--interactive-accent);
-  background: var(--background-primary);
-  box-shadow: 0 0 0 1px var(--interactive-accent);
-}
-
-.langscape-node-field {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 1px;
-}
-
-.langscape-node-field-label {
-  color: var(--text-faint);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.langscape-node-field-input {
-  flex: 1 1 auto;
-  min-width: 0;
-  height: 24px;
-  padding: 1px 6px;
-  border: 1px solid var(--background-modifier-border);
-  border-radius: var(--radius-s);
-  background: var(--background-primary);
-  color: var(--text-normal);
-  font-size: var(--font-ui-smaller);
-}
-
-.langscape-node-field-input:focus {
-  border-color: var(--interactive-accent);
-}
-
-.langscape-node-issue.is-warning {
-  color: var(--color-yellow);
-  font-size: var(--font-ui-smaller);
-}
-
-.langscape-node-issue.is-error,
-.langscape-node-error {
-  color: var(--text-error);
-  font-size: var(--font-ui-smaller);
-}
-
-.langscape-node-actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.langscape-node-actions button {
-  font-size: var(--font-ui-smaller);
-  padding: 2px 8px;
-  height: auto;
-}
-
 /* ==========================================================================
    Responsive
    ========================================================================== */
@@ -973,7 +844,7 @@ body.langscape-resizing * {
 }
 
 
-/* Anchored canvas path picker, modelled on the Bases "in folder" dropdown. */
+/* Anchored path picker, modelled on the Bases "in folder" dropdown. */
 .langscape-path-popover {
   position: fixed;
   z-index: var(--layer-popover, 1000);
@@ -1172,15 +1043,6 @@ body.theme-light {
 .cm-tooltip-lint .cm-diagnostic-error,
 .langscape-lsc-view .cm-tooltip-lint .cm-diagnostic-error {
   border-left: 4px solid var(--text-error);
-}
-
-/* The output-card action is the primary action in a canvas pipeline. */
-.langscape-node-actions .langscape-node-run {
-  width: 100%;
-  min-height: 36px;
-  padding: 7px 12px;
-  font-size: var(--font-ui-medium);
-  font-weight: 600;
 }
 
 /* Obsidian shows the raw extension in the file explorer; Langscape's .lsc
@@ -1565,4 +1427,335 @@ table.langscape-table-selecting * {
   flex-direction: column;
   justify-content: center;
   height: 100% !important;
+}
+
+/* ==========================================================================
+   Recipe card
+   ========================================================================== */
+
+.langscape-recipe-view {
+  overflow: auto;
+  padding: clamp(12px, 4%, 36px);
+}
+
+.langscape-recipe-card {
+  max-width: 760px;
+  margin-inline: auto;
+  overflow: hidden;
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-l, 12px);
+  box-shadow: var(--shadow-s);
+}
+
+.langscape-recipe-header,
+.langscape-recipe-section,
+.langscape-recipe-footer,
+.langscape-recipe-recovery {
+  padding: clamp(14px, 4%, 26px);
+}
+
+.langscape-recipe-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--background-secondary);
+}
+
+.langscape-recipe-header h2,
+.langscape-recipe-section h3,
+.langscape-recipe-recovery h3 {
+  margin: 0;
+  color: var(--text-normal);
+  line-height: 1.25;
+}
+
+.langscape-recipe-header h2 {
+  font-size: var(--font-ui-large);
+}
+
+.langscape-recipe-header p,
+.langscape-recipe-recovery p {
+  margin: 5px 0 0;
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+}
+
+.langscape-recipe-icon,
+.langscape-recipe-section-number,
+.langscape-recipe-step-number {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+}
+
+.langscape-recipe-icon {
+  width: 42px;
+  height: 42px;
+  color: var(--text-accent);
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m, 8px);
+}
+
+.langscape-recipe-fields {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.langscape-recipe-section,
+.langscape-recipe-footer,
+.langscape-recipe-recovery {
+  border-top: 1px solid var(--background-modifier-border);
+}
+
+.langscape-recipe-section-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.langscape-recipe-section h3,
+.langscape-recipe-recovery h3 {
+  font-size: var(--font-ui-medium);
+}
+
+.langscape-recipe-section-number {
+  width: 23px;
+  height: 23px;
+  color: var(--text-accent);
+  background: var(--background-secondary);
+  border-radius: 50%;
+  font-size: var(--font-ui-smaller);
+  font-weight: var(--font-semibold);
+}
+
+.langscape-recipe-hint {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.langscape-recipe-hint:empty {
+  display: none;
+}
+
+.langscape-recipe-section > .langscape-recipe-hint {
+  margin-block: 6px 12px;
+}
+
+.langscape-recipe-inputs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
+  gap: 12px 16px;
+}
+
+.langscape-recipe-field {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+  align-content: start;
+  font-size: var(--font-ui-small);
+}
+
+.langscape-recipe-field > :is(label, span) {
+  color: var(--text-normal);
+  font-weight: var(--font-medium);
+}
+
+.langscape-recipe-button {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.langscape-recipe-button > [aria-hidden="true"] {
+  display: inline-flex;
+  flex: none;
+}
+
+.langscape-recipe-button svg {
+  width: var(--icon-s);
+  height: var(--icon-s);
+}
+
+.langscape-recipe-field > .langscape-recipe-button {
+  justify-content: flex-start;
+  min-width: 0;
+  width: 100%;
+}
+
+.langscape-recipe-field > .langscape-recipe-button > :last-child,
+.langscape-recipe-change-path {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.langscape-recipe-field > .langscape-recipe-property {
+  min-width: 0;
+  width: 100%;
+}
+
+.langscape-recipe-changes {
+  display: grid;
+  gap: 8px;
+  padding: 0;
+  margin: 0 0 10px;
+  list-style: none;
+}
+
+.langscape-recipe-changes[hidden] {
+  display: none;
+}
+
+.langscape-recipe-change {
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m, 8px);
+  background: var(--background-secondary);
+}
+
+.langscape-recipe-change-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.langscape-recipe-step-number {
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-s, 4px);
+  background: var(--background-primary);
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  font-variant-numeric: tabular-nums;
+}
+
+.langscape-recipe-change-path {
+  flex: 1;
+  color: var(--text-normal);
+  font-size: var(--font-ui-small);
+  font-weight: var(--font-medium);
+}
+
+.langscape-recipe-change-actions {
+  display: flex;
+  flex: none;
+  gap: 2px;
+}
+
+.langscape-recipe-change-actions > button.langscape-recipe-icon-button {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  color: var(--text-muted);
+  background: transparent;
+  box-shadow: none;
+}
+
+.langscape-recipe-change-actions > button.langscape-recipe-icon-button:hover:not(:disabled) {
+  color: var(--text-normal);
+  background: var(--background-modifier-hover);
+}
+
+.langscape-recipe-advanced {
+  margin: 4px 0 0 32px;
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+}
+
+.langscape-recipe-advanced > summary {
+  width: fit-content;
+  cursor: pointer;
+}
+
+.langscape-recipe-advanced > summary:hover {
+  color: var(--text-normal);
+}
+
+.langscape-recipe-rule-count {
+  color: var(--text-faint);
+}
+
+.langscape-recipe-rules {
+  display: grid;
+  gap: 6px;
+  padding-block: 8px 4px;
+}
+
+.langscape-recipe-rule-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr));
+  gap: 5px 10px;
+}
+
+.langscape-recipe-rule {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  color: var(--text-normal);
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.langscape-recipe-rule input {
+  flex: none;
+  margin: 0;
+}
+
+.langscape-recipe-clear-missing-rules {
+  justify-self: start;
+}
+
+.langscape-recipe-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 9px 14px;
+  background: var(--background-secondary);
+}
+
+.langscape-recipe-result,
+.langscape-recipe-source-error {
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+  overflow-wrap: anywhere;
+}
+
+.langscape-recipe-result {
+  flex: 1 1 170px;
+}
+
+.langscape-recipe-result[data-state="success"] {
+  color: var(--text-success);
+}
+
+.langscape-recipe-result[data-state="running"] {
+  color: var(--text-accent);
+}
+
+.langscape-recipe-result[data-state="error"],
+.langscape-recipe-source-error {
+  color: var(--text-error);
+}
+
+.langscape-recipe-source {
+  display: block;
+  width: 100%;
+  margin-block: 12px 8px;
+  font-family: var(--font-monospace);
+  resize: vertical;
+}
+
+.langscape-recipe-source-error {
+  margin-bottom: 8px;
 }
