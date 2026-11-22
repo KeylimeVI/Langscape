@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.0.0 — 2026-11-18 — first stable release
+## 1.0.0 — first stable release
 
 - Custom writing-system fonts discovered anywhere in the vault, with inline
   `{nickname: text}` spans, note-level `langscape-font` frontmatter, Live
@@ -14,12 +14,12 @@
 - Syntax trees rendered and edited in Live Preview, with font labels, drag and
   drop, sibling insertion, alignment, and horizontal scrolling.
 - Lexurgy integration with a native `.lsc` editor, syntax highlighting, live
-  validation, test bench, rule traces, and a managed installer.
+  validation, test bench, and rule traces. Install the official Lexurgy CLI separately or keep using an existing installation.
 - Native `.recipe` cards for applying ordered Lexurgy changes to a property on
   Markdown notes and saving or refreshing copies in a separate folder.
 - Guided starter vault with a demo recipe, font, syntax tree, and Lexurgy
   changes.
-- Desktop-only Obsidian 1.5+ build; package, install, and headless test scripts.
+- Desktop-only Obsidian 1.15+ build; package, install, and headless test scripts.
 
 ## 0.1.0
 

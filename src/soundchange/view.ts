@@ -129,7 +129,6 @@ export class SoundChangeView extends TextFileView {
       getEnvironment: () => this.plugin.lexurgy.getEnvironment(),
       onOpenSettings: () => this.plugin.openSettings(),
       onOpenDocs: () => openLexurgyDocs(this.app.workspace),
-      onInstall: () => this.plugin.installLexurgyFromUi(),
       onWordsChange: (words) => {
         const path = this.file?.path;
         if (path) this.plugin.setTestWords(path, words);

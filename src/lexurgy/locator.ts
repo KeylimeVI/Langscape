@@ -35,7 +35,7 @@ export interface DetectOptions {
   configuredPath?: string;
   /** Explicit java executable from settings. */
   javaPath?: string;
-  /** Directory managed by Langscape's installer. */
+  /** Optional legacy install directory retained for existing users. */
   managedDir?: string;
   /** Extra directories to search for a Lexurgy installation. */
   extraSearchPaths?: string[];
@@ -57,26 +57,21 @@ export async function detectLexurgyEnvironment(
     };
   }
 
-  const candidates: Array<{ dir: string; kind: InstallationKind }> = [];
-  if (options.managedDir) candidates.push({ dir: options.managedDir, kind: "managed" });
-  for (const extra of options.extraSearchPaths ?? []) {
-    candidates.push({ dir: extra, kind: "configured" });
-  }
-
-  for (const candidate of candidates) {
-    const installation = await installationFromDirectory(candidate.dir, candidate.kind, java);
-    if (installation) return { java, installation, notes };
-  }
-
-  if (options.configuredPath?.trim()) {
-    const configured = await installationFromConfiguredPath(
-      options.configuredPath.trim(),
-      java
-    );
+  // A user can switch to a newer, manually installed copy even if a legacy copy remains.
+  const configuredPath = options.configuredPath?.trim();
+  if (configuredPath) {
+    const configured = await installationFromConfiguredPath(configuredPath, java);
     if (configured) return { java, installation: configured, notes };
-    notes.push(
-      `The configured Lexurgy path was not usable: ${options.configuredPath.trim()}`
-    );
+    notes.push(`The configured Lexurgy path was not usable: ${configuredPath}`);
+  }
+
+  if (options.managedDir) {
+    const legacy = await installationFromDirectory(options.managedDir, "managed", java);
+    if (legacy) return { java, installation: legacy, notes };
+  }
+  for (const dir of options.extraSearchPaths ?? []) {
+    const installation = await installationFromDirectory(dir, "configured", java);
+    if (installation) return { java, installation, notes };
   }
 
   const onPath = await findExecutableOnPath(process.platform === "win32" ? "lexurgy.bat" : "lexurgy");
@@ -101,7 +96,7 @@ export async function detectLexurgyEnvironment(
     java,
     notes,
     error:
-      "Lexurgy was not found. Click \"Install Lexurgy\" to download the official CLI, " +
+      "Lexurgy was not found. Download and extract the official CLI separately, " +
       "or point Langscape at an existing installation in settings.",
   };
 }
@@ -154,7 +149,7 @@ async function installationFromDirectory(
   const version = await readManagedVersion(home);
   const label =
     kind === "managed"
-      ? `Langscape-managed Lexurgy${version ? ` ${version}` : ""}`
+      ? `Existing Lexurgy${version ? ` ${version}` : ""}`
       : `Lexurgy${version ? ` ${version}` : ""} (${home})`;
   return {
     kind,

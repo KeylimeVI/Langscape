@@ -118,7 +118,7 @@ export async function createStarterVault(
       "",
       "Open the recipe and press **Run recipe**. The copies appear in `Words/Modern`; the proto notes stay untouched.",
       "",
-      "Lexurgy must be installed. Langscape can download the official CLI from the plugin settings.",
+      "Install the official Lexurgy CLI separately, then add it to PATH or configure it in Langscape settings.",
       "",
     ].join("\n")
   );

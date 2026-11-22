@@ -42,8 +42,8 @@ main.ts
 ### Lexurgy
 
 - `LexurgyServer` owns one `lexurgy server` JVM process. Requests are serialized and matched to responses by order; the server protocol has no request IDs. Start/exit/timeout errors carry the stderr tail and exit information to the caller.
-- `LexurgyService` caches installation detection (`java -version`, managed folder, configured path, PATH), lazily starts the server, and exposes `validate`, `apply`, `testConnection`, and `installLexurgy`.
-- The managed installer downloads the official release zip with Obsidian's `requestUrl` (no CORS problems), extracts only `lib/*.jar` with `fflate`, stages the extraction, and swaps it into place. It explicitly records the GPL attribution. Lexurgy is a separate GPL-3.0 program and is not bundled with Langscape.
+- `LexurgyService` caches installation detection (`java -version`, legacy plugin-local folder, configured path, PATH), lazily starts the server, and exposes `validate`, `apply`, and `testConnection`.
+- Lexurgy is a separate GPL-3.0 program that users install independently. Langscape links to official downloads but does not download executable code. Integration tests extract a local distribution fixture outside the runtime bundle.
 
 ### Sound-change editor
 

@@ -3,6 +3,7 @@ import type { LexurgyEnvironment } from "../lexurgy/locator";
 import { LexurgyError, type LexurgyApplyResult } from "../lexurgy/server";
 import { cleanLexurgyMessage } from "../lexurgy/protocol";
 import { openJavaDownload } from "../lexurgy/java";
+import { LEXURGY_RELEASES_URL, LEXURGY_SETUP_HINT } from "../lexurgy/setup";
 import type { LexurgyOutline } from "./outline";
 
 export interface TestPanelOptions {
@@ -16,7 +17,6 @@ export interface TestPanelOptions {
   getEnvironment: () => Promise<LexurgyEnvironment>;
   onOpenSettings: () => void;
   onOpenDocs: () => Promise<void>;
-  onInstall: () => Promise<void>;
   onWordsChange: (words: string) => void;
   initialWords: string;
   traceDefault: boolean;
@@ -241,31 +241,17 @@ export class SoundChangeTestPanel {
       cls: "langscape-setup-text",
       text:
         env.error ??
-        "Langscape uses the official Lexurgy CLI to apply sound changes. Install it below or configure an existing installation.",
+        LEXURGY_SETUP_HINT,
     });
     const row = this.setupEl.createDiv({ cls: "langscape-setup-actions" });
     if (!env.java) {
       const java = row.createEl("button", { cls: "mod-cta", text: "Get Java" });
       java.addEventListener("click", () => openJavaDownload());
     }
-    const install = row.createEl("button", {
-      cls: env.java ? "mod-cta" : "",
-      text: "Install Lexurgy",
-    });
-    install.addEventListener("click", async () => {
-      install.disabled = true;
-      install.setText("Installing…");
-      try {
-        await this.options.onInstall();
-        await this.refreshEnvironment();
-      } catch (error) {
-        new Notice(
-          `Lexurgy install failed: ${error instanceof Error ? error.message : String(error)}`
-        );
-      } finally {
-        install.disabled = false;
-        install.setText("Install Lexurgy");
-      }
+    row.createEl("a", {
+      text: "Open official Lexurgy releases",
+      href: LEXURGY_RELEASES_URL,
+      attr: { target: "_blank", rel: "noopener noreferrer" },
     });
     const settings = row.createEl("button", { text: "Settings" });
     settings.addEventListener("click", () => this.options.onOpenSettings());

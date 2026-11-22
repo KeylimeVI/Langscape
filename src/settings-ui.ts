@@ -1,6 +1,7 @@
 import { Notice, PluginSettingTab, Setting, setIcon } from "obsidian";
 import type LangscapePlugin from "./main";
 import { JAVA_DOWNLOAD_URL } from "./lexurgy/java";
+import { LEXURGY_RELEASES_URL, LEXURGY_SETUP_HINT } from "./lexurgy/setup";
 import { promptText } from "./ui/modals";
 
 export class LangscapeSettingTab extends PluginSettingTab {
@@ -130,13 +131,13 @@ export class LangscapeSettingTab extends PluginSettingTab {
     status.createDiv({ cls: "langscape-muted", text: "Checking…" });
     void this.refreshLexurgyStatus(status);
 
+    containerEl.createEl("p", { cls: "langscape-muted", text: LEXURGY_SETUP_HINT });
+    containerEl.createEl("a", {
+      text: "Open official Lexurgy releases",
+      href: LEXURGY_RELEASES_URL,
+      attr: { target: "_blank", rel: "noopener noreferrer" },
+    });
     new Setting(containerEl)
-      .addButton((button) =>
-        button
-          .setButtonText("Install Lexurgy")
-          .setCta()
-          .onClick(() => void this.plugin.installLexurgyFromUi())
-      )
       .addButton((button) =>
         button.setButtonText("Test").onClick(async () => {
           try {

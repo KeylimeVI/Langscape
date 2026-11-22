@@ -594,7 +594,8 @@ async function main() {
     const settingsText = await cdp.eval(
       "app.setting.activeTab?.containerEl?.innerText ?? ''"
     );
-    await ensure(settingsText.includes("Install Lexurgy"), "Settings is missing the Lexurgy installer.");
+    await ensure(settingsText.includes("Open official Lexurgy releases"), "Settings is missing the manual Lexurgy setup link.");
+    await ensure(!settingsText.includes("Install Lexurgy"), "Settings still offers in-app dependency installation.");
     await ensure(!settingsText.includes("Canvas pipelines"), "Settings still has the old pipeline section.");
     await ensure(!settingsText.includes("Discover fonts automatically"), "Settings still has the old font discovery toggle.");
     await ensure(!settingsText.includes("Add a font"), "Settings still has the old Add a font section.");

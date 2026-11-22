@@ -6,7 +6,7 @@ import {
   detectJava,
   detectLexurgyEnvironment,
 } from "../../src/lexurgy/locator";
-import { extractLexurgyArchive } from "../../src/lexurgy/installer";
+import { extractLexurgyArchive } from "./lexurgy-fixture";
 import { LexurgyServer } from "../../src/lexurgy/server";
 import { LexurgyService } from "../../src/lexurgy/service";
 import type LangscapePlugin from "../../src/main";
@@ -43,6 +43,13 @@ describe.skipIf(!hasArchive || !java)("real Lexurgy integration", () => {
     expect(env.error).toBeUndefined();
     expect(env.installation?.kind).toBe("managed");
     expect(env.installation?.launch.command).toBe(java?.path);
+  });
+
+  it("prefers a configured install but still detects the legacy copy as a fallback", async () => {
+    const configured = await detectLexurgyEnvironment({ configuredPath: installDir, managedDir: installDir });
+    expect(configured.installation?.kind).toBe("configured");
+    const fallback = await detectLexurgyEnvironment({ configuredPath: path.join(installDir, "missing"), managedDir: installDir });
+    expect(fallback.installation?.kind).toBe("managed");
   });
 
   it("loads changes, applies them, and reports traces", async () => {

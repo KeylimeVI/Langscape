@@ -43,7 +43,6 @@ import {
   refreshSyntaxTrees,
 } from "./trees/editor";
 import { createSyntaxTreePostProcessor } from "./trees/postprocess";
-import { confirmAction } from "./ui/modals";
 
 export default class LangscapePlugin extends Plugin {
   settings: LangscapeSettings = { ...DEFAULT_SETTINGS };
@@ -270,29 +269,6 @@ export default class LangscapePlugin extends Plugin {
 
   async createStarterVault(): Promise<void> {
     await createStarterVault(this.app);
-  }
-
-  async installLexurgyFromUi(): Promise<void> {
-    const confirmed = await confirmAction(this.app, {
-      title: "Install Lexurgy?",
-      body:
-        "Langscape will download the official Lexurgy CLI from its GitHub releases page and store it in this plugin's folder.\n\n" +
-        "Lexurgy is a separate program licensed under GPL-3.0. Java 17 or newer is recommended.",
-      confirmText: "Download Lexurgy",
-    });
-    if (!confirmed) return;
-    const notice = new Notice("Downloading the official Lexurgy CLI…", 60_000);
-    try {
-      const result = await this.lexurgy.installLexurgy();
-      notice.hide();
-      new Notice(`Lexurgy ${result.version} installed.`);
-      this.openSettings();
-    } catch (error) {
-      notice.hide();
-      new Notice(
-        `Lexurgy install failed: ${error instanceof Error ? error.message : String(error)}`
-      );
-    }
   }
 
   private registerFontEvents(): void {

@@ -3,7 +3,7 @@ import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { App } from "obsidian";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { extractLexurgyArchive } from "../../src/lexurgy/installer";
+import { extractLexurgyArchive } from "./lexurgy-fixture";
 import { detectJava, detectLexurgyEnvironment } from "../../src/lexurgy/locator";
 import { LexurgyServer } from "../../src/lexurgy/server";
 import type { Recipe } from "../../src/recipes/model";

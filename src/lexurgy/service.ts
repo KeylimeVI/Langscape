@@ -1,28 +1,13 @@
-import { requestUrl } from "obsidian";
 import * as path from "node:path";
 import { FileSystemAdapter } from "obsidian";
 import type LangscapePlugin from "../main";
 import { detectLexurgyEnvironment, type LexurgyEnvironment } from "./locator";
 import { LexurgyServer, LexurgyError, type LexurgyApplyResult } from "./server";
 import { extractErrorLine } from "./protocol";
-import { extractLexurgyArchive } from "./installer";
-import {
-  fetchLatestLexurgyRelease,
-  type FetchBinaryResponse,
-  type FetchTransport,
-} from "./release";
-import { promises as fs } from "node:fs";
-
 export interface ValidationResult {
   valid: boolean;
   error?: LexurgyError;
   line?: number;
-}
-
-export interface InstallResult {
-  version: string;
-  path: string;
-  jarCount: number;
 }
 
 export class LexurgyService {
@@ -32,7 +17,6 @@ export class LexurgyService {
   private environmentAt = 0;
   private detecting: Promise<LexurgyEnvironment> | null = null;
   private ensuringServer: Promise<LexurgyServer> | null = null;
-  private installing: Promise<InstallResult> | null = null;
 
   constructor(private readonly plugin: LangscapePlugin) {}
 
@@ -40,7 +24,7 @@ export class LexurgyService {
     return Boolean(this.server?.isRunning);
   }
 
-  get managedDir(): string | undefined {
+  private get legacyInstallDir(): string | undefined {
     const adapter = this.plugin.app.vault.adapter;
     if (!(adapter instanceof FileSystemAdapter)) return undefined;
     const pluginDir =
@@ -60,7 +44,7 @@ export class LexurgyService {
         const env = await detectLexurgyEnvironment({
           configuredPath: this.plugin.settings.lexurgyPath,
           javaPath: this.plugin.settings.javaPath,
-          managedDir: this.managedDir,
+          managedDir: this.legacyInstallDir,
         });
         this.environment = env;
         this.environmentAt = Date.now();
@@ -83,7 +67,7 @@ export class LexurgyService {
     if (!env.installation) {
       throw new LexurgyError(
         env.error ??
-          "Lexurgy is not installed. Install it from Langscape settings to run sound changes."
+          "Lexurgy is not installed. Download it separately, then configure its path in Langscape settings."
       );
     }
     const launch = env.installation.launch;
@@ -164,52 +148,6 @@ export class LexurgyService {
     };
   }
 
-  async installLexurgy(): Promise<InstallResult> {
-    if (this.installing) return this.installing;
-    const dir = this.managedDir;
-    if (!dir) {
-      throw new Error(
-        "Langscape can only install Lexurgy with a desktop (filesystem) vault."
-      );
-    }
-    this.installing = (async () => {
-      const release = await fetchLatestLexurgyRelease(obsidianTransport);
-      const extracted = await extractLexurgyArchive(release.bytes, dir);
-      const notice = [
-        "Lexurgy is a separate program by Graham Thomas Hill (def-gthill).",
-        "It is licensed under GPL-3.0 and is downloaded from the official GitHub releases page:",
-        "https://github.com/def-gthill/lexurgy",
-        "",
-        `Installed version: ${release.version}`,
-        `Source archive: ${release.zipUrl}`,
-        "",
-        "Langscape invokes this program as a separate process; Lexurgy's code is not",
-        "bundled into the Langscape plugin.",
-        "",
-      ].join("\n");
-      await fs.writeFile(path.join(dir, "NOTICE.txt"), notice, "utf8");
-      if (release.licenseText) {
-        await fs.writeFile(path.join(dir, "LICENSE-lexurgy.txt"), release.licenseText, "utf8");
-      }
-      this.environment = null;
-      this.environmentAt = 0;
-      await this.server?.stop();
-      this.server = null;
-      this.serverKey = "";
-      await this.getEnvironment(true);
-      return {
-        version: release.version,
-        path: dir,
-        jarCount: extracted.jarCount,
-      };
-    })();
-    try {
-      return await this.installing;
-    } finally {
-      this.installing = null;
-    }
-  }
-
   async restart(): Promise<void> {
     await this.server?.stop();
     this.server = null;
@@ -242,27 +180,3 @@ export function locateErrorLine(changes: string, message: string): number | unde
   });
   return index >= 0 ? index + 1 : undefined;
 }
-
-/**
- * Obsidian's requestUrl bypasses CORS and follows GitHub's redirects. The zip
- * is binary, so avoid decoding it as text.
- */
-const obsidianTransport: FetchTransport = {
-  async get(url: string): Promise<FetchBinaryResponse> {
-    const response = await requestUrl({ url, method: "GET", throw: false });
-    const contentType = Object.entries(response.headers ?? {}).find(
-      ([key]) => key.toLowerCase() === "content-type"
-    )?.[1];
-    const isText =
-      !contentType ||
-      /text|json|xml|javascript|license/i.test(contentType) ||
-      /\.(txt|json|md)$/i.test(url);
-    const bytes = new Uint8Array(response.arrayBuffer);
-    return {
-      status: response.status,
-      headers: response.headers,
-      text: isText ? response.text : "",
-      bytes,
-    };
-  },
-};

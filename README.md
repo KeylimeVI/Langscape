@@ -2,7 +2,7 @@
 
 Langscape is a conlanger's workbench for [Obsidian](https://obsidian.md). It brings custom writing-system fonts, a Lexurgy sound-change editor, and sound-change recipes into the same vault as your notes.
 
-> **Status:** 1.0.0 — desktop only. Minimum Obsidian 1.5.0; built and tested against Obsidian 1.15.x and Lexurgy 1.7.7.
+> **Status:** 1.0.0 — desktop only. Minimum Obsidian 1.15.0; tested with Lexurgy 1.7.7.
 >
 > See the [changelog](CHANGELOG.md) for the release history.
 
@@ -25,7 +25,7 @@ Langscape is a conlanger's workbench for [Obsidian](https://obsidian.md). It bri
 - **Syntax trees** — write a tree on its own Markdown line with `{tree: ...}`. Node labels can use custom fonts, and trees render in Live Preview, Reading view, and exported HTML.
 - **Merged table cells** — select cells and right-click to merge or split them, or type `<`, `^`, or `>` in an empty cell to join it to the cell in that direction. Merges render in Live Preview, Reading view, and exports while the note stays plain Markdown.
 - **Sound-change workbench** — `.lsc` files open in a dedicated editor with Lexurgy syntax highlighting, live validation, and a test bench with rule-by-rule traces.
-- **Lexurgy integration** — Langscape runs the official Lexurgy CLI as a persistent local server, so applying changes is fast. Install or update the official CLI from settings, or point at an existing installation.
+- **Lexurgy integration** — Langscape runs the official Lexurgy CLI as a persistent local server, so applying changes is fast. Use a separately installed Lexurgy CLI.
 - **Sound-change recipes** — choose an input folder and note property, apply one or more Lexurgy files, and save the changed notes as copies in a separate folder.
 - **Safe output** — recipes leave source notes untouched and refresh matching copies in the output folder.
 
@@ -40,11 +40,7 @@ Download the release assets from [GitHub Releases](https://github.com/KeylimeVI/
    <your vault>/.obsidian/plugins/langscape/
    ```
 2. Enable **Community plugins → Langscape** in Obsidian.
-3. Install Lexurgy:
-   - Open **Settings → Langscape → Lexurgy** and click **Install Lexurgy**, or
-   - Point **Lexurgy path** at an existing installation, or
-   - Put `lexurgy` on your `PATH`.
-4. Java 17 or newer is recommended for Lexurgy. Langscape checks for Java and shows the detected version.
+3. To run sound changes, [set up Lexurgy and Java separately](#lexurgy). Fonts, trees, and tables do not need them.
 
 ### Build and install into a vault
 
@@ -64,7 +60,7 @@ The script:
 
 - runs `npm run build` and `npm run package:release`
 - installs to `<vault>/.obsidian/plugins/langscape`
-- preserves `data.json` and the managed `lexurgy/` installation
+- preserves `data.json` and any legacy `lexurgy/` installation
 - removes old versioned folders such as `langscape-0.1.0/` and old zips in the plugins folder
 - ensures `langscape` is enabled in `community-plugins.json`
 
@@ -281,21 +277,17 @@ Open the demo recipe and press **Run recipe** to copy the evolved notes to `Word
 
 ## Lexurgy
 
-Langscape uses the official [Lexurgy](https://github.com/def-gthill/lexurgy) CLI. It is a separate GPL-3.0 program; Langscape does not bundle or relicense it. The managed installer downloads the official release zip from GitHub into:
+Lexurgy is a separate GPL-3.0 program. Langscape does not bundle, install, or update it.
 
-```
-<vault>/.obsidian/plugins/langscape/lexurgy/
-```
+1. Install Java 17 or later, such as [Eclipse Temurin](https://adoptium.net/temurin/releases/).
+2. Download the distribution ZIP from the [official Lexurgy releases](https://github.com/def-gthill/lexurgy/releases) and extract it into a folder of your choice.
+3. In **Settings → Langscape → Lexurgy → Advanced**, set **Lexurgy path** to the extracted folder containing `lib/`, its launcher (`bin/lexurgy` or `bin/lexurgy.bat`), or a standalone Lexurgy `.jar`. You can also put the launcher on `PATH`. Set **Java path** if Java is not available through `JAVA_HOME` or `PATH`.
+4. Use **Test** in Lexurgy settings to check your setup. If a beta build installed Lexurgy in the plugin folder, Langscape can still use that copy; there is no need to download it again.
 
-The download is only started when you click **Install Lexurgy**, and the licence and attribution are stored next to the installation. Langscape invokes Lexurgy as a child process over its JSON-lines `lexurgy server` protocol.
+### Privacy and system access
 
-If you prefer to manage Lexurgy yourself, set **Lexurgy path** to one of:
-
-- a directory containing `lib/*.jar` (a normal Lexurgy distribution),
-- a `bin/lexurgy` script,
-- a standalone Lexurgy `.jar`.
-
-Java is found through **Java path**, `JAVA_HOME`, or `java` on `PATH`. If Java is missing, the Lexurgy settings show a **Get Java** link to the official Adoptium JRE download page, and the editor's setup banner offers the same link.
+- **Local files and processes:** Langscape checks configured paths, Java and Lexurgy on `PATH`, and common local Lexurgy installation locations, which may be outside your vault. It reads the installed CLI files needed to start Lexurgy and runs Java/Lexurgy as a local child process. Rules and words are passed to that process over standard input, not sent to a server. Desktop path checks also inspect files inside the vault to avoid linked or nested-vault destinations.
+- **Network:** The **Docs** tab fetches public documentation pages from [lexurgy.com](https://www.lexurgy.com/sc/docs) when opened or navigated. It does not send note contents, rules, or words. Manual setup links open the official GitHub or Adoptium pages in your browser when clicked. No account, payment, or telemetry is required by Langscape; its editing and sound-change features work offline once Java and Lexurgy are installed.
 
 ## Development
 

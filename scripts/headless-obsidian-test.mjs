@@ -805,6 +805,28 @@ async function testRecipe(cdp) {
   }
 }
 
+async function testManualLexurgySetup(cdp) {
+  await cdp.eval("app.setting.open(); app.setting.openTabById('langscape'); true");
+  try {
+    const controls = await waitFor(() => cdp.eval(`(() => {
+      const settings = app.setting.activeTab?.containerEl;
+      if (!settings?.querySelector('.langscape-lexurgy-setting-status')) return null;
+      const links = [...settings.querySelectorAll('a')];
+      return {
+        link: links.find(el => el.textContent === 'Open official Lexurgy releases')?.href,
+        hasInstaller: [...settings.querySelectorAll('button')].some(el => el.textContent === 'Install Lexurgy'),
+        hasPath: !!settings.querySelector('input[placeholder="/home/you/lexurgy"]'),
+      };
+    })()`), 10_000, "Lexurgy setup settings");
+    assert.equal(controls.link, "https://github.com/def-gthill/lexurgy/releases");
+    assert.equal(controls.hasInstaller, false);
+    assert.equal(controls.hasPath, true);
+  } finally {
+    await cdp.eval("app.setting.close(); true");
+  }
+  log("Lexurgy setup links to the official releases and accepts a configured path without an in-app installer");
+}
+
 async function main() {
   await ensure(existsSync(obsidianBin), `Obsidian binary not found: ${obsidianBin}`);
   await prepareVault();
@@ -845,6 +867,7 @@ async function main() {
     await testSyntaxTreeDrag(cdp);
     await testLexurgyUi(cdp, process.argv.includes("--live-docs"));
     await testRecipe(cdp);
+    await testManualLexurgySetup(cdp);
     passed = true;
     log("all checks passed");
   } catch (error) {
