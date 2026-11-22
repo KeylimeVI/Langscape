@@ -1,6 +1,10 @@
-import { TFile, TFolder, type App } from "obsidian";
+import { link, mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
+import { FileSystemAdapter, TFile, TFolder, type App } from "obsidian";
 import { describe, expect, it, vi } from "vitest";
 import { EMPTY_RECIPE, readRecipe, serializeRecipe, type Recipe } from "../../src/recipes/model";
+import { listRecipeFolders } from "../../src/recipes/paths";
 import { listRecipeProperties, runRecipe } from "../../src/recipes/runner";
 import { filterRecipeRules, listRecipeRules } from "../../src/recipes/rules";
 
@@ -23,7 +27,7 @@ function vault(files: Record<string, string>, hidden: string[] = []) {
   const addFolder = (name: string): TFolder => {
     if (folders.has(name)) return entries.get(name) as TFolder;
     const parent = addFolder(parentPath(name));
-    const target = makeFolder(name);
+    const target = Object.assign(makeFolder(name), { parent });
     folders.add(name);
     entries.set(name, target);
     parent.children.push(target);
@@ -44,6 +48,7 @@ function vault(files: Record<string, string>, hidden: string[] = []) {
     getAbstractFileByPath: (path: string) => entries.get(path) ?? null,
     read: vi.fn(async (file: TFile) => values.get(file.path)!),
     create: vi.fn(async (name: string, content: string) => addFile(name, content)),
+    modify: vi.fn(async (file: TFile, content: string) => { values.set(file.path, content); }),
     createFolder: vi.fn(async (name: string) => addFolder(name)),
     adapter: {
       exists: async (name: string) => entries.has(name) || hidden.includes(name),
@@ -149,6 +154,64 @@ it("copies original bytes unchanged for an all-disabled stage, including at the 
   expect(values.get("a.md")).toBe(source);
 });
 
+it("replaces matching copies on rerun, leaving source and unrelated output notes alone", async () => {
+  const old = "previous output body";
+  const source = note("a");
+  const { app, api, values } = vault({ "In/a.md": source, "Out/a.md": old, "Out/other.md": old, "first.lsc": firstLsc });
+  const apply = vi.fn(async (source: string, words: string[]) => ({ words: words.map((word) => word + (source === firstLsc ? "b" : "c")) }));
+  await expect(runRecipe({ app, recipe, apply })).resolves.toEqual({ written: 1, skipped: 0, paths: ["Out/a.md"] });
+  expect(values.get("Out/a.md")).toBe(note("ab"));
+  values.set("first.lsc", secondLsc);
+  await runRecipe({ app, recipe, apply });
+  expect(values.get("Out/a.md")).toBe(note("ac"));
+  expect(values.get("Out/other.md")).toBe(old);
+  expect(values.get("In/a.md")).toBe(source);
+  expect(api.modify).toHaveBeenCalledTimes(2);
+  expect(api.create).not.toHaveBeenCalled();
+});
+
+async function useDesktopVault(app: App, files: Record<string, string>): Promise<string> {
+  const directory = await mkdtemp(join(tmpdir(), "langscape-recipe-"));
+  Object.setPrototypeOf(app.vault.adapter, FileSystemAdapter.prototype);
+  Object.assign(app.vault.adapter, { getFullPath: (vaultPath: string) => join(directory, vaultPath) });
+  Object.assign(app.vault, { configDir: ".obsidian" });
+  await Promise.all(Object.entries(files).map(async ([path, content]) => {
+    await mkdir(dirname(join(directory, path)), { recursive: true });
+    await writeFile(join(directory, path), content);
+  }));
+  return directory;
+}
+
+it.skipIf(process.platform === "win32")("does not list nested vaults or repeated paths through a root link", async () => {
+  const files = { "Words/a.md": "", "Notes/Obsidian Vault/note.md": "", "Backup/Words/a.md": "" };
+  const { app } = vault({ ...files, "Obsidian Vault/Words/a.md": "", "Obsidian Vault/Obsidian Vault/Words/a.md": "" });
+  const disk = await useDesktopVault(app, files);
+  try {
+    await mkdir(join(disk, "Backup", ".obsidian"));
+    await symlink(disk, join(disk, "Obsidian Vault"), "dir");
+    expect(await listRecipeFolders(app.vault)).toEqual(["/", "Notes", "Notes/Obsidian Vault", "Words"]);
+  } finally {
+    await rm(disk, { recursive: true, force: true });
+  }
+});
+
+it.skipIf(process.platform === "win32")("will not overwrite a source through a linked output", async () => {
+  const files = { "In/a.md": note("a"), "Out/other.md": "", "first.lsc": firstLsc };
+  const { app, api } = vault({ ...files, "Out/a.md": note("a") });
+  const disk = await useDesktopVault(app, files);
+  try {
+    await link(join(disk, "In/a.md"), join(disk, "Out/a.md"));
+    await symlink(join(disk, "In"), join(disk, "Alias"), "dir");
+    const apply = vi.fn();
+    await expect(runRecipe({ app, recipe, apply })).rejects.toThrow(/not an ordinary file/);
+    await expect(runRecipe({ app, recipe: { ...recipe, outputFolder: "Alias/sub" }, apply })).rejects.toThrow(/is a link/);
+    expect(apply).not.toHaveBeenCalled();
+    expect(api.modify).not.toHaveBeenCalled();
+  } finally {
+    await rm(disk, { recursive: true, force: true });
+  }
+});
+
 describe("recipe preflight", () => {
   it("rejects unset/same folders, missing changes, and occupied destination paths before Lexurgy", async () => {
     const { app, api } = vault({ "In/a.md": note("a"), "first.lsc": firstLsc }, ["Out/a.md", "folder-file"]);
@@ -170,7 +233,7 @@ describe("recipe preflight", () => {
   });
 
   it("never writes anything if a later stage fails or returns a partial batch", async () => {
-    const { app, api } = vault({ "In/a.md": note("a"), "In/b.md": note("b"), "first.lsc": firstLsc, "second.lsc": secondLsc });
+    const { app, api, values } = vault({ "In/a.md": note("a"), "In/b.md": note("b"), "Out/a.md": "previous run", "first.lsc": firstLsc, "second.lsc": secondLsc });
     const config = { ...recipe, changes: [...recipe.changes, { path: "second.lsc", disabledRules: [] }] };
     for (const failure of [() => { throw new Error("invalid grammar"); }, () => ({ words: ["partial"] })]) {
       const apply = vi.fn(async (source: string) => source === firstLsc ? { words: ["x", "y"] } : failure());
@@ -178,6 +241,8 @@ describe("recipe preflight", () => {
       expect(apply.mock.calls).toEqual([[firstLsc, ["a", "b"]], [secondLsc, ["x", "y"]]]);
       expect(api.create).not.toHaveBeenCalled();
       expect(api.createFolder).not.toHaveBeenCalled();
+      expect(api.modify).not.toHaveBeenCalled();
+      expect(values.get("Out/a.md")).toBe("previous run");
     }
   });
 

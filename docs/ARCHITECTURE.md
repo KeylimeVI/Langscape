@@ -54,8 +54,8 @@ main.ts
 ### Recipes
 
 - A `.recipe` is a vault-relative configuration file, edited by `RecipeView` using Obsidian’s `TextFileView`. It stores an input folder, one frontmatter property name, an ordered list of `.lsc` files with per-file exclusions, and an output folder.
-- The runner selects direct Markdown children with a matching text property, checks output paths for conflicts, and applies each Lexurgy file in order to the selected property values. Disabled rules are filtered in memory; original Lexurgy files are not changed.
-- Results are written as new files with their original filenames. Only the chosen YAML value is replaced; the rest of the frontmatter and Markdown body are preserved. Source and existing output files are never overwritten.
+- The runner selects direct Markdown children with a matching text property, checks output paths before any writes, and applies each Lexurgy file in order to the selected property values. Disabled rules are filtered in memory; original Lexurgy files are not changed.
+- Results use the original filenames, replacing same-name Markdown notes in the output folder on rerun. Only the chosen YAML value changes relative to the source; the rest of the frontmatter and Markdown body are preserved. Source notes are never overwritten. The picker skips nested vaults and linked folders.
 
 ### Release and testing
 

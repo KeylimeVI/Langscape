@@ -1,7 +1,8 @@
-import { setIcon, TextFileView, TFile, TFolder, type WorkspaceLeaf } from "obsidian";
+import { setIcon, TextFileView, TFile, type WorkspaceLeaf } from "obsidian";
 import type LangscapePlugin from "../main";
 import { pickPath, type PathOption } from "../ui/path-picker";
 import { readRecipe, serializeRecipe, type Recipe } from "./model";
+import { listRecipeFolders } from "./paths";
 import { listRecipeRules } from "./rules";
 import { listRecipeProperties, runRecipe } from "./runner";
 
@@ -162,7 +163,7 @@ export class RecipeView extends TextFileView {
     const add = button(changesSection, "Add sound changes…", "add-change", "plus");
     add.addEventListener("click", () => void this.addChange(add));
 
-    const output = section(fields, "3", "Output", "Writes copies of matching notes to a separate folder without overwriting existing notes.");
+    const output = section(fields, "3", "Output", "Writes copies of matching notes to a separate folder. Each run replaces output notes with the same filenames.");
     this.renderFolder(output, "outputFolder", "Output folder", "output-folder");
 
     const footer = card.createEl("footer", { cls: "langscape-recipe-footer" });
@@ -230,7 +231,7 @@ export class RecipeView extends TextFileView {
       void this.choose(control, {
         title: `Choose ${label.toLowerCase()}`,
         placeholder: allowCustom ? "Search folders or type a new path…" : "Search folders…",
-        options: folderOptions(this.app.vault.getAllLoadedFiles()),
+        options: async () => (await listRecipeFolders(this.app.vault)).map((path) => ({ path, kind: "folder" })),
         allowCustom,
       }, (path, recipe) => {
         if (path !== recipe[key]) this.commit({ ...recipe, [key]: path });
@@ -242,13 +243,17 @@ export class RecipeView extends TextFileView {
 
   private async choose(
     anchor: HTMLButtonElement,
-    options: Parameters<typeof pickPath>[0],
+    options: Omit<Parameters<typeof pickPath>[0], "options"> & {
+      options: PathOption[] | (() => Promise<PathOption[]>);
+    },
     selected: (path: string, recipe: Recipe) => void
   ): Promise<void> {
     const revision = this.revision;
     const current = () => this.revision === revision && this.runningFor !== revision && this.contentEl.contains(anchor);
     try {
-      const path = await pickPath(options, anchor);
+      const paths = typeof options.options === "function" ? await options.options() : options.options;
+      if (!current()) return;
+      const path = await pickPath({ ...options, options: paths }, anchor);
       if (path !== null && current() && this.recipe) {
         selected(path, this.recipe);
         anchor.focus();
@@ -508,15 +513,6 @@ export class RecipeView extends TextFileView {
     if (this.revision === revision) this.result = result;
     this.renderResult();
   }
-}
-
-function folderOptions(files: ReturnType<LangscapePlugin["app"]["vault"]["getAllLoadedFiles"]>): PathOption[] {
-  return [
-    { path: "/", kind: "folder" },
-    ...files.filter((file): file is TFolder => file instanceof TFolder && file.path !== "/")
-      .map((folder) => ({ path: folder.path, kind: "folder" as const }))
-      .sort((a, b) => a.path.localeCompare(b.path)),
-  ];
 }
 
 function section(parent: HTMLElement, number: string, title: string, hint: string): HTMLElement {

@@ -2,6 +2,7 @@ import { normalizePath, type App, type TAbstractFile, type TFile, type TFolder }
 import { isAlias, isMap, isScalar, parseDocument, stringify, visit, type Alias, type Scalar } from "yaml";
 import { ensureVaultFolder } from "../utils/vault";
 import type { Recipe } from "./model";
+import { assertRecipeFolder, getRecipeDisk, type RecipeDisk } from "./paths";
 import { filterRecipeRules } from "./rules";
 
 interface Frontmatter {
@@ -23,7 +24,8 @@ interface RecipeNote {
 
 export async function listRecipeProperties(app: App, folder: string): Promise<string[]> {
   const names = new Set<string>();
-  for (const file of directMarkdownFiles(app, vaultPath(folder))) {
+  const files = await directMarkdownFiles(app, vaultPath(folder), getRecipeDisk(app.vault));
+  for (const file of files) {
     const frontmatter = parseFrontmatter(await app.vault.read(file));
     if (!frontmatter || !isMap(frontmatter.document.contents)) continue;
     for (const { key, value } of frontmatter.document.contents.items) {
@@ -51,7 +53,8 @@ export async function runRecipe({ app, recipe, apply }: {
   if (inputFolder.toLowerCase() === outputFolder.toLowerCase()) {
     throw new Error("The recipe input and output folders must be different.");
   }
-  const files = directMarkdownFiles(app, inputFolder);
+  const disk = getRecipeDisk(app.vault);
+  const files = await directMarkdownFiles(app, inputFolder, disk);
   const notes: RecipeNote[] = [];
   for (const file of files) {
     const source = await app.vault.read(file);
@@ -64,7 +67,7 @@ export async function runRecipe({ app, recipe, apply }: {
     notes.push({ output, source, frontmatter, ...selected });
   }
 
-  await checkDestinations(app, outputFolder, notes.map(({ output }) => output));
+  await checkDestinations(app, outputFolder, notes.map(({ output }) => output), disk);
   const stages = [];
   for (const change of recipe.changes) {
     try {
@@ -92,7 +95,7 @@ export async function runRecipe({ app, recipe, apply }: {
     }
   }
 
-  // Finish all Lexurgy work and prepare every copy before creating any outputs.
+  // Finish all Lexurgy work and prepare every copy before writing any outputs.
   const outputs = notes.map((note, index) => {
     try {
       return { path: note.output, content: replaceText(note, recipe.property, words[index]) };
@@ -103,21 +106,26 @@ export async function runRecipe({ app, recipe, apply }: {
   const paths = outputs.map(({ path }) => path);
   if (outputs.length) {
     // A Lexurgy stage can take time; check again before creating anything.
-    await checkDestinations(app, outputFolder, paths);
+    await checkDestinations(app, outputFolder, paths, disk);
     await ensureVaultFolder(app, outputFolder);
     for (const { path, content } of outputs) {
-      await checkAvailable(app, path);
-      await app.vault.create(path, content);
+      const existing = await writableNoteAt(app, path, disk);
+      if (existing) await app.vault.modify(existing, content);
+      else await app.vault.create(path, content);
     }
   }
   return { written: paths.length, skipped: files.length - paths.length, paths };
 }
 
-function directMarkdownFiles(app: App, path: string): TFile[] {
+async function directMarkdownFiles(app: App, path: string, disk?: RecipeDisk): Promise<TFile[]> {
+  if (disk) await assertRecipeFolder(disk, path);
   const folder = path === "/" ? app.vault.getRoot() : app.vault.getAbstractFileByPath(path);
   if (!isFolder(folder)) throw new Error(`Input folder "${path}" does not exist.`);
-  return folder.children.filter((file): file is TFile => isFile(file, "md"))
-    .sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
+  const files: TFile[] = [];
+  for (const file of folder.children) {
+    if (isFile(file, "md") && (!disk || (await disk.stat(file.path))?.isFile())) files.push(file);
+  }
+  return files.sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
 }
 
 function isFile(file: TAbstractFile | null, extension: string): file is TFile {
@@ -136,8 +144,9 @@ function vaultPath(path: string): string {
   return parts.length ? parts.join("/") : "/";
 }
 
-async function checkDestinations(app: App, folder: string, paths: string[]): Promise<void> {
-  if (folder !== "/") {
+async function checkDestinations(app: App, folder: string, paths: string[], disk?: RecipeDisk): Promise<void> {
+  if (disk) await assertRecipeFolder(disk, folder);
+  else if (folder !== "/") {
     let current = "";
     for (const part of folder.split("/")) {
       current = current ? `${current}/${part}` : part;
@@ -152,14 +161,21 @@ async function checkDestinations(app: App, folder: string, paths: string[]): Pro
     const key = path.toLowerCase();
     if (claimed.has(key)) throw new Error(`More than one input note would create "${path}".`);
     claimed.add(key);
-    await checkAvailable(app, path);
+    await writableNoteAt(app, path, disk);
   }
 }
 
-async function checkAvailable(app: App, path: string): Promise<void> {
-  if (app.vault.getAbstractFileByPath(path) || await app.vault.adapter.exists(path)) {
-    throw new Error(`Output path "${path}" already exists; the recipe will not overwrite it.`);
+async function writableNoteAt(app: App, path: string, disk?: RecipeDisk): Promise<TFile | null> {
+  const stats = await disk?.stat(path);
+  const entry = app.vault.getAbstractFileByPath(path);
+  if (stats && (!stats.isFile() || stats.nlink > 1)) {
+    throw new Error(`Output path "${path}" is not an ordinary file; the recipe won't replace it.`);
   }
+  if (isFile(entry, "md")) return entry;
+  if (entry || stats || (!disk && await app.vault.adapter.exists(path))) {
+    throw new Error(`Output path "${path}" already exists but is not a writable Markdown note.`);
+  }
+  return null;
 }
 
 function parseFrontmatter(source: string): Frontmatter | undefined {

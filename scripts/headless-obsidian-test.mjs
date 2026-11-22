@@ -595,6 +595,8 @@ async function testLexurgyUi(cdp, liveDocs) {
 async function testRecipe(cdp) {
   const input = "Recipe input";
   const output = "Recipe output";
+  const nestedVault = "Nested Vault";
+  const normalFolder = `${input}/${nestedVault}`;
   const filename = "A source note.md";
   const property = "proto-form";
   const first = "First.lsc";
@@ -611,12 +613,13 @@ async function testRecipe(cdp) {
     [second]: "Keep-Second:\n  p => b\n",
   };
   await cdp.eval(`(async () => {
-    for (const folder of ${JSON.stringify([input, output])}) await app.vault.createFolder(folder);
+    for (const folder of ${JSON.stringify([input, output, normalFolder, nestedVault])}) await app.vault.createFolder(folder);
     for (const [path, contents] of Object.entries(${JSON.stringify(fixtures)})) {
       await app.vault.create(path, contents);
     }
   })()`);
 
+  await fs.mkdir(path.join(vault, nestedVault, ".obsidian"));
   const recipePath = `${input}/Recipe.recipe`;
   const view = "app.workspace.getMostRecentLeaf()?.view";
   for (const [selector, expectedPath] of [
@@ -646,6 +649,14 @@ async function testRecipe(cdp) {
       return true;
     })()`), 10_000, `the picker option ${path}`);
   };
+  await click(".langscape-recipe-input-folder");
+  const listed = await waitFor(() => cdp.eval(`(() => {
+    const rows = [...document.querySelectorAll(".langscape-path-popover .langscape-path-label")];
+    return rows.length && rows.map((row) => row.textContent);
+  })()`), 10_000, "the recipe folders");
+  assert.ok(listed.includes(normalFolder), "A normal folder with the same basename should remain visible.");
+  assert.ok(!listed.includes(nestedVault), "A nested vault should not appear in the picker.");
+  await cdp.eval(`document.querySelector(".langscape-path-search").dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }))`);
   await pick(".langscape-recipe-input-folder", input);
   const propertySelect = control(".langscape-recipe-property");
   await waitFor(() => cdp.eval(`(() => {
@@ -686,25 +697,35 @@ async function testRecipe(cdp) {
       };
       const stages = [
         { rule: 'Keep-First:', input: 'apa', output: 'epe' },
-        { rule: 'Keep-Second:', input: 'epe', output: 'ebe' },
+        { rule: 'Keep-Second:', input: 'epe', output: 'ebe', expression: 'p => b' },
+        { rule: 'Keep-First:', input: 'apa', output: 'epe' },
+        { rule: 'Keep-Second:', input: 'epe', output: 'ede', expression: 'p => d' },
       ];
       lexurgy.apply = async (changes, words) => {
         const stage = stages[mock.calls++];
         if (!stage || !changes.includes(stage.rule) || changes.includes('Discard-First:')
+          || (stage.expression && !changes.includes(stage.expression))
           || words.length !== 1 || words[0] !== stage.input) {
           throw new Error('Unexpected recipe stage ' + mock.calls + ': ' + JSON.stringify({ changes, words }));
         }
         return { words: [stage.output], intermediates: {}, traceLines: [] };
       };
     })()`);
-    await click(".langscape-recipe-run");
-    const result = await waitFor(() => cdp.eval(`(() => {
-      const el = ${control('.langscape-recipe-result[data-state="success"], .langscape-recipe-result[data-state="error"]')};
-      return el && { state: el.dataset.state, text: el.textContent };
-    })()`), 10_000, "the recipe run result");
-    await ensure(result.state === "success", `The recipe failed: ${result.text}`);
+    const run = async () => {
+      await click(".langscape-recipe-run");
+      const result = await waitFor(() => cdp.eval(`(() => {
+        const el = ${control('.langscape-recipe-result[data-state="success"], .langscape-recipe-result[data-state="error"]')};
+        return el && { state: el.dataset.state, text: el.textContent };
+      })()`), 10_000, "the recipe run result");
+      await ensure(result.state === "success", `The recipe failed: ${result.text}`);
+    };
+    await run();
+    assert.match(await fs.readFile(path.join(vault, outputPath), "utf8"), /^proto-form: ebe$/m);
+    await cdp.eval(`app.vault.modify(app.vault.getAbstractFileByPath(${JSON.stringify(second)}),
+      ${JSON.stringify("Keep-Second:\n  p => d\n")})`);
+    await run();
     if (!testLexurgyPath) {
-      assert.equal(await cdp.eval("window.__recipeSmoke.calls"), 2, "Both changes must run once, in order.");
+      assert.equal(await cdp.eval("window.__recipeSmoke.calls"), 4, "Both changes must run in order on each run.");
     }
   } finally {
     if (!testLexurgyPath) await cdp.eval("window.__recipeSmoke?.restore()");
@@ -725,12 +746,12 @@ async function testRecipe(cdp) {
   const properties = await waitFor(() => cdp.eval(`(() => {
     const file = app.vault.getAbstractFileByPath(${JSON.stringify(outputPath)});
     const frontmatter = file && app.metadataCache.getFileCache(file)?.frontmatter;
-    if (!frontmatter) return null;
+    if (frontmatter?.[${JSON.stringify(property)}] !== "ede") return null;
     const { position, ...properties } = frontmatter;
     return properties;
   })()`), 10_000, "the output frontmatter cache");
   assert.deepEqual(properties, {
-    [property]: "ebe", gloss: "father", tags: ["kin"], attested: false,
+    [property]: "ede", gloss: "father", tags: ["kin"], attested: false,
   }, "Only the selected property should change.");
   for (const [pathInVault, original] of Object.entries(sources)) {
     assert.equal(await fs.readFile(path.join(vault, pathInVault), "utf8"), original, `${pathInVault} changed.`);

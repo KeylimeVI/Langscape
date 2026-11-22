@@ -25,7 +25,7 @@ Langscape is a conlanger's workbench for [Obsidian](https://obsidian.md). It bri
 - **Sound-change workbench** — `.lsc` files open in a dedicated editor with Lexurgy syntax highlighting, live validation, and a test bench with rule-by-rule traces.
 - **Lexurgy integration** — Langscape runs the official Lexurgy CLI as a persistent local server, so applying changes is fast. Install or update the official CLI from settings, or point at an existing installation.
 - **Sound-change recipes** — choose an input folder and note property, apply one or more Lexurgy files, and save the changed notes as copies in a separate folder.
-- **Safe output** — recipes leave source notes untouched and never overwrite files in the output folder.
+- **Safe output** — recipes leave source notes untouched and refresh matching copies in the output folder.
 
 ## Installation
 
@@ -256,7 +256,7 @@ Right-click a folder or blank space in the file explorer and choose **New recipe
 2. **Sound changes:** add one or more `.lsc` files. They run from top to bottom. Open **Advanced** on a file to disable individual rules for this recipe without editing the `.lsc` file.
 3. **Output:** choose a different folder and press **Run recipe**. Each copy keeps the original filename, all other properties, and the Markdown body. Only the selected property gets the evolved value.
 
-The recipe refuses to overwrite a note with the same name. Choose an empty output folder for a fresh run. If an enabled rule calls a disabled deferred rule, Lexurgy reports the missing dependency before any copies are written. Existing `.canvas` files are not modified, but Langscape no longer runs sound changes from them.
+Each run replaces same-name Markdown notes in the output folder, including any edits made to those copies. Notes with other filenames are left alone. The folder picker excludes nested vaults and linked folders. If an enabled rule calls a disabled deferred rule, Lexurgy reports the missing dependency before any copies are written. Existing `.canvas` files are not modified, but Langscape no longer runs sound changes from them.
 
 ### Starter vault
 

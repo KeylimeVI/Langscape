@@ -16,7 +16,7 @@
 - Lexurgy integration with a native `.lsc` editor, syntax highlighting, live
   validation, test bench, rule traces, and a managed installer.
 - Native `.recipe` cards for applying ordered Lexurgy changes to a property on
-  Markdown notes and saving the evolved copies without overwriting files.
+  Markdown notes and saving or refreshing copies in a separate folder.
 - Guided starter vault with a demo recipe, font, syntax tree, and Lexurgy
   changes.
 - Desktop-only Obsidian 1.5+ build; package, install, and headless test scripts.
