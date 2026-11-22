@@ -6,6 +6,8 @@ Langscape is a conlanger's workbench for [Obsidian](https://obsidian.md). It bri
 >
 > See the [changelog](CHANGELOG.md) for the release history.
 
+[**Watch the 38-second Langscape 1.0 trailer**](<docs/video/langscape-trailer.mp4>)
+
 ## Screenshots
 
 | Fonts in Live Preview | Sound-change workbench |
