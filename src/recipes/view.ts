@@ -2,7 +2,7 @@ import { setIcon, TextFileView, TFile, type WorkspaceLeaf } from "obsidian";
 import type LangscapePlugin from "../main";
 import { pickPath, type PathOption } from "../ui/path-picker";
 import { readRecipe, serializeRecipe, type Recipe } from "./model";
-import { listRecipeFolders } from "./paths";
+import { listRecipeFolders, listRecipeSoundChanges } from "./paths";
 import { listRecipeRules } from "./rules";
 import { listRecipeProperties, runRecipe } from "./runner";
 
@@ -307,17 +307,14 @@ export class RecipeView extends TextFileView {
   }
 
   private addChange(anchor: HTMLButtonElement): Promise<void> {
-    const options = this.app.vault.getFiles()
-      .filter((file) => file.extension.toLowerCase() === "lsc")
-      .map((file) => ({ path: file.path, kind: "file" as const }))
-      .sort((a, b) => a.path.localeCompare(b.path));
-    if (options.length === 0) {
-      this.result = { state: "error", message: "No .lsc files found in the vault." };
-      this.renderResult();
-      return Promise.resolve();
-    }
     return this.choose(anchor, {
-      title: "Add sound changes", placeholder: "Search .lsc files…", options,
+      title: "Add sound changes",
+      placeholder: "Search .lsc files…",
+      options: async () => {
+        const paths = await listRecipeSoundChanges(this.app.vault);
+        if (!paths.length) throw new Error("No .lsc files found in the vault.");
+        return paths.map((path) => ({ path, kind: "file" }));
+      },
     }, (path, recipe) => {
       const open = this.rows.map((row) => row.details.open);
       this.commit({ ...recipe, changes: [...recipe.changes, { path, disabledRules: [] }] });

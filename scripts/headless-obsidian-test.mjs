@@ -611,6 +611,8 @@ async function testRecipe(cdp) {
     ...sources,
     [first]: "Keep-First:\n  a => e\n\nDiscard-First:\n  e => i\n",
     [second]: "Keep-Second:\n  p => b\n",
+    [`${nestedVault}/${first}`]: "",
+    [`${normalFolder}/${first}`]: "",
   };
   await cdp.eval(`(async () => {
     for (const folder of ${JSON.stringify([input, output, normalFolder, nestedVault])}) await app.vault.createFolder(folder);
@@ -649,14 +651,21 @@ async function testRecipe(cdp) {
       return true;
     })()`), 10_000, `the picker option ${path}`);
   };
-  await click(".langscape-recipe-input-folder");
-  const listed = await waitFor(() => cdp.eval(`(() => {
-    const rows = [...document.querySelectorAll(".langscape-path-popover .langscape-path-label")];
-    return rows.length && rows.map((row) => row.textContent);
-  })()`), 10_000, "the recipe folders");
-  assert.ok(listed.includes(normalFolder), "A normal folder with the same basename should remain visible.");
-  assert.ok(!listed.includes(nestedVault), "A nested vault should not appear in the picker.");
-  await cdp.eval(`document.querySelector(".langscape-path-search").dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }))`);
+  const listChoices = async (selector) => {
+    await click(selector);
+    const listed = await waitFor(() => cdp.eval(`(() => {
+      const rows = [...document.querySelectorAll(".langscape-path-popover .langscape-path-label")];
+      return rows.length && rows.map((row) => row.textContent);
+    })()`), 10_000, `the choices for ${selector}`);
+    await cdp.eval(`document.querySelector(".langscape-path-search").dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }))`);
+    return listed;
+  };
+  const folders = await listChoices(".langscape-recipe-input-folder");
+  assert.ok(folders.includes(normalFolder), "A normal folder with the same basename should remain visible.");
+  assert.ok(!folders.includes(nestedVault), "A nested vault should not appear in the folder picker.");
+  const changes = await listChoices(".langscape-recipe-add-change");
+  assert.ok(changes.includes(`${normalFolder}/${first}`), "A real .lsc file with the same basename should remain visible.");
+  assert.ok(!changes.includes(`${nestedVault}/${first}`), "Files in a nested vault should not appear in the sound-change picker.");
   await pick(".langscape-recipe-input-folder", input);
   const propertySelect = control(".langscape-recipe-property");
   await waitFor(() => cdp.eval(`(() => {

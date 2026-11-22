@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 import { FileSystemAdapter, TFile, TFolder, type App } from "obsidian";
 import { describe, expect, it, vi } from "vitest";
 import { EMPTY_RECIPE, readRecipe, serializeRecipe, type Recipe } from "../../src/recipes/model";
-import { listRecipeFolders } from "../../src/recipes/paths";
+import { listRecipeFolders, listRecipeSoundChanges } from "../../src/recipes/paths";
 import { listRecipeProperties, runRecipe } from "../../src/recipes/runner";
 import { filterRecipeRules, listRecipeRules } from "../../src/recipes/rules";
 
@@ -36,7 +36,7 @@ function vault(files: Record<string, string>, hidden: string[] = []) {
   const addFile = (name: string, content: string) => {
     if (values.has(name) && entries.has(name) || hidden.includes(name)) throw new Error("Already exists");
     const parent = addFolder(parentPath(name));
-    const file = new (TFile as unknown as new (path: string) => TFile)(name);
+    const file = Object.assign(new (TFile as unknown as new (path: string) => TFile)(name), { parent });
     parent.children.push(file);
     entries.set(name, file);
     values.set(name, content);
@@ -182,14 +182,16 @@ async function useDesktopVault(app: App, files: Record<string, string>): Promise
   return directory;
 }
 
-it.skipIf(process.platform === "win32")("does not list nested vaults or repeated paths through a root link", async () => {
-  const files = { "Words/a.md": "", "Notes/Obsidian Vault/note.md": "", "Backup/Words/a.md": "" };
-  const { app } = vault({ ...files, "Obsidian Vault/Words/a.md": "", "Obsidian Vault/Obsidian Vault/Words/a.md": "" });
+it.skipIf(process.platform === "win32")("omits nested vaults and links from both recipe pickers", async () => {
+  const files = { "root.lsc": "", "Words/a.md": "", "Notes/Obsidian Vault/notes.LSC": "", "Backup/root.lsc": "" };
+  const { app } = vault({ ...files, "Obsidian Vault/root.lsc": "", "Obsidian Vault/Obsidian Vault/root.lsc": "", "linked.lsc": "" });
   const disk = await useDesktopVault(app, files);
   try {
     await mkdir(join(disk, "Backup", ".obsidian"));
     await symlink(disk, join(disk, "Obsidian Vault"), "dir");
+    await symlink(join(disk, "root.lsc"), join(disk, "linked.lsc"), "file");
     expect(await listRecipeFolders(app.vault)).toEqual(["/", "Notes", "Notes/Obsidian Vault", "Words"]);
+    expect(await listRecipeSoundChanges(app.vault)).toEqual(["Notes/Obsidian Vault/notes.LSC", "root.lsc"]);
   } finally {
     await rm(disk, { recursive: true, force: true });
   }

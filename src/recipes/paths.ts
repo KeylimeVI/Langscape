@@ -1,6 +1,6 @@
 import { lstat, stat } from "node:fs/promises";
 import type { Stats } from "node:fs";
-import { FileSystemAdapter, TFolder, type Vault } from "obsidian";
+import { FileSystemAdapter, TFile, TFolder, type Vault } from "obsidian";
 
 export interface RecipeDisk {
   stat(path: string): Promise<Stats | undefined>;
@@ -25,22 +25,36 @@ export function getRecipeDisk(vault: Vault): RecipeDisk | undefined {
 }
 
 export async function listRecipeFolders(vault: Vault): Promise<string[]> {
+  const paths = await listRecipePaths(vault, "folder");
+  return ["/", ...paths];
+}
+
+export function listRecipeSoundChanges(vault: Vault): Promise<string[]> {
+  return listRecipePaths(vault, "lsc");
+}
+
+async function listRecipePaths(vault: Vault, kind: "folder" | "lsc"): Promise<string[]> {
   const disk = getRecipeDisk(vault);
   const root = vault.getRoot();
   const seen = new Set([root.path, "/"]);
   const paths: string[] = [];
   const visitChildren = async (parent: TFolder): Promise<void> => {
     await Promise.all(parent.children.map(async (child) => {
-      if (!(child instanceof TFolder) || child.parent !== parent || seen.has(child.path)) return;
+      if (child.parent !== parent || seen.has(child.path)) return;
       seen.add(child.path);
-      // Stop at the boundary, rather than trimming a prefix off all its children.
-      if (disk && (!(await disk.stat(child.path))?.isDirectory() || await disk.isNestedVault(child.path))) return;
-      paths.push(child.path);
-      await visitChildren(child);
+      if (child instanceof TFolder) {
+        // Stop at the boundary, rather than trimming a prefix off all its children.
+        if (disk && (!(await disk.stat(child.path))?.isDirectory() || await disk.isNestedVault(child.path))) return;
+        if (kind === "folder") paths.push(child.path);
+        await visitChildren(child);
+      } else if (kind === "lsc" && child instanceof TFile && child.extension.toLowerCase() === "lsc"
+        && (!disk || (await disk.stat(child.path))?.isFile())) {
+        paths.push(child.path);
+      }
     }));
   };
   await visitChildren(root);
-  return ["/", ...paths.sort((a, b) => a.localeCompare(b))];
+  return paths.sort((a, b) => a.localeCompare(b));
 }
 
 export async function assertRecipeFolder(disk: RecipeDisk, path: string): Promise<void> {
