@@ -2,7 +2,7 @@
 
 Langscape is a conlanger's workbench for [Obsidian](https://obsidian.md). It brings custom writing-system fonts, a Lexurgy sound-change editor, and sound-change recipes into the same vault as your notes.
 
-> **Status:** 1.0.1 — desktop only. Minimum Obsidian 1.15.0; tested with Lexurgy 1.7.7.
+> **Status:** 1.0.2 — desktop only. Minimum Obsidian 1.15.0; tested with Lexurgy 1.7.7.
 >
 > See the [changelog](CHANGELOG.md) for the release history.
 
@@ -98,7 +98,7 @@ LANGSCAPE_REF=main ./scripts/install-from-homelab.sh
 
 # Other sources
 ./scripts/install-from-homelab.sh --source url --url https://example.com/langscape.zip
-./scripts/install-from-homelab.sh --source file --zip dist/langscape-1.0.1.zip
+./scripts/install-from-homelab.sh --source file --zip dist/langscape-1.0.2.zip
 ```
 
 Options: `--vault <path>`, `--no-preserve`, `--dry-run`, `--host <user@host>`, `--remote-repo <path>`, and `--remote-build`. By default the installer resolves GitHub’s `beta` branch to a commit and downloads its `dist/langscape-*.zip`. Use `--source ssh` to read the homelab checkout directly, optionally with `--remote-build` to rebuild it first. `HOMELAB_HOST` supplies the SSH host without switching the source; use `LANGSCAPE_SOURCE` to change the default source.

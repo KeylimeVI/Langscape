@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.2
+
+- Remove the duplicate plugin-name heading in settings.
+
 ## 1.0.1
 
 - Register vault fonts without injecting stylesheets, including in popout windows.
