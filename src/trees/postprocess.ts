@@ -1,9 +1,9 @@
 import type { FontManager } from "../fonts/manager";
 import { parseSyntaxTreeLine } from "./model";
-import { renderSyntaxTree } from "./render";
+import { renderSyntaxTree, type TreeAlignmentPreference } from "./render";
 
 /** Replace complete `{tree: ...}` paragraphs in Reading view/exported HTML. */
-export function createSyntaxTreePostProcessor(manager: FontManager) {
+export function createSyntaxTreePostProcessor(manager: FontManager, alignment?: TreeAlignmentPreference) {
   return (el: HTMLElement, _context: unknown): void => {
     const blocks = [...el.querySelectorAll<HTMLElement>("p")];
     if (el.matches("p")) blocks.unshift(el);
@@ -14,7 +14,7 @@ export function createSyntaxTreePostProcessor(manager: FontManager) {
       const tree = parseSyntaxTreeLine(text);
       if (!tree) continue;
       block.replaceWith(
-        renderSyntaxTree(tree, manager, block.ownerDocument)
+        renderSyntaxTree(tree, manager, block.ownerDocument, { alignment })
       );
     }
   };

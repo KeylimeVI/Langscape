@@ -42,6 +42,7 @@ import {
   createSyntaxTreeExtension,
   refreshSyntaxTrees,
 } from "./trees/editor";
+import type { TreeAlignmentPreference } from "./trees/render";
 import { createSyntaxTreePostProcessor } from "./trees/postprocess";
 
 export default class LangscapePlugin extends Plugin {
@@ -49,13 +50,19 @@ export default class LangscapePlugin extends Plugin {
   fontManager!: FontManager;
   private fontDomDecorator: FontDomDecorator | null = null;
   lexurgy!: LexurgyService;
-  private testWordsSaveTimer: ReturnType<typeof setTimeout> | null = null;
-  private fontRefreshTimer: ReturnType<typeof setTimeout> | null = null;
-  private lexurgyProbeTimer: ReturnType<typeof setTimeout> | null = null;
+  private testWordsSaveTimer: number | null = null;
+  private fontRefreshTimer: number | null = null;
+  private lexurgyProbeTimer: number | null = null;
 
   async onload(): Promise<void> {
     await this.loadSettings();
     this.fontManager = new FontManager(this.app, () => this.settings);
+    this.fontManager.attachDocument(document);
+    this.registerEvent(this.app.workspace.on("window-open", (_workspace, win) => this.fontManager.attachDocument(win.document)));
+    this.registerEvent(this.app.workspace.on("window-close", (_workspace, win) => this.fontManager.detachDocument(win.document)));
+    this.app.workspace.onLayoutReady(() => {
+      this.app.workspace.iterateAllLeaves((leaf) => this.fontManager.attachDocument(leaf.view.containerEl.ownerDocument));
+    });
     this.register(installFontClipboard(this.fontManager));
     this.fontDomDecorator = new FontDomDecorator(this.app, this.fontManager);
     this.lexurgy = new LexurgyService(this);
@@ -67,13 +74,20 @@ export default class LangscapePlugin extends Plugin {
     this.registerExtensions(["recipe"], RECIPE_VIEW_TYPE);
     this.addSettingTab(new LangscapeSettingTab(this));
 
+    const treeAlignment: TreeAlignmentPreference = {
+      get: () => this.settings.treeAlignment,
+      set: (value) => {
+        this.settings.treeAlignment = value;
+        void this.saveSettings();
+      },
+    };
     // Trees must be processed before fonts: tree labels can contain font spans,
     // and the tree parser needs to see the raw braces. The tree renderer applies
     // fonts inside each label itself.
-    this.registerMarkdownPostProcessor(createSyntaxTreePostProcessor(this.fontManager));
+    this.registerMarkdownPostProcessor(createSyntaxTreePostProcessor(this.fontManager, treeAlignment));
     this.registerMarkdownPostProcessor(createMergedTablePostProcessor(this.app));
     this.registerMarkdownPostProcessor(createFontPostProcessor(this.fontManager));
-    this.registerEditorExtension(createSyntaxTreeExtension(this.fontManager, this.app));
+    this.registerEditorExtension(createSyntaxTreeExtension(this.fontManager, this.app, treeAlignment));
     this.registerEditorExtension(createMergedTableExtension(this.fontManager));
     this.register(installTableMenuPatch());
     this.registerEditorExtension(createFontLivePreviewExtension(this.fontManager));
@@ -132,21 +146,18 @@ export default class LangscapePlugin extends Plugin {
       })
     );
 
-    this.lexurgyProbeTimer = setTimeout(() => {
+    this.lexurgyProbeTimer = window.setTimeout(() => {
       this.lexurgyProbeTimer = null;
       void this.lexurgy.getEnvironment().catch(() => undefined);
     }, 1500);
   }
 
   onunload(): void {
-    if (this.testWordsSaveTimer) clearTimeout(this.testWordsSaveTimer);
-    if (this.fontRefreshTimer) clearTimeout(this.fontRefreshTimer);
-    if (this.lexurgyProbeTimer) clearTimeout(this.lexurgyProbeTimer);
+    if (this.testWordsSaveTimer) window.clearTimeout(this.testWordsSaveTimer);
+    if (this.fontRefreshTimer) window.clearTimeout(this.fontRefreshTimer);
+    if (this.lexurgyProbeTimer) window.clearTimeout(this.lexurgyProbeTimer);
     void this.lexurgy?.dispose();
     this.fontManager?.unload();
-    this.app.workspace.detachLeavesOfType(SOUNDCHANGE_VIEW_TYPE);
-    this.app.workspace.detachLeavesOfType(LEXURGY_DOCS_VIEW_TYPE);
-    this.app.workspace.detachLeavesOfType(RECIPE_VIEW_TYPE);
   }
 
   async loadSettings(): Promise<void> {
@@ -163,8 +174,8 @@ export default class LangscapePlugin extends Plugin {
 
   setTestWords(path: string, words: string): void {
     this.settings.testWords[path] = words;
-    if (this.testWordsSaveTimer) clearTimeout(this.testWordsSaveTimer);
-    this.testWordsSaveTimer = setTimeout(() => {
+    if (this.testWordsSaveTimer) window.clearTimeout(this.testWordsSaveTimer);
+    this.testWordsSaveTimer = window.setTimeout(() => {
       this.testWordsSaveTimer = null;
       void this.saveSettings();
     }, 800);
@@ -273,8 +284,8 @@ export default class LangscapePlugin extends Plugin {
 
   private registerFontEvents(): void {
     const refresh = () => {
-      if (this.fontRefreshTimer) clearTimeout(this.fontRefreshTimer);
-      this.fontRefreshTimer = setTimeout(() => {
+      if (this.fontRefreshTimer) window.clearTimeout(this.fontRefreshTimer);
+      this.fontRefreshTimer = window.setTimeout(() => {
         this.fontRefreshTimer = null;
         void this.refreshFonts();
       }, 400);

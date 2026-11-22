@@ -61,41 +61,16 @@ export function slugify(value: string): string {
   return slug || "font";
 }
 
-/**
- * Build the stylesheet injected into Obsidian's document head.
- * `urlFor` is injected so this is testable without a vault.
- */
-export function buildFontCss(
-  records: FontRecord[],
-  urlFor: (record: FontRecord) => string | undefined
-): string {
-  const faces: string[] = [];
-  const classes: string[] = [];
-  const seen = new Set<string>();
+export function fontFaceSource(url: string, format?: string): string {
+  return `url("${escapeCssString(url)}")${format ? ` format("${escapeCssString(format)}")` : ""}`;
+}
 
-  for (const record of records) {
-    const family = escapeCssString(record.family);
-    if (!family) continue;
-    const url = urlFor(record);
-    if (!url) continue;
-    const format = record.format ? ` format("${escapeCssString(record.format)}")` : "";
-    const faceKey = `${family}\u0000${url}`;
-    if (!seen.has(faceKey)) {
-      seen.add(faceKey);
-      faces.push(
-        `@font-face {\n` +
-          `  font-family: "${family}";\n` +
-          `  src: url("${escapeCssString(url)}")${format};\n` +
-          `  font-display: swap;\n` +
-          `}`
-      );
-    }
-    classes.push(
-      `.${record.className} {\n  font-family: "${family}", var(--font-text);\n}`
-    );
-  }
+export function fontFamilyValue(record: FontRecord): string {
+  return `"${escapeCssString(record.family)}"`;
+}
 
-  return [...faces, ...classes].join("\n\n") + (faces.length ? "\n" : "");
+export function fontFamilyAttribute(record: FontRecord): string {
+  return `--langscape-font-family: ${fontFamilyValue(record)}`;
 }
 
 export function makeFontId(pathOrUrl: string, family: string): string {

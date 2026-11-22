@@ -24,7 +24,7 @@ const EDITABLE_SELECTOR = '[contenteditable="true"]';
  */
 export class FontDomDecorator {
   private observer: MutationObserver | null = null;
-  private timer: ReturnType<typeof setTimeout> | null = null;
+  private timer: number | null = null;
   private readonly prepared = new WeakSet<HTMLElement>();
 
   constructor(
@@ -43,7 +43,7 @@ export class FontDomDecorator {
   stop(): void {
     this.observer?.disconnect();
     this.observer = null;
-    if (this.timer) clearTimeout(this.timer);
+    if (this.timer !== null) (this.doc().defaultView ?? window).clearTimeout(this.timer);
     this.timer = null;
   }
 
@@ -100,8 +100,8 @@ export class FontDomDecorator {
   }
 
   private schedule(): void {
-    if (this.timer) clearTimeout(this.timer);
-    this.timer = setTimeout(() => {
+    if (this.timer !== null) (this.doc().defaultView ?? window).clearTimeout(this.timer);
+    this.timer = (this.doc().defaultView ?? window).setTimeout(() => {
       this.timer = null;
       this.scan();
     }, 120);

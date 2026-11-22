@@ -54,6 +54,7 @@ const SKIP_SELECTOR = [
   ".table-row-drag-handle",
   ".table-col-drag-handle",
   ".langscape-table-covered",
+  '.langscape-tree-label[data-editing="true"]',
 ].join(",");
 
 /** Find the font record that applies to a DOM node. */
@@ -62,7 +63,8 @@ export function fontRecordForElement(
   fonts: FontLookup
 ): FontRecord | undefined {
   for (let node = element; node; node = node.parentElement) {
-    if (node instanceof HTMLElement) {
+    const win = node.ownerDocument.defaultView;
+    if (win && node instanceof win.HTMLElement) {
       if (node.hidden || node.style.display === "none" || node.style.visibility === "hidden") {
         return undefined;
       }
@@ -164,8 +166,9 @@ export function fontMarkupForSelection(
     if (node.nodeType !== Node.ELEMENT_NODE) return;
     const element = node as Element;
     if (element.matches(SKIP_SELECTOR)) return;
+    const win = element.ownerDocument.defaultView;
     if (
-      element instanceof HTMLElement &&
+      win && element instanceof win.HTMLElement &&
       (element.hidden || element.style.display === "none" || element.style.visibility === "hidden")
     ) {
       return;

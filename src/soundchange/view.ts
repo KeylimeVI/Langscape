@@ -1,3 +1,4 @@
+import { DEFAULT_SETTINGS } from "../settings";
 import { TextFileView, type WorkspaceLeaf } from "obsidian";
 import type LangscapePlugin from "../main";
 import type { ValidationResult } from "../lexurgy/service";
@@ -142,35 +143,23 @@ export class SoundChangeView extends TextFileView {
   private setupSideResize(main: HTMLElement, handle: HTMLElement, side: HTMLElement): void {
     const win = main.ownerDocument.defaultView ?? window;
     const body = main.ownerDocument.body;
-    const storageKey = "langscape-lsc-side-width";
     const minSide = 280;
     const minEditor = 320;
-    const defaultSide = 390;
+    const defaultSide = DEFAULT_SETTINGS.lexurgyPanelWidth;
 
     const apply = (width: number, save = false): void => {
       const bounded = Math.round(
         Math.max(minSide, Math.min(width, Math.max(minSide, main.clientWidth - minEditor)))
       );
-      side.style.flex = `0 0 ${bounded}px`;
-      side.style.width = `${bounded}px`;
+      side.setCssProps({ flex: `0 0 ${bounded}px`, width: `${bounded}px` });
       handle.setAttribute("aria-valuenow", String(bounded));
-      if (save) {
-        try {
-          win.localStorage.setItem(storageKey, String(bounded));
-        } catch {
-          // Storage can be unavailable in restricted renderer contexts.
-        }
+      if (save && this.plugin.settings.lexurgyPanelWidth !== bounded) {
+        this.plugin.settings.lexurgyPanelWidth = bounded;
+        void this.plugin.saveSettings();
       }
     };
 
-    let saved = defaultSide;
-    try {
-      const stored = Number(win.localStorage.getItem(storageKey));
-      if (Number.isFinite(stored) && stored >= minSide) saved = stored;
-    } catch {
-      // Use the default width.
-    }
-    win.requestAnimationFrame(() => apply(saved));
+    win.requestAnimationFrame(() => apply(this.plugin.settings.lexurgyPanelWidth));
 
     handle.addEventListener("pointerdown", (event) => {
       if (event.button !== 0 || main.clientWidth <= 760) return;

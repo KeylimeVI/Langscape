@@ -7,6 +7,7 @@ import {
   type ViewUpdate,
 } from "@codemirror/view";
 import type { FontManager } from "./manager";
+import { fontFamilyAttribute, fontFamilyValue } from "./css";
 import { isInCode } from "../utils/codemirror";
 import { findFontSpans, formatFontSpan, parseFontSpanSegments } from "./spans";
 
@@ -75,6 +76,7 @@ export function decorateFontSpans(
       }
       const span = doc.createElement("span");
       span.className = `langscape-font ${record.className}`;
+      span.setAttribute("style", fontFamilyAttribute(record));
       span.dataset.langscapeFont = record.displayName;
       span.setAttribute("spellcheck", "false");
       span.textContent = segment.text;
@@ -96,6 +98,7 @@ export function applyFrontmatterFont(
   const record = manager.find(requested);
   if (!record) return;
   el.classList.add("langscape-note-font", record.className);
+  el.setCssProps({ "--langscape-font-family": fontFamilyValue(record) });
   el.dataset.langscapeFont = record.displayName;
 }
 
@@ -135,7 +138,7 @@ export function createNoteFontExtension(manager: FontManager) {
           return;
         }
         const decorations = [
-          Decoration.mark({ class: record.className }).range(0, view.state.doc.length),
+          Decoration.mark({ class: `langscape-note-font ${record.className}`, attributes: { style: fontFamilyAttribute(record) } }).range(0, view.state.doc.length),
         ];
         for (let line = 1; line <= view.state.doc.lines; line++) {
           decorations.push(
@@ -220,6 +223,7 @@ function build(view: EditorView, manager: FontManager): DecorationSet {
             class: `langscape-font ${record.className}`,
             attributes: {
               "data-langscape-font": record.displayName,
+              style: fontFamilyAttribute(record),
               spellcheck: "false",
             },
           }),
@@ -254,7 +258,8 @@ function isEditable(element: HTMLElement): boolean {
     '[contenteditable], input, textarea, [role="textbox"]'
   );
   if (!editable) return false;
-  if (editable instanceof HTMLInputElement || editable instanceof HTMLTextAreaElement) {
+  const win = editable.ownerDocument.defaultView;
+  if (win && (editable instanceof win.HTMLInputElement || editable instanceof win.HTMLTextAreaElement)) {
     return true;
   }
   return editable.getAttribute("contenteditable") !== "false";

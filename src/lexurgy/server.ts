@@ -1,3 +1,4 @@
+import { clearTimeout, setTimeout } from "node:timers";
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { createInterface, type Interface } from "node:readline";
 import type {

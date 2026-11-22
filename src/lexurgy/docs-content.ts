@@ -1,3 +1,5 @@
+import { parse, type DefaultTreeAdapterTypes } from "parse5";
+
 export const LEXURGY_DOCS_URL = "https://www.lexurgy.com/sc/docs";
 
 // The official site's interactive widgets omit their rule text from the HTML.
@@ -41,10 +43,12 @@ function readExamples(mdx: string): DocsExample[] {
       (token) => token === "\\`" || token === "\\$" ? token[1]
         : token.startsWith("\\") ? token : JSON.stringify(token).slice(1, -1)
     )}"`;
-    return {
-      changes: JSON.parse(literal),
-      inputs: JSON.parse(`${inputs[1].replace(/,\s*$/, "")}]`),
-    };
+    const rules: unknown = JSON.parse(literal);
+    const words: unknown = JSON.parse(`${inputs[1].replace(/,\s*$/, "")}]`);
+    if (typeof rules !== "string" || !Array.isArray(words) || !words.every((word): word is string => typeof word === "string")) {
+      throw new Error("Expected literal rules and input words");
+    }
+    return { changes: rules, inputs: words };
   });
 }
 
@@ -60,10 +64,29 @@ function renderExample(doc: Document, example: DocsExample): HTMLElement {
   return block;
 }
 
-const contentTags = new Set([
-  "A", "BLOCKQUOTE", "BR", "CODE", "DIV", "EM", "H1", "H2", "H3", "H4", "H5", "H6",
-  "HR", "I", "LI", "OL", "P", "PRE", "SPAN", "STRONG", "TABLE", "TBODY", "TD", "TH", "THEAD", "TR", "UL",
+const contentTags = new Set<string>([
+  "a", "blockquote", "br", "code", "div", "em", "h1", "h2", "h3", "h4", "h5", "h6",
+  "hr", "i", "li", "ol", "p", "pre", "span", "strong", "table", "tbody", "td", "th", "thead", "tr", "ul",
 ]);
+
+type ParsedNode = DefaultTreeAdapterTypes.Node;
+type ParsedElement = DefaultTreeAdapterTypes.Element;
+
+const attr = (node: ParsedElement, key: string) => node.attrs.find(({ name }) => name === key)?.value;
+const hasClass = (node: ParsedElement, name: string) => (attr(node, "class") ?? "").split(/\s+/).includes(name);
+const isCard = (node: ParsedElement) => node.tagName === "div" && hasClass(node, "card");
+
+function* elements(start: ParsedNode): Generator<ParsedElement> {
+  const pending: ParsedNode[] = [start];
+  while (pending.length) {
+    const node = pending.pop();
+    if (!node) break;
+    if ("tagName" in node && node.namespaceURI === "http://www.w3.org/1999/xhtml") yield node;
+    if ("childNodes" in node) {
+      for (let i = node.childNodes.length - 1; i >= 0; i--) pending.push(node.childNodes[i]);
+    }
+  }
+}
 
 /** Extract the article and rebuild only passive content, with no upstream scripts, styles or embeds. */
 export async function loadDocsArticle(
@@ -72,12 +95,12 @@ export async function loadDocsArticle(
   read: (url: string) => Promise<string>,
 ): Promise<DocumentFragment> {
   const url = LEXURGY_DOCS_URL + page;
-  const template = doc.createElement("template");
-  template.innerHTML = await read(url);
-  const article = template.content.querySelector("main.md-main");
-  if (!article?.querySelector("h1")) throw new Error("The official manual did not return an article.");
-
-  const cards = Array.from(article.querySelectorAll("div.card"));
+  // Parse to a data tree: embedded browsers must never see the upstream HTML.
+  const article = Array.from(elements(parse(await read(url)))).find((node) => node.tagName === "main" && hasClass(node, "md-main"));
+  if (!article || !Array.from(elements(article)).some((node) => node.tagName === "h1")) {
+    throw new Error("The official manual did not return an article.");
+  }
+  const cards = Array.from(elements(article)).filter(isCard);
   let examples: DocsExample[] = [];
   if (cards.length) {
     try {
@@ -91,15 +114,13 @@ export async function loadDocsArticle(
 
   const fragment = doc.createDocumentFragment();
   let exampleIndex = 0;
-  const append = (node: Node, parent: Node): void => {
-    if (node.nodeType === Node.TEXT_NODE) {
-      parent.appendChild(doc.createTextNode(node.textContent ?? ""));
+  const append = (source: ParsedNode, parent: Node): void => {
+    if ("value" in source && source.nodeName === "#text") {
+      parent.appendChild(doc.createTextNode(source.value));
       return;
     }
-    if (node.nodeType !== Node.ELEMENT_NODE) return;
-    const source = node as HTMLElement;
-    if (!contentTags.has(source.tagName)) return;
-    if (source.matches("div.card")) {
+    if (!("tagName" in source) || source.namespaceURI !== "http://www.w3.org/1999/xhtml" || !contentTags.has(source.tagName)) return;
+    if (isCard(source)) {
       const example = examples[exampleIndex++];
       if (example) parent.appendChild(renderExample(doc, example));
       else if (exampleIndex === 1) {
@@ -116,10 +137,11 @@ export async function loadDocsArticle(
       }
       return;
     }
-    const dest = doc.createElement(source.tagName.toLowerCase());
-    if (/^H[1-6]$/.test(source.tagName) && source.id) dest.dataset.lexurgyAnchor = source.id;
-    const href = source.getAttribute("href");
-    if (source.tagName === "A" && href) {
+    const dest = doc.createElement(source.tagName);
+    const id = attr(source, "id");
+    if (/^h[1-6]$/.test(source.tagName) && id) dest.dataset.lexurgyAnchor = id;
+    const href = attr(source, "href");
+    if (source.tagName === "a" && href) {
       try {
         const link = new URL(href, url);
         if (["https:", "http:"].includes(link.protocol)) {

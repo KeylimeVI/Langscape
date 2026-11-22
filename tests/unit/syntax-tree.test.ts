@@ -178,10 +178,10 @@ describe("syntax tree rendering", () => {
       new MouseEvent("pointerup", { bubbles: true, button: 0, clientX: 10, clientY: 10 })
     );
     expect(label.isConnected).toBe(true);
-    expect(label.style.visibility).toBe("hidden");
+    expect(label.dataset.editing).toBe("true");
     const input = document.querySelector<HTMLInputElement>(".langscape-tree-edit")!;
     input.dispatchEvent(new Event("blur"));
-    expect(label.style.visibility).toBe("");
+    expect(label.dataset.editing).toBe("false");
     root.remove();
   });
 
@@ -218,15 +218,18 @@ describe("syntax tree rendering", () => {
   });
 
   it("toggles the whole tree alignment", () => {
-    localStorage.removeItem("langscape-tree-alignment");
     const tree = parseSyntaxTreeLine("{tree: S(NP(N(cat)))}")!;
-    const root = renderSyntaxTree(tree, manager, document);
+    let preference: "left" | "center" = "center";
+    const alignment = { get: () => preference, set: (value: typeof preference) => { preference = value; } };
+    const root = renderSyntaxTree(tree, manager, document, { alignment });
     document.body.appendChild(root);
     const treeEl = root.querySelector<HTMLElement>(".langscape-tree")!;
     const button = root.querySelector<HTMLButtonElement>(".langscape-tree-align")!;
     button.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     expect(treeEl.classList.contains("is-align-left")).toBe(true);
     expect(button.dataset.alignment).toBe("left");
+    expect(preference).toBe("left");
+    expect(renderSyntaxTree(tree, manager, document, { alignment }).querySelector(".langscape-tree.is-align-left")).not.toBeNull();
     button.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     expect(treeEl.classList.contains("is-align-left")).toBe(false);
     expect(button.dataset.alignment).toBe("center");

@@ -40,7 +40,7 @@ export class PathPickerPopover {
   private input!: HTMLInputElement;
   private listEl!: HTMLElement;
   private readonly doc: Document;
-  private readonly win: Window & typeof globalThis;
+  private readonly win: Window;
   private items: PickerItem[] = [];
   private active = 0;
   private settled = false;
@@ -56,7 +56,7 @@ export class PathPickerPopover {
     private readonly resolve: (value: string | null) => void
   ) {
     this.doc = anchor?.ownerDocument ?? document;
-    this.win = (this.doc.defaultView ?? window) as Window & typeof globalThis;
+    this.win = this.doc.defaultView ?? window;
   }
 
   open(): void {
@@ -82,7 +82,7 @@ export class PathPickerPopover {
 
     this.render();
     this.position();
-    setTimeout(() => {
+    this.win.setTimeout(() => {
       if (this.closed) return;
       this.input.focus();
       this.input.select();

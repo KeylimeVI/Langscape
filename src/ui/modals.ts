@@ -53,7 +53,7 @@ class PromptModal extends Modal {
     cancel.addEventListener("click", () => this.close());
     const submit = actions.createEl("button", { cls: "mod-cta", text: this.options.cta ?? "OK" });
     submit.addEventListener("click", () => this.submit());
-    setTimeout(() => {
+    (contentEl.ownerDocument.defaultView ?? window).setTimeout(() => {
       input.focus();
       input.select();
     }, 0);

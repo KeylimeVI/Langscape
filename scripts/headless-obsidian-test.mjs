@@ -366,7 +366,16 @@ async function testFontCellAndClipboard(cdp) {
   await ensure(active.active, "The font cell editor did not open.");
   await ensure(active.text === "𐌰𐍆𐌰", `The active cell shows ${JSON.stringify(active.text)}.`);
   await ensure(active.spans > 0, "The active cell is missing its rendered font span.");
-  log("active font cell renders its font");
+  const loaded = await cdp.eval(`(async () => {
+    const span = document.querySelectorAll('.cm-table-widget table')[2].querySelector('.cm-editor .langscape-font');
+    const family = getComputedStyle(span).fontFamily;
+    const faces = await document.fonts.load('16px ' + family, span.textContent);
+    return { family, loadedFace: faces.some(face => face.family.includes('Noto Sans Gothic') && face.status === 'loaded'), registered: [...document.fonts].map(face => ({ family: face.family, status: face.status })), hasInjectedStyle: !!document.getElementById('langscape-font-faces') };
+  })()`);
+  assert.match(loaded.family, /Noto Sans Gothic/);
+  assert.equal(loaded.loadedFace, true, `The vault font did not load through FontFace: ${JSON.stringify(loaded)}`);
+  assert.equal(loaded.hasInjectedStyle, false);
+  log("active font cell uses the actual vault font without injecting a stylesheet");
 
   await cdp.eval(`(() => {
     const table = document.querySelectorAll('.cm-table-widget table')[2];

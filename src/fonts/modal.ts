@@ -1,3 +1,4 @@
+import { fontFamilyValue } from "./css";
 import { App, Modal, Setting } from "obsidian";
 import type { FontRecord } from "./css";
 import type { FontManager } from "./manager";
@@ -73,6 +74,7 @@ export class FontPickerModal extends Modal {
     for (const font of fonts) {
       const row = list.createDiv({ cls: "langscape-font-row" });
       const preview = row.createDiv({ cls: `langscape-font-preview ${font.className}` });
+      preview.setCssProps({ "--langscape-font-family": fontFamilyValue(font) });
       preview.textContent = this.options.manager.sampleFor(font);
       const meta = row.createDiv({ cls: "langscape-font-meta" });
       meta.createDiv({ cls: "langscape-font-name", text: font.displayName });

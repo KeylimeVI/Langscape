@@ -1,3 +1,4 @@
+import type { TreeAlignment } from "./trees/render";
 import type { CustomFontConfig } from "./fonts/manager";
 
 export interface LangscapeSettings {
@@ -6,12 +7,15 @@ export interface LangscapeSettings {
   fontAliases: Record<string, string>;
   customFonts: CustomFontConfig[];
 
+  treeAlignment: TreeAlignment;
+
   // Lexurgy
   javaPath: string;
   lexurgyPath: string;
 
   // Sound-change test bench
   traceByDefault: boolean;
+  lexurgyPanelWidth: number;
   testWords: Record<string, string>;
 }
 
@@ -20,10 +24,12 @@ export const DEFAULT_SETTINGS: LangscapeSettings = {
   fontAliases: {},
   customFonts: [],
 
+  treeAlignment: "center",
   javaPath: "",
   lexurgyPath: "",
 
   traceByDefault: false,
+  lexurgyPanelWidth: 390,
   testWords: {},
 };
 
@@ -33,6 +39,9 @@ export function mergeSettings(
   return {
     ...DEFAULT_SETTINGS,
     ...(loaded ?? {}),
+    treeAlignment: loaded?.treeAlignment === "left" ? "left" : "center",
+    lexurgyPanelWidth: typeof loaded?.lexurgyPanelWidth === "number" && Number.isFinite(loaded.lexurgyPanelWidth)
+      ? Math.max(280, loaded.lexurgyPanelWidth) : DEFAULT_SETTINGS.lexurgyPanelWidth,
     fontNicknames: { ...DEFAULT_SETTINGS.fontNicknames, ...(loaded?.fontNicknames ?? {}) },
     fontAliases: { ...DEFAULT_SETTINGS.fontAliases, ...(loaded?.fontAliases ?? {}) },
     testWords: { ...DEFAULT_SETTINGS.testWords, ...(loaded?.testWords ?? {}) },

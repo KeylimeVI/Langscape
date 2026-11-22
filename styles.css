@@ -721,8 +721,11 @@ body.langscape-resizing * {
   flex: 0 0 auto;
 }
 
-.langscape-note-font {
-  /* The actual font-family comes from the generated .langscape-font-<id> rule. */
+.langscape-font,
+.langscape-note-font,
+.langscape-font-preview,
+.langscape-font-setting-preview {
+  font-family: var(--langscape-font-family, var(--font-text)), var(--font-text);
 }
 
 /* ==========================================================================
@@ -1357,6 +1360,10 @@ body.theme-light {
 .langscape-tree-block:hover .langscape-tree-align,
 .langscape-tree-block:focus-within .langscape-tree-align {
   opacity: 1;
+}
+
+.langscape-tree-label[data-editing="true"] {
+  visibility: hidden;
 }
 
 body input.langscape-tree-edit,

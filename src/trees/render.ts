@@ -14,6 +14,7 @@ export interface SyntaxTreeActions {
   onRemove?: () => void;
   /** Confirm deletion of a subtree with two or more nodes. */
   confirmDelete?: (node: SyntaxTreeNode, count: number) => boolean | Promise<boolean>;
+  alignment?: TreeAlignmentPreference;
 }
 
 interface NodeContext {
@@ -24,10 +25,11 @@ interface NodeContext {
   label: HTMLSpanElement;
 }
 
-type TreeAlignment = "center" | "left";
-
-const ALIGNMENT_KEY = "langscape-tree-alignment";
-let treeAlignment: TreeAlignment | null = null;
+export type TreeAlignment = "center" | "left";
+export interface TreeAlignmentPreference {
+  get(): TreeAlignment;
+  set(alignment: TreeAlignment): void;
+}
 
 // One size observer per document. A mutation watcher prunes trees that have
 // been detached by Obsidian's Markdown rerender, so observers do not accumulate.
@@ -113,12 +115,7 @@ export function renderSyntaxTree(
   };
 
   const setAlignment = (next: TreeAlignment) => {
-    treeAlignment = next;
-    try {
-      doc.defaultView?.localStorage?.setItem(ALIGNMENT_KEY, next);
-    } catch {
-      // Storage can be unavailable in restricted windows; the toggle still works.
-    }
+    actions.alignment?.set(next);
     for (const blockEl of doc.querySelectorAll<HTMLElement>(".langscape-tree-block")) {
       const candidate = blockEl.querySelector<HTMLElement>(".langscape-tree");
       if (!candidate) continue;
@@ -138,10 +135,10 @@ export function renderSyntaxTree(
   alignButton.addEventListener("click", (event) => {
     event.preventDefault();
     event.stopPropagation();
-    setAlignment(alignmentFor(doc) === "left" ? "center" : "left");
+    setAlignment(tree.classList.contains("is-align-left") ? "center" : "left");
   });
 
-  const alignment = alignmentFor(doc);
+  const alignment = actions.alignment?.get() ?? "center";
   tree.classList.toggle("is-align-left", alignment === "left");
   setAlignmentIcon(alignButton, alignment);
 
@@ -157,7 +154,6 @@ export function renderSyntaxTree(
     input.style.top = `${Math.max(4, rect.top - 1)}px`;
     input.style.width = `${Math.max(52, rect.width + 10)}px`;
     input.style.height = `${Math.max(26, rect.height + 2)}px`;
-    context.label.style.visibility = "hidden";
     // Keep the input outside CodeMirror. A native input nested in the CM
     // contenteditable leaks keystrokes into the Markdown source.
     doc.body.appendChild(input);
@@ -165,7 +161,6 @@ export function renderSyntaxTree(
     let finished = false;
     const restoreLabel = () => {
       input.remove();
-      context.label.style.visibility = "";
     };
     const cancel = () => {
       if (finished) return;
@@ -321,7 +316,7 @@ export function renderSyntaxTree(
         });
       });
     } else {
-      setTimeout(() => {
+      (win ?? window).setTimeout(() => {
         redrawEdges();
         centerWideTree();
       }, 0);
@@ -332,17 +327,6 @@ export function renderSyntaxTree(
   observeTreeSize(tree, () => redrawEdges());
 
   return block;
-}
-
-function alignmentFor(doc: Document): TreeAlignment {
-  if (treeAlignment) return treeAlignment;
-  try {
-    treeAlignment =
-      doc.defaultView?.localStorage?.getItem(ALIGNMENT_KEY) === "left" ? "left" : "center";
-  } catch {
-    treeAlignment = "center";
-  }
-  return treeAlignment;
 }
 
 function setAlignmentIcon(button: HTMLButtonElement, alignment: TreeAlignment): void {

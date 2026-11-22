@@ -36,6 +36,9 @@ if (typeof Element !== "undefined") {
     }
     return this;
   };
+  proto.setCssProps = function (props: Record<string, string>) {
+    for (const [name, value] of Object.entries(props)) this.style.setProperty(name, value);
+  };
   proto.setText = function (text: string) {
     this.textContent = text;
     return this;

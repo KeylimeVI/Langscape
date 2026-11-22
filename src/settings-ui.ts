@@ -1,3 +1,4 @@
+import { fontFamilyValue } from "./fonts/css";
 import { Notice, PluginSettingTab, Setting, setIcon } from "obsidian";
 import type LangscapePlugin from "./main";
 import { JAVA_DOWNLOAD_URL } from "./lexurgy/java";
@@ -16,7 +17,7 @@ export class LangscapeSettingTab extends PluginSettingTab {
     const { containerEl } = this;
     containerEl.empty();
     containerEl.addClass("langscape-settings");
-    containerEl.createEl("h2", { text: "Langscape" });
+    new Setting(containerEl).setName("Langscape").setHeading();
 
     this.renderFonts();
     this.renderLexurgy();
@@ -53,6 +54,7 @@ export class LangscapeSettingTab extends PluginSettingTab {
       const preview = row.createDiv({
         cls: `langscape-font-setting-preview ${font.className}`,
       });
+      preview.setCssProps({ "--langscape-font-family": fontFamilyValue(font) });
       preview.setText(this.plugin.fontManager.sampleFor(font));
       const info = row.createDiv({ cls: "langscape-font-setting-info" });
       info.createDiv({ cls: "langscape-font-setting-name", text: font.displayName });
@@ -126,7 +128,7 @@ export class LangscapeSettingTab extends PluginSettingTab {
 
   private renderLexurgy(): void {
     const { containerEl } = this;
-    containerEl.createEl("h3", { text: "Lexurgy" });
+    new Setting(containerEl).setName("Lexurgy").setHeading();
     const status = containerEl.createDiv({ cls: "langscape-lexurgy-setting-status" });
     status.createDiv({ cls: "langscape-muted", text: "Checking…" });
     void this.refreshLexurgyStatus(status);

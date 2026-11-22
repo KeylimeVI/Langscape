@@ -33,7 +33,7 @@ Langscape is a conlanger's workbench for [Obsidian](https://obsidian.md). It bri
 
 ### From a release
 
-Download the release assets from [GitHub Releases](https://github.com/KeylimeVI/Langscape/releases), or build the bundle yourself with `npm run package:release` (output: `dist/langscape-1.0.0.zip`). Unzip it into your plugin folder, or copy the three files manually.
+Download the three plugin files from [GitHub Releases](https://github.com/KeylimeVI/Langscape/releases). You can also build a local ZIP with `npm run build` followed by `npm run package:release`; unpack it to get those same files.
 
 1. Copy `main.js`, `manifest.json`, and `styles.css` into:
    ```
@@ -287,7 +287,7 @@ Lexurgy is a separate GPL-3.0 program. Langscape does not bundle, install, or up
 ### Privacy and system access
 
 - **Local files and processes:** Langscape checks configured paths, Java and Lexurgy on `PATH`, and common local Lexurgy installation locations, which may be outside your vault. It reads the installed CLI files needed to start Lexurgy and runs Java/Lexurgy as a local child process. Rules and words are passed to that process over standard input, not sent to a server. Desktop path checks also inspect files inside the vault to avoid linked or nested-vault destinations.
-- **Network:** The **Docs** tab fetches public documentation pages from [lexurgy.com](https://www.lexurgy.com/sc/docs) when opened or navigated. It does not send note contents, rules, or words. Manual setup links open the official GitHub or Adoptium pages in your browser when clicked. No account, payment, or telemetry is required by Langscape; its editing and sound-change features work offline once Java and Lexurgy are installed.
+- **Network:** The **Docs** tab fetches public pages from [lexurgy.com](https://www.lexurgy.com/sc/docs) and their published example source from `raw.githubusercontent.com`. It does not send note contents, rules, or words. Vault fonts load locally; old custom font entries with a web URL can still fetch that font from the configured host. Manual setup links open the official GitHub or Adoptium pages in your browser when clicked. No account, payment, or telemetry is required by Langscape; its editing and sound-change features work offline once Java and Lexurgy are installed.
 
 ## Development
 

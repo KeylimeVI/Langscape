@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  buildFontCss,
+  fontFaceSource,
+  fontFamilyAttribute,
   classNameForId,
   escapeCssString,
   fontFormatFromPath,
@@ -23,29 +24,15 @@ function record(overrides: Partial<FontRecord> = {}): FontRecord {
 }
 
 describe("font CSS generation", () => {
-  it("builds @font-face and class rules", () => {
-    const css = buildFontCss([record()], () => 'app://local/Fonts/tengwar.ttf');
-    expect(css).toContain('@font-face');
-    expect(css).toContain('font-family: "Tengwar"');
-    expect(css).toContain('src: url("app://local/Fonts/tengwar.ttf") format("truetype")');
-    expect(css).toContain(".langscape-font-tengwar-abc");
-    expect(css).toContain('font-family: "Tengwar", var(--font-text)');
+  it("builds a FontFace source with an optional format", () => {
+    expect(fontFaceSource('app://local/Fonts/tengwar.ttf', 'truetype'))
+      .toBe('url("app://local/Fonts/tengwar.ttf") format("truetype")');
+    expect(fontFaceSource('x.ttf')).toBe('url("x.ttf")');
   });
 
-  it("omits records without a usable URL and deduplicates faces", () => {
-    const css = buildFontCss(
-      [record(), record({ className: "langscape-font-second" }), record({ id: "other", path: "other.ttf" })],
-      (font) => (font.path === "other.ttf" ? undefined : "app://local/tengwar.ttf")
-    );
-    expect(css.match(/@font-face/g)).toHaveLength(1);
-    expect(css).not.toContain("other.ttf");
-    expect(css).toContain(".langscape-font-second");
-  });
-
-  it("escapes dangerous CSS strings", () => {
+  it("escapes family and source strings", () => {
     expect(escapeCssString('Foo"Bar\\Baz\nQux')).toBe('Foo\\"Bar\\\\Baz Qux');
-    const css = buildFontCss([record({ family: 'Bad"Font' })], () => "x.ttf");
-    expect(css).toContain('font-family: "Bad\\"Font"');
+    expect(fontFamilyAttribute(record({ family: 'Bad"Font' }))).toBe('--langscape-font-family: "Bad\\"Font"');
   });
 
   it("maps extensions and builds stable, safe ids", () => {

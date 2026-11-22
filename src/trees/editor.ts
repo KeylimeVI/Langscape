@@ -17,7 +17,7 @@ import {
   type SyntaxTreeNode,
 } from "./model";
 import { cancelTreeDrag } from "./drag";
-import { renderSyntaxTree } from "./render";
+import { renderSyntaxTree, type TreeAlignmentPreference } from "./render";
 
 /** Force tree widgets to re-render after asynchronous font loading. */
 export const refreshSyntaxTrees = StateEffect.define<null>();
@@ -27,6 +27,7 @@ class SyntaxTreeWidget extends WidgetType {
     private readonly tree: SyntaxTreeNode,
     private readonly manager: FontManager,
     private readonly app: App | undefined,
+    private readonly alignment: TreeAlignmentPreference | undefined,
     private readonly from: number,
     // Keep the raw line in `eq` so an in-place graphical edit (which mutates
     // this.tree before the doc change arrives) still forces a fresh widget.
@@ -47,6 +48,7 @@ class SyntaxTreeWidget extends WidgetType {
 
   toDOM(view: EditorView): HTMLElement {
     const el = renderSyntaxTree(this.tree, this.manager, view.dom.ownerDocument, {
+      alignment: this.alignment,
       onChange: (tree) => {
         try {
           const line = view.state.doc.lineAt(this.from);
@@ -100,13 +102,13 @@ class SyntaxTreeWidget extends WidgetType {
   }
 }
 
-export function createSyntaxTreeExtension(manager: FontManager, app?: App) {
+export function createSyntaxTreeExtension(manager: FontManager, app?: App, alignment?: TreeAlignmentPreference) {
   return ViewPlugin.fromClass(
     class {
       decorations: DecorationSet;
 
       constructor(view: EditorView) {
-        this.decorations = build(view, manager, app);
+        this.decorations = build(view, manager, app, alignment);
       }
 
       update(update: ViewUpdate): void {
@@ -114,7 +116,7 @@ export function createSyntaxTreeExtension(manager: FontManager, app?: App) {
           transaction.effects.some((effect) => effect.is(refreshSyntaxTrees))
         );
         if (update.docChanged || update.viewportChanged || update.selectionSet || refresh) {
-          this.decorations = build(update.view, manager, app);
+          this.decorations = build(update.view, manager, app, alignment);
         }
       }
     },
@@ -124,7 +126,7 @@ export function createSyntaxTreeExtension(manager: FontManager, app?: App) {
   );
 }
 
-function build(view: EditorView, manager: FontManager, app?: App): DecorationSet {
+function build(view: EditorView, manager: FontManager, app?: App, alignment?: TreeAlignmentPreference): DecorationSet {
   const decorations: Array<{ from: number; to: number; decoration: Decoration }> = [];
   const { state } = view;
 
@@ -143,6 +145,7 @@ function build(view: EditorView, manager: FontManager, app?: App): DecorationSet
               tree,
               manager,
               app,
+              alignment,
               line.from,
               line.text,
               manager.version

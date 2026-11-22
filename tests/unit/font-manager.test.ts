@@ -45,15 +45,28 @@ function file(path: string): TFile {
   return f;
 }
 
+class TestFontFace {
+  constructor(readonly family: string, readonly source: string) {}
+}
+
+function fontSet(doc: Document) {
+  const faces = new Set<TestFontFace>();
+  Object.defineProperty(doc.defaultView, "FontFace", { configurable: true, value: TestFontFace });
+  Object.defineProperty(doc, "fonts", { configurable: true, value: faces });
+  return faces;
+}
+
 describe("FontManager", () => {
   beforeEach(() => {
-    document.head.innerHTML = "";
+    document.head.replaceChildren();
   });
 
-  it("discovers TTF files in any vault folder and injects CSS", async () => {
+  it("discovers TTF files and registers FontFaces without stylesheets", async () => {
     const vault = new Vault();
     vault.files.push(file("Fonts/NotoSansGothic-Regular.ttf"));
     const manager = new FontManager({ vault } as any, () => settings());
+    const faces = fontSet(document);
+    manager.attachDocument(document);
     const fonts = await manager.refresh();
     expect(fonts).toHaveLength(1);
     expect(fonts[0]).toMatchObject({
@@ -62,8 +75,19 @@ describe("FontManager", () => {
       source: "vault",
       path: "Fonts/NotoSansGothic-Regular.ttf",
     });
-    expect(document.getElementById("langscape-font-faces")?.textContent).toContain('@font-face');
-    expect(document.getElementById("langscape-font-faces")?.textContent).toContain("Noto Sans Gothic");
+    expect([...faces]).toEqual([expect.objectContaining({ family: "Noto Sans Gothic" })]);
+    expect(document.head.querySelector("style")).toBeNull();
+    const frame = document.body.appendChild(document.createElement("iframe"));
+    const popout = frame.contentDocument!;
+    const popupFaces = fontSet(popout);
+    manager.attachDocument(popout);
+    manager.attachDocument(popout);
+    expect(popupFaces.size).toBe(1);
+    manager.detachDocument(popout);
+    expect(popupFaces.size).toBe(0);
+    frame.remove();
+    manager.unload();
+    expect(faces.size).toBe(0);
     expect(manager.find("noto sans gothic")?.path).toBe("Fonts/NotoSansGothic-Regular.ttf");
     expect(manager.find("missing")).toBeUndefined();
   });
@@ -87,7 +111,7 @@ describe("FontManager", () => {
     expect(manager.find("other")).toBeUndefined();
   });
 
-  it("adds web fonts by URL and builds their @font-face", async () => {
+  it("registers existing configured web fonts by URL", async () => {
     const vault = new Vault();
     const manager = new FontManager({ vault } as any, () =>
       settings({
@@ -102,6 +126,8 @@ describe("FontManager", () => {
         ],
       })
     );
+    const faces = fontSet(document);
+    manager.attachDocument(document);
     const fonts = await manager.refresh();
     expect(fonts[0]).toMatchObject({
       family: "Webfont",
@@ -110,9 +136,7 @@ describe("FontManager", () => {
       customId: "web",
       nickname: "webby",
     });
-    expect(document.getElementById("langscape-font-faces")?.textContent).toContain(
-      "https://example.com/font.woff2"
-    );
+    expect([...faces][0].source).toBe('url("https://example.com/font.woff2") format("woff2")');
   });
 
   it("applies custom path metadata and keeps the settings entry id", async () => {

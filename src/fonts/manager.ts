@@ -1,7 +1,7 @@
-import type { App, TFile } from "obsidian";
+import { TFile, type App } from "obsidian";
 import { parseFontNames, humanizeFontFilename, sanitizeFamilyName } from "./font-name";
 import {
-  buildFontCss,
+  fontFaceSource,
   classNameForId,
   fontFormatFromPath,
   isFontFile,
@@ -31,7 +31,6 @@ interface CacheEntry {
   error?: string;
 }
 
-const FONT_STYLE_ID = "langscape-font-faces";
 const DEFAULT_SAMPLE = "The quick brown fox — 1234567890";
 
 export class FontManager {
@@ -39,7 +38,8 @@ export class FontManager {
   private cache = new Map<string, CacheEntry>();
   private refreshToken = 0;
   private revision = 0;
-  private styleEl: HTMLStyleElement | null = null;
+  private readonly facesByDocument = new Map<Document, Map<string, FontFace>>();
+  private disposed = false;
   private lastWarnings: string[] = [];
 
   constructor(
@@ -89,6 +89,7 @@ export class FontManager {
   }
 
   async refresh(): Promise<FontRecord[]> {
+    if (this.disposed) return this.list();
     const token = ++this.refreshToken;
     const settings = this.getSettings();
     const records: FontRecord[] = [];
@@ -134,17 +135,18 @@ export class FontManager {
       if (!config.enabled) continue;
       if (config.path) {
         const file = this.app.vault.getAbstractFileByPath(config.path);
-        if (!file || !("extension" in file)) {
+        if (!(file instanceof TFile)) {
           warnings.push(`Custom font file not found: ${config.path}`);
           continue;
         }
-        if (seenPaths.has((file as TFile).path)) continue;
-        seenPaths.add((file as TFile).path);
+        if (seenPaths.has(file.path)) continue;
+        seenPaths.add(file.path);
         const record = await this.recordForVaultFile(
-          file as TFile,
+          file,
           settings,
           warnings,
-          config.name
+          config.name,
+          config.id
         );
         if (record) addRecord(record);
         continue;
@@ -171,34 +173,57 @@ export class FontManager {
     this.records = records;
     this.lastWarnings = warnings;
     this.revision++;
-    this.injectStyles();
+    for (const doc of this.facesByDocument.keys()) this.syncFonts(doc);
     return this.list();
   }
 
-  injectStyles(): void {
-    if (typeof document === "undefined") return;
-    if (!this.styleEl || !this.styleEl.isConnected) {
-      this.styleEl = document.getElementById(FONT_STYLE_ID) as HTMLStyleElement | null;
-      if (!this.styleEl) {
-        this.styleEl = document.createElement("style");
-        this.styleEl.id = FONT_STYLE_ID;
-        document.head.appendChild(this.styleEl);
+  /** FontFaceSets belong to each document, including Obsidian popouts. */
+  attachDocument(doc: Document): void {
+    if (this.disposed || !doc.defaultView?.FontFace || !doc.fonts || this.facesByDocument.has(doc)) return;
+    this.facesByDocument.set(doc, new Map());
+    this.syncFonts(doc);
+  }
+
+  detachDocument(doc: Document): void {
+    const faces = this.facesByDocument.get(doc);
+    if (!faces) return;
+    for (const face of faces.values()) doc.fonts.delete(face);
+    this.facesByDocument.delete(doc);
+  }
+
+  private syncFonts(doc: Document): void {
+    const faces = this.facesByDocument.get(doc);
+    const win = doc.defaultView;
+    if (!faces || !win) return;
+    const wanted = new Set<string>();
+    for (const record of this.records) {
+      try {
+        const url = record.source === "url" ? record.url
+          : record.path ? this.app.vault.adapter.getResourcePath(record.path) : undefined;
+        if (!url) continue;
+        const family = record.family;
+        const source = fontFaceSource(url, record.format);
+        const key = JSON.stringify([family, source]);
+        wanted.add(key);
+        if (faces.has(key)) continue;
+        const face = new win.FontFace(family, source, { display: "swap" });
+        doc.fonts.add(face);
+        faces.set(key, face);
+      } catch {
+        // An unavailable source should not prevent the other fonts from loading.
       }
     }
-    this.styleEl.textContent = buildFontCss(this.records, (record) => {
-      if (record.source === "url") return record.url;
-      if (!record.path) return undefined;
-      try {
-        return this.app.vault.adapter.getResourcePath(record.path);
-      } catch {
-        return undefined;
-      }
-    });
+    for (const [key, face] of faces) {
+      if (wanted.has(key)) continue;
+      doc.fonts.delete(face);
+      faces.delete(key);
+    }
   }
 
   unload(): void {
-    this.styleEl?.remove();
-    this.styleEl = null;
+    this.disposed = true;
+    this.refreshToken++;
+    for (const doc of this.facesByDocument.keys()) this.detachDocument(doc);
   }
 
   private async recordForVaultFile(
