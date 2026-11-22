@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.1
+
+- Register vault fonts without injecting stylesheets, including in popout windows.
+- Render Lexurgy documentation without assigning remote HTML to the DOM.
+- Preserve tab placement on unload and save tree alignment and workbench width per vault.
+- Use Obsidian settings headings and stylesheet rules for tree editing.
+- Attest the three plugin release assets. The beta installer still uses the repository ZIP.
+
 ## 1.0.0 — first stable release
 
 - Custom writing-system fonts discovered anywhere in the vault, with inline
