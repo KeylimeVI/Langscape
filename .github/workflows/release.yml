@@ -2,7 +2,7 @@ name: Release
 
 on:
   push:
-    tags: ["v*"]
+    tags: ["[0-9]*.[0-9]*.[0-9]*"]
 
 permissions:
   contents: write
@@ -19,7 +19,9 @@ jobs:
       - run: npm ci
       - name: Verify tag matches the manifest
         run: |
-          test "v$(node -p "require('./manifest.json').version")" = "$GITHUB_REF_NAME"
+          version=$(node -p "require('./manifest.json').version")
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          test "$version" = "$GITHUB_REF_NAME"
       - run: npm run verify
       - run: npm run package:release
       - uses: softprops/action-gh-release@v2
