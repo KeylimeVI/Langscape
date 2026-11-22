@@ -252,9 +252,9 @@ Click **Docs** in the test bench to open the [official Lexurgy manual](https://w
 
 Right-click a folder or blank space in the file explorer and choose **New recipe**. The `.recipe` opens as a card with three sections:
 
-1. **Input:** choose a folder and a text property, such as `word`. Only Markdown notes directly in that folder with a nonblank text value for that property are processed. Subfolders and other files are ignored.
+1. **Input:** choose a folder and either a text property, such as `word`, or **Note title (filename)**. Property mode processes notes with a nonblank text value for that property. Title mode uses each note’s filename without `.md`, even if it has no frontmatter. Both modes ignore subfolders and non-Markdown files.
 2. **Sound changes:** add one or more `.lsc` files. They run from top to bottom. Open **Advanced** on a file to disable individual rules for this recipe without editing the `.lsc` file.
-3. **Output:** choose a different folder and press **Run recipe**. Each copy keeps the original filename, all other properties, and the Markdown body. Only the selected property gets the evolved value.
+3. **Output:** choose a different folder and press **Run recipe**. Property mode changes only the selected YAML value. Title mode changes only the copy’s filename. An invalid filename or two notes evolving to the same filename aborts the run before writing any copies.
 
 Each run replaces same-name Markdown notes in the output folder, including any edits made to those copies. Notes with other filenames are left alone. The folder picker excludes nested vaults and linked folders. If an enabled rule calls a disabled deferred rule, Lexurgy reports the missing dependency before any copies are written. Existing `.canvas` files are not modified, but Langscape no longer runs sound changes from them.
 

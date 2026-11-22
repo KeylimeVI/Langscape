@@ -76,6 +76,51 @@ it("round-trips readable JSON, root and unset, and rejects malformed input", () 
     .toThrow(/change 1/);
 });
 
+const titleRecipe: Recipe = { ...recipe, target: "title", property: "" };
+
+it("keeps filename targeting distinct from a YAML property named title", () => {
+  expect(readRecipe(serializeRecipe(titleRecipe))).toEqual(titleRecipe);
+  const fieldRecipe = { ...recipe, property: "title" };
+  expect(readRecipe(serializeRecipe(fieldRecipe))).toEqual(fieldRecipe);
+  expect(() => readRecipe(serializeRecipe(titleRecipe).replace('"target": "title"', '"target": "unknown"'))).toThrow(/target/);
+});
+
+it("evolves basenames, including notes without frontmatter, without changing any contents", async () => {
+  const richNote = "---\ntitle: Keep me\n---\n# Also keep me\n";
+  const plainNote = "# Just a body\r\n";
+  const { app, values } = vault({
+    "In/alpha.v1.md": richNote, "In/beta.MD": plainNote, "In/Sub/gamma.md": "ignored", "first.lsc": firstLsc,
+    "Out/älpha.v1.md": "previous output",
+  });
+  const apply = vi.fn(async () => ({ words: ["älpha.v1", "béta"] }));
+  const result = await runRecipe({ app, recipe: titleRecipe, apply });
+  expect(apply).toHaveBeenCalledWith(firstLsc, ["alpha.v1", "beta"]);
+  expect(result.paths).toEqual(["Out/älpha.v1.md", "Out/béta.md"]);
+  expect(values.get("Out/älpha.v1.md")).toBe(richNote);
+  expect(values.get("Out/béta.md")).toBe(plainNote);
+  expect(values.get("In/alpha.v1.md")).toBe(richNote);
+});
+
+it.each(["", "   ", "../outside", "with\\slash", ".hidden", "question?", "win:drive", "a\nb", "CON", "LPT1.txt", "é".repeat(127)])(
+  "rejects an invalid title %j before replacing even a valid output",
+  async (title) => {
+    const { app, api, values } = vault({ "In/a.md": "A", "In/b.md": "B", "Out/valid.md": "keep", "first.lsc": firstLsc });
+    await expect(runRecipe({ app, recipe: titleRecipe, apply: async () => ({ words: ["valid", title] }) }))
+      .rejects.toThrow(/In\/b\.md.*Invalid note title/);
+    expect(api.modify).not.toHaveBeenCalled();
+    expect(api.create).not.toHaveBeenCalled();
+    expect(values.get("Out/valid.md")).toBe("keep");
+  },
+);
+
+it("rejects evolved titles that collide before creating outputs", async () => {
+  const { app, api } = vault({ "In/a.md": "A", "In/b.md": "B", "first.lsc": firstLsc });
+  await expect(runRecipe({ app, recipe: titleRecipe, apply: async () => ({ words: ["É", "e\u0301"] }) }))
+    .rejects.toThrow(/More than one input note/);
+  expect(api.createFolder).not.toHaveBeenCalled();
+  expect(api.create).not.toHaveBeenCalled();
+});
+
 it("finds exact, nonblank text property keys on direct notes only", async () => {
   const { app } = vault({
     "In/a.md": "---\n word: alpha\n 'spaced key': beta\n blank: '  '\n num: 42\n bool: true\n list: [a]\n---\nBody\n",

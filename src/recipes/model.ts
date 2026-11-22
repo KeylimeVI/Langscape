@@ -1,6 +1,7 @@
 export interface Recipe {
   inputFolder: string | null;
   property: string;
+  target?: "title";
   changes: { path: string; disabledRules: string[] }[];
   outputFolder: string | null;
 }
@@ -22,7 +23,8 @@ export function readRecipe(source: string): Recipe {
     throw new Error(`Invalid recipe JSON: ${error instanceof Error ? error.message : String(error)}`);
   }
   if (!isObject(data)) throw new Error("Invalid recipe: expected a JSON object.");
-  const { inputFolder, property, changes, outputFolder } = data;
+  const { inputFolder, property, target, changes, outputFolder } = data;
+  if (target !== undefined && target !== "title") throw new Error('Invalid recipe: target must be "title" if set.');
   if (!isFolder(inputFolder) || !isFolder(outputFolder)) {
     throw new Error('Invalid recipe: inputFolder and outputFolder must be paths ("/" for the vault root) or null.');
   }
@@ -31,6 +33,7 @@ export function readRecipe(source: string): Recipe {
   return {
     inputFolder,
     property,
+    ...(target ? { target } : {}),
     changes: changes.map((change, index) => {
       if (!isObject(change) || !nonblank(change.path) || !Array.isArray(change.disabledRules) ||
           !change.disabledRules.every(nonblank)) {
@@ -43,10 +46,11 @@ export function readRecipe(source: string): Recipe {
 }
 
 export function serializeRecipe(recipe: Recipe): string {
-  const { inputFolder, property, changes, outputFolder } = recipe;
+  const { inputFolder, property, target, changes, outputFolder } = recipe;
   return JSON.stringify({
     inputFolder,
     property,
+    ...(target ? { target } : {}),
     changes: changes.map(({ path, disabledRules }) => ({ path, disabledRules })),
     outputFolder,
   }, null, 2) + "\n";

@@ -137,7 +137,7 @@ export class RecipeView extends TextFileView {
       cls: "langscape-recipe-fields",
       attr: { "aria-label": "Recipe settings" },
     });
-    const input = section(fields, "1", "Input", "Choose the folder of notes and the text property to transform.");
+    const input = section(fields, "1", "Input", "Choose a folder, then transform note titles or a text property.");
     const inputs = input.createDiv({ cls: "langscape-recipe-inputs" });
     this.renderFolder(inputs, "inputFolder", "Input folder", "input-folder");
     const propertyField = inputs.createDiv({ cls: "langscape-recipe-field" });
@@ -152,9 +152,13 @@ export class RecipeView extends TextFileView {
     });
     property.addEventListener("change", () => {
       if (!this.recipe || this.card?.property !== property || this.runningFor === this.revision) return;
-      if (this.propertyQuery?.state !== "ready" || !this.propertyQuery.names.includes(property.value)) return;
-      this.commit({ ...this.recipe, property: property.value });
-      propertyHint.textContent = "";
+      if (property.selectedOptions[0]?.dataset.target === "title") {
+        this.commit({ ...this.recipe, property: "", target: "title" });
+      } else {
+        if (this.propertyQuery?.state !== "ready" || !this.propertyQuery.names.includes(property.value)) return;
+        this.commit({ ...this.recipe, property: property.value, target: undefined });
+      }
+      this.renderProperty();
     });
 
     const changesSection = section(fields, "2", "Sound changes", "Files run from top to bottom. Each step can skip individual rules.");
@@ -290,19 +294,21 @@ export class RecipeView extends TextFileView {
     const { property, propertyHint } = card;
     const query = this.propertyQuery;
     const names = query?.state === "ready" ? query.names : [];
-    const placeholder = query?.state === "loading" ? "Finding properties…"
-      : names.length ? "Choose property…" : "No properties available";
     property.empty();
-    const empty = property.createEl("option", { text: placeholder, value: "" });
+    const empty = property.createEl("option", { text: "Choose title or property…", value: "" });
     empty.disabled = true;
+    const title = property.createEl("option", { text: "Note title (filename)", value: "", attr: { "data-target": "title" } });
     for (const name of names) property.createEl("option", { text: name, value: name });
     const current = this.recipe.property;
-    property.value = names.includes(current) ? current : "";
-    property.disabled = !names.length;
-    propertyHint.textContent = query?.state === "error" ? query.message
+    if (this.recipe.target === "title") title.selected = true;
+    else if (names.includes(current)) property.value = current;
+    else empty.selected = true;
+    propertyHint.textContent = this.recipe.target === "title" ? "Changes the filename of each copy, not its contents."
+      : query?.state === "loading" ? "Finding text properties…"
+      : query?.state === "error" ? query.message
       : query?.state === "ready" && current && !names.includes(current) ? `“${current}” is not available in this folder.`
       : query?.state === "ready" && !names.length ? "No nonblank text properties found in this folder’s notes."
-      : !query ? "Choose an input folder first." : "";
+      : !query ? "Choose an input folder to see its text properties." : "";
     this.renderResult();
   }
 
@@ -461,9 +467,11 @@ export class RecipeView extends TextFileView {
   private runBlocker(): string {
     const recipe = this.recipe;
     if (!recipe || recipe.inputFolder === null) return "Choose an input folder.";
-    if (this.propertyQuery?.state === "loading") return "Finding properties…";
-    if (this.propertyQuery?.state === "error") return "Couldn’t read properties from the input folder.";
-    if (this.propertyQuery?.state !== "ready" || !this.propertyQuery.names.includes(recipe.property)) return "Choose a text property.";
+    if (recipe.target !== "title") {
+      if (this.propertyQuery?.state === "loading") return "Finding properties…";
+      if (this.propertyQuery?.state === "error") return "Couldn’t read properties from the input folder.";
+      if (this.propertyQuery?.state !== "ready" || !this.propertyQuery.names.includes(recipe.property)) return "Choose the note title or a text property.";
+    }
     if (recipe.changes.length === 0) return "Add a sound-change file.";
     if (recipe.outputFolder === null) return "Choose an output folder.";
     if (recipe.inputFolder === recipe.outputFolder) return "Choose an output folder different from the input folder.";

@@ -691,6 +691,15 @@ async function testRecipe(cdp) {
   await pick(".langscape-recipe-output-folder", output);
 
   const outputPath = `${output}/${filename}`;
+  const run = async (expected = "success") => {
+    await click(".langscape-recipe-run");
+    const result = await waitFor(() => cdp.eval(`(() => {
+      const el = ${control('.langscape-recipe-result[data-state="success"], .langscape-recipe-result[data-state="error"]')};
+      return el && { state: el.dataset.state, text: el.textContent };
+    })()`), 10_000, "the recipe run result");
+    assert.equal(result.state, expected, result.text);
+    return result.text;
+  };
   try {
     // Keep the real recipe and vault operations; normally substitute only the JVM call.
     if (!testLexurgyPath) await cdp.eval(`(() => {
@@ -720,14 +729,6 @@ async function testRecipe(cdp) {
         return { words: [stage.output], intermediates: {}, traceLines: [] };
       };
     })()`);
-    const run = async () => {
-      await click(".langscape-recipe-run");
-      const result = await waitFor(() => cdp.eval(`(() => {
-        const el = ${control('.langscape-recipe-result[data-state="success"], .langscape-recipe-result[data-state="error"]')};
-        return el && { state: el.dataset.state, text: el.textContent };
-      })()`), 10_000, "the recipe run result");
-      await ensure(result.state === "success", `The recipe failed: ${result.text}`);
-    };
     await run();
     assert.match(await fs.readFile(path.join(vault, outputPath), "utf8"), /^proto-form: ebe$/m);
     await cdp.eval(`app.vault.modify(app.vault.getAbstractFileByPath(${JSON.stringify(second)}),
@@ -778,6 +779,29 @@ async function testRecipe(cdp) {
     const image = await cdp.send("Page.captureScreenshot", { format: "png", clip });
     await fs.writeFile(path.join(tools, "recipe-card.png"), Buffer.from(image.data, "base64"));
     log("recipe screenshot: .tools/headless-obsidian/recipe-card.png");
+  }
+
+  if (testLexurgyPath) {
+    const setFirstChange = (source) => cdp.eval(`app.vault.modify(
+      app.vault.getAbstractFileByPath(${JSON.stringify(first)}), ${JSON.stringify(source)})`);
+    const titlePath = `${output}/Unmetched.md`;
+    await cdp.eval(`(() => {
+      const select = ${propertySelect};
+      select.querySelector('option[data-target="title"]').selected = true;
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    })()`);
+    await run();
+    assert.equal(JSON.parse(await fs.readFile(path.join(vault, recipePath), "utf8")).target, "title");
+    const expected = sources[`${input}/Unmatched.md`];
+    assert.equal(await fs.readFile(path.join(vault, titlePath), "utf8"), expected);
+    assert.equal(await fs.readFile(path.join(vault, input, "Unmatched.md"), "utf8"), expected);
+
+    await setFirstChange("Keep-First:\n  a => \\?\n\nDiscard-First:\n  e => i\n");
+    const before = (await fs.readdir(path.join(vault, output))).sort();
+    assert.match(await run("error"), /Unmatched\.md.*Invalid note title/);
+    assert.deepEqual((await fs.readdir(path.join(vault, output))).sort(), before);
+    assert.equal(await fs.readFile(path.join(vault, titlePath), "utf8"), expected);
+    log("recipe title mode evolves filenames and rejects illegal Lexurgy output before writing");
   }
 }
 

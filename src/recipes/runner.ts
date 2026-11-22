@@ -15,11 +15,11 @@ interface Frontmatter {
 type TextNode = Scalar<string> | Alias;
 
 interface RecipeNote {
-  output: string;
+  path: string;
+  filename: string;
   source: string;
-  frontmatter: Frontmatter;
-  node: TextNode;
   word: string;
+  field?: { frontmatter: Frontmatter; node: TextNode };
 }
 
 export async function listRecipeProperties(app: App, folder: string): Promise<string[]> {
@@ -46,7 +46,8 @@ export async function runRecipe({ app, recipe, apply }: {
   if (recipe.inputFolder === null || recipe.outputFolder === null) {
     throw new Error("Choose an input and an output folder before running the recipe.");
   }
-  if (!recipe.property.trim()) throw new Error("Choose a text frontmatter property before running the recipe.");
+  const evolveTitle = recipe.target === "title";
+  if (!evolveTitle && !recipe.property.trim()) throw new Error("Choose the note title or a text frontmatter property before running the recipe.");
   if (!recipe.changes.length) throw new Error("Add a sound-change file before running the recipe.");
   const inputFolder = vaultPath(recipe.inputFolder);
   const outputFolder = vaultPath(recipe.outputFolder);
@@ -58,16 +59,20 @@ export async function runRecipe({ app, recipe, apply }: {
   const notes: RecipeNote[] = [];
   for (const file of files) {
     const source = await app.vault.read(file);
+    const filename = file.path.slice(file.path.lastIndexOf("/") + 1);
+    if (evolveTitle) {
+      notes.push({ path: file.path, filename, source, word: file.basename });
+      continue;
+    }
     const frontmatter = parseFrontmatter(source);
     if (!frontmatter) continue;
     const selected = findText(frontmatter, recipe.property);
     if (!selected) continue;
-    const name = file.path.slice(file.path.lastIndexOf("/") + 1);
-    const output = outputFolder === "/" ? name : `${outputFolder}/${name}`;
-    notes.push({ output, source, frontmatter, ...selected });
+    notes.push({ path: file.path, filename, source, word: selected.word, field: { frontmatter, node: selected.node } });
   }
 
-  await checkDestinations(app, outputFolder, notes.map(({ output }) => output), disk);
+  const outputPath = (filename: string) => outputFolder === "/" ? filename : `${outputFolder}/${filename}`;
+  await checkDestinations(app, outputFolder, evolveTitle ? [] : notes.map(({ filename }) => outputPath(filename)), disk);
   const stages = [];
   for (const change of recipe.changes) {
     try {
@@ -98,9 +103,11 @@ export async function runRecipe({ app, recipe, apply }: {
   // Finish all Lexurgy work and prepare every copy before writing any outputs.
   const outputs = notes.map((note, index) => {
     try {
-      return { path: note.output, content: replaceText(note, recipe.property, words[index]) };
+      const word = words[index];
+      const filename = evolveTitle ? markdownFilename(word) : note.filename;
+      return { path: outputPath(filename), content: replaceText(note, recipe.property, word) };
     } catch (error) {
-      throw fileError(note.output, error);
+      throw fileError(evolveTitle ? note.path : outputPath(note.filename), error);
     }
   });
   const paths = outputs.map(({ path }) => path);
@@ -158,7 +165,7 @@ async function checkDestinations(app: App, folder: string, paths: string[], disk
   }
   const claimed = new Set<string>();
   for (const path of paths) {
-    const key = path.toLowerCase();
+    const key = path.normalize("NFC").toLowerCase();
     if (claimed.has(key)) throw new Error(`More than one input note would create "${path}".`);
     claimed.add(key);
     await writableNoteAt(app, path, disk);
@@ -176,6 +183,19 @@ async function writableNoteAt(app: App, path: string, disk?: RecipeDisk): Promis
     throw new Error(`Output path "${path}" already exists but is not a writable Markdown note.`);
   }
   return null;
+}
+
+function markdownFilename(title: string): string {
+  // Reject illegal names instead of silently changing the Lexurgy result.
+  const filename = title + ".md";
+  const reason = !title.trim() ? "it is empty or whitespace only"
+    : title.startsWith(".") ? "it begins with a dot, which Obsidian treats as hidden"
+    : /[<>:"/\\|?*\u0000-\u001f\u007f]|\p{Surrogate}/u.test(title) ? "it contains a character not allowed in filenames"
+    : /^(?:CON|PRN|AUX|NUL|COM[1-9¹²³]|LPT[1-9¹²³]) *(?:\.|$)/i.test(title) ? "it is a reserved device name"
+    : Buffer.byteLength(filename) > 255 ? "the filename exceeds 255 bytes"
+    : "";
+  if (reason) throw new Error(`Invalid note title ${JSON.stringify(title)}: ${reason}.`);
+  return filename;
 }
 
 function parseFrontmatter(source: string): Frontmatter | undefined {
@@ -207,8 +227,9 @@ function findText(frontmatter: Frontmatter, property: string): { node: TextNode;
   return textValue(frontmatter, pair?.value);
 }
 
-function replaceText({ source, frontmatter, node, word }: RecipeNote, property: string, output: string): string {
-  if (word === output) return source;
+function replaceText({ source, field, word }: RecipeNote, property: string, output: string): string {
+  if (!field || word === output) return source;
+  const { frontmatter, node } = field;
   const { document, text, start, end } = frontmatter;
   if (!node.range) throw new Error("Could not locate the selected YAML value.");
   if (isScalar(node) && node.anchor) {
