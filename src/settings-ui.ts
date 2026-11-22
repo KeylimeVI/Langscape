@@ -17,7 +17,6 @@ export class LangscapeSettingTab extends PluginSettingTab {
     const { containerEl } = this;
     containerEl.empty();
     containerEl.addClass("langscape-settings");
-    new Setting(containerEl).setName("Langscape").setHeading();
 
     this.renderFonts();
     this.renderLexurgy();

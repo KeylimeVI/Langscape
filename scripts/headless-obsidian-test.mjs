@@ -822,11 +822,13 @@ async function testManualLexurgySetup(cdp) {
       if (!settings?.querySelector('.langscape-lexurgy-setting-status')) return null;
       const links = [...settings.querySelectorAll('a')];
       return {
+        headings: [...settings.querySelectorAll('.setting-item-heading .setting-item-name')].map(el => el.textContent.trim()),
         link: links.find(el => el.textContent === 'Open official Lexurgy releases')?.href,
         hasInstaller: [...settings.querySelectorAll('button')].some(el => el.textContent === 'Install Lexurgy'),
         hasPath: !!settings.querySelector('input[placeholder="/home/you/lexurgy"]'),
       };
     })()`), 10_000, "Lexurgy setup settings");
+    assert.deepEqual(controls.headings, ["Fonts", "Lexurgy"]);
     assert.equal(controls.link, "https://github.com/def-gthill/lexurgy/releases");
     assert.equal(controls.hasInstaller, false);
     assert.equal(controls.hasPath, true);
