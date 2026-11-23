@@ -7,3 +7,4 @@ demo-vault/.obsidian/plugins/langscape/
 demo-vault/.obsidian/workspace*.json
 demo-vault/.obsidian/cache/
 coverage/
+/site-dist/

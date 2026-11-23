@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Langscape brings custom writing systems, Lexurgy, and editable syntax trees into your Obsidian vault.">
+  <meta name="theme-color" content="#0d100f">
+  <title>Langscape — A conlanger's toolkit for Obsidian</title>
+  <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+  <link rel="preload" href="assets/inter.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header home-header">
+    <nav class="shell nav" aria-label="Main navigation">
+      <a class="brand" href="./" aria-current="page"><span class="brand-mark" aria-hidden="true"></span>Langscape</a>
+      <div class="nav-actions">
+        <a class="nav-docs" href="docs/">Docs</a>
+        <div class="social-links" aria-label="Project links">
+          <a class="icon-link" href="https://github.com/KeylimeVI/Langscape" aria-label="Langscape on GitHub" title="GitHub">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.48 2 2 6.48 2 12a10 10 0 0 0 6.84 9.49c.5.09.68-.22.68-.48v-1.86c-2.78.6-3.37-1.18-3.37-1.18-.45-1.16-1.11-1.47-1.11-1.47-.9-.62.07-.61.07-.61 1 .07 1.52 1.03 1.52 1.03.89 1.52 2.34 1.08 2.91.83.09-.65.35-1.08.63-1.33-2.22-.25-4.56-1.11-4.56-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02A9.58 9.58 0 0 1 12 6.83c.85 0 1.71.11 2.51.34 1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.69-4.57 4.94.36.31.68.92.68 1.85v2.75c0 .27.18.58.69.48A10 10 0 0 0 22 12c0-5.52-4.48-10-10-10Z"/></svg>
+          </a>
+          <a class="icon-link" href="https://ko-fi.com/keylimevi" aria-label="Support Keylime on Ko-fi" title="Ko-fi">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5.5h14v8A4.5 4.5 0 0 1 12.5 18h-5A4.5 4.5 0 0 1 3 13.5v-8ZM17 7h2.2a2.8 2.8 0 1 1 0 5.6H17M2 21h17"/><path d="m10 14-2.4-2.4A1.5 1.5 0 0 1 10 9.9a1.5 1.5 0 0 1 2.4 1.7Z"/></svg>
+          </a>
+          <a class="icon-link" href="https://obsidian.md/plugins?id=langscape" aria-label="Langscape in Obsidian Community plugins" title="Obsidian listing">
+            <img src="assets/obsidian.svg" width="17" height="21" alt="">
+          </a>
+        </div>
+      </div>
+    </nav>
+  </header>
+
+  <main id="main">
+    <section class="hero shell" aria-labelledby="hero-title">
+      <div class="hero-copy">
+        <p class="eyebrow"><span class="status-dot"></span> An Obsidian plugin for conlangers</p>
+        <h1 id="hero-title">The ultimate <span>conlanger’s toolkit.</span></h1>
+        <p class="lede">Write in your own scripts. Edit syntax trees. Run sound changes across your lexicon. All without leaving your vault.</p>
+        <div class="hero-actions">
+          <a class="button button-primary" href="docs/">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v15M3 4h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5v14h-5a4 4 0 0 0-4 2 4 4 0 0 0-4-2H3Z"/></svg>
+            Read the docs <span aria-hidden="true">↗</span>
+          </a>
+          <a class="button button-secondary" href="#trailer">Watch the trailer</a>
+        </div>
+        <p class="platform">Desktop Obsidian 1.15+ <span aria-hidden="true">·</span> Open source <span aria-hidden="true">·</span> Local-first</p>
+      </div>
+      <figure class="hero-preview">
+        <div class="hero-window">
+          <div class="window-bar" aria-hidden="true"><span></span><span></span><span></span><b>Obsidian</b></div>
+          <div class="app-shot"><img src="media/syntax-trees.webp" width="1200" height="675" alt="A branching Quenya syntax tree with four Tengwar leaves in Obsidian." fetchpriority="high"></div>
+        </div>
+        <figcaption><span>QUENYA • SYNTAX TREE</span><em>May a star shine upon you.</em></figcaption>
+      </figure>
+    </section>
+
+    <section class="shell section" id="features" aria-labelledby="features-title">
+      <div class="section-heading">
+        <p class="eyebrow">Features</p>
+        <h2 id="features-title">Build your language in your vault.</h2>
+        <p>Fonts, sound changes, and grammar tools that work with your existing Markdown notes.</p>
+      </div>
+      <div class="feature-grid">
+        <article class="feature-card">
+          <div class="feature-copy"><div class="feature-title"><span class="feature-icon" aria-hidden="true">Aa</span><h3>Writing systems</h3></div><p>Drop a font into your vault and use it for a line, a table cell, or an entire note.</p><a href="docs/#fonts">Using custom fonts <span aria-hidden="true">→</span></a></div>
+          <div class="app-shot"><img src="media/writing-systems.webp" width="1200" height="675" loading="lazy" alt="A Quenya greeting written in Tengwar directly in a Markdown note."></div>
+        </article>
+        <article class="feature-card">
+          <div class="feature-copy"><div class="feature-title"><span class="feature-icon" aria-hidden="true">↦</span><h3>Lexurgy workbench</h3></div><p>Edit sound changes with syntax highlighting, test words, and trace the rules that applied. Lexurgy runs locally.</p><a href="docs/#lexurgy">Set up Lexurgy <span aria-hidden="true">→</span></a></div>
+          <div class="app-shot"><img src="media/lexurgy.webp" width="1200" height="675" loading="lazy" alt="The Lexurgy workbench showing changed words and a rule-by-rule trace."></div>
+        </article>
+        <article class="feature-card">
+          <div class="feature-copy"><div class="feature-title"><span class="feature-icon" aria-hidden="true">⇉</span><h3>Sound change automations</h3></div><p>Apply sound changes to note titles or properties in batches. Recipes write copies to another folder and leave your originals alone.</p><a href="docs/#automations">Run a recipe <span aria-hidden="true">→</span></a></div>
+          <div class="app-shot"><img src="media/automations.webp" width="1200" height="675" loading="lazy" alt="An Obsidian recipe alongside the generated laurë note in the Later forms folder."></div>
+        </article>
+        <article class="feature-card">
+          <div class="feature-copy"><div class="feature-title"><span class="feature-icon" aria-hidden="true">⌥</span><h3>Syntax trees</h3></div><p>Create and edit trees directly in your notes, including custom fonts on their labels.</p><a href="docs/#syntax-trees">Make a syntax tree <span aria-hidden="true">→</span></a></div>
+          <div class="app-shot"><img src="media/syntax-trees.webp" width="1200" height="675" loading="lazy" alt="An editable Quenya syntax tree with four Tengwar leaves."></div>
+        </article>
+      </div>
+      <aside class="feature-aside"><span class="feature-icon" aria-hidden="true">▦</span><p><strong>Also included: merged table cells.</strong> Merge and split cells without converting your Markdown tables to HTML.</p><a href="docs/#tables">Table guide <span aria-hidden="true">→</span></a></aside>
+    </section>
+
+    <section class="shell section trailer-section" id="trailer" aria-labelledby="trailer-title">
+      <div class="section-heading"><p class="eyebrow">Trailer</p><h2 id="trailer-title">See Langscape in action.</h2><p>A 41-second tour filmed in Obsidian. Silent by design.</p></div>
+      <div class="video-frame">
+        <video controls playsinline preload="none" width="1920" height="1080" poster="media/trailer-poster.jpg" aria-label="Langscape trailer, a silent demo of writing systems, Lexurgy, automations, and syntax trees">
+          <source src="media/langscape-trailer.mp4" type="video/mp4">
+          Your browser can’t play this video. <a href="media/langscape-trailer.mp4">Open the MP4</a>.
+        </video>
+      </div>
+      <p class="video-links"><a href="media/langscape-trailer.mp4">Open MP4</a><span aria-hidden="true">·</span><a href="https://github.com/KeylimeVI/Langscape/blob/main/trailer/README.md#visual-credits">Visual credits</a></p>
+    </section>
+
+    <section class="shell section" aria-labelledby="get-started">
+      <div class="get-started">
+        <div><p class="eyebrow">Get started</p><h2 id="get-started">Try it in your vault.</h2><p>Install Langscape from Community plugins, then open the quick start for your first font, rule, or tree.</p></div>
+        <div class="hero-actions"><a class="button button-primary" href="https://obsidian.md/plugins?id=langscape">Install in Obsidian <span aria-hidden="true">↗</span></a><a class="button button-secondary" href="docs/#quick-start">Quick start</a></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="shell footer-inner"><p><strong>Langscape</strong> <span>·</span> A desktop Obsidian plugin by Keylime</p><div><a href="docs/">Docs</a><a href="https://github.com/KeylimeVI/Langscape/blob/main/LICENSE">MIT license</a><a href="https://ko-fi.com/keylimevi">Ko-fi</a></div></div>
+  </footer>
+</body>
+</html>

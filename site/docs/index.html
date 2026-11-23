@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Set up Langscape for Obsidian and learn custom fonts, Lexurgy sound changes, recipes, syntax trees, and merged Markdown tables.">
+  <meta name="theme-color" content="#0d100f">
+  <title>Documentation · Langscape</title>
+  <link rel="icon" href="../assets/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/site.css">
+</head>
+<body>
+  <a class="skip-link" href="#docs-title">Skip to guide</a>
+  <header class="site-header">
+    <nav class="shell nav" aria-label="Main navigation">
+      <a class="brand" href="../"><span class="brand-mark" aria-hidden="true"></span>Langscape</a>
+      <div class="nav-actions">
+        <a class="nav-docs" href="./" aria-current="page">Docs</a>
+      </div>
+    </nav>
+  </header>
+
+  <main class="shell docs-layout">
+    <nav class="docs-sidebar" aria-labelledby="toc-title">
+      <p id="toc-title"><strong>On this page</strong></p>
+      <ul>
+        <li><a href="#quick-start">Quick start</a></li>
+        <li><a href="#fonts">Custom fonts</a></li>
+        <li><a href="#lexurgy">Lexurgy workbench</a></li>
+        <li><a href="#automations">Recipe automations</a></li>
+        <li><a href="#syntax-trees">Syntax trees</a></li>
+        <li><a href="#tables">Merged table cells</a></li>
+        <li><a href="#troubleshooting">Troubleshooting</a></li>
+        <li><a href="#privacy">Privacy</a></li>
+      </ul>
+    </nav>
+
+    <article class="docs-content" aria-labelledby="docs-title">
+      <header>
+        <p class="eyebrow">User guide</p>
+        <h1 id="docs-title" tabindex="-1">Langscape documentation</h1>
+        <p class="lede">Use your own writing systems, test sound changes, and build syntax trees in your Obsidian vault.</p>
+      </header>
+
+      <section id="quick-start">
+        <h2>Quick start</h2>
+        <ol class="steps">
+          <li>On <strong>desktop Obsidian 1.15.0 or later</strong>, open <strong>Settings → Community plugins</strong>. Search for <strong>Langscape</strong> or use the <a href="https://obsidian.md/plugins?id=langscape">official Obsidian listing</a>, then install and enable it.</li>
+          <li>Open the command palette and run <strong>Langscape: Create starter vault</strong>. This adds a <code>Langscape Demo</code> folder to your current vault without replacing existing demo files.</li>
+          <li>Open <code>Notes/Font demo.md</code> or <code>Notes/Tree demo.md</code> inside the demo folder. Fonts, trees, and tables work without Java or Lexurgy. To run the demo recipe, <a href="#lexurgy">set up Lexurgy</a> first.</li>
+        </ol>
+      </section>
+
+      <section id="fonts">
+        <h2>Custom fonts</h2>
+        <p>Drop a <code>.ttf</code>, <code>.otf</code>, <code>.woff</code>, or <code>.woff2</code> file anywhere in your vault. In <strong>Settings → Langscape → Fonts</strong>, use <strong>Rescan</strong> if needed, then use the pencil button to set a nickname such as <code>gothic</code>. Nicknames allow letters, numbers, underscores, and hyphens.</p>
+        <div class="doc-grid">
+          <div>
+            <h3>Part of a note</h3>
+            <p>Use <code>{nickname: text}</code> in Live Preview or Reading view. You can also run <strong>Langscape: Insert custom-font text</strong> to open a font picker.</p>
+            <pre><code>{gothic: 𐌰𐍆𐌰}</code></pre>
+          </div>
+          <div>
+            <h3>Whole note</h3>
+            <p>Set <code>langscape-font</code> in the YAML frontmatter at the top of the note. Use the font name or its nickname.</p>
+            <pre><code>---
+langscape-font: gothic
+---</code></pre>
+          </div>
+        </div>
+        <p class="callout"><strong>Fonts don’t transliterate.</strong> Supply the characters your font is designed to display. Applying a font won’t turn Latin text into Gothic, Tengwar, or another script.</p>
+      </section>
+
+      <section id="lexurgy">
+        <h2>Lexurgy workbench</h2>
+        <h3>Set up the local engine</h3>
+        <ol class="steps">
+          <li>Install <a href="https://adoptium.net/temurin/releases/">Java 17 or later</a> and extract the <a href="https://github.com/def-gthill/lexurgy/releases">official Lexurgy CLI distribution</a>. Langscape does not bundle or install Lexurgy.</li>
+          <li>Open <strong>Settings → Langscape → Lexurgy</strong>. If Lexurgy isn’t detected, expand <strong>Advanced</strong> and set <strong>Lexurgy path</strong> to the extracted install folder, launcher script, or <code>.jar</code>. If Java isn’t detected, set <strong>Java path</strong> to the Java executable. With that field blank, Langscape checks <code>JAVA_HOME</code> or <code>PATH</code>.</li>
+          <li>Click <strong>Test</strong> in the Lexurgy settings to verify that the engine runs.</li>
+        </ol>
+        <h3>Run and trace a change</h3>
+        <p>Run <strong>Langscape: Create sound-change file</strong> or open an existing <code>.lsc</code> file. The editor highlights Lexurgy syntax and validates rules as you edit when Lexurgy is available. To try a minimal example, replace the template with:</p>
+        <pre><code>First:
+  a =&gt; b</code></pre>
+        <ul>
+          <li>In the <strong>Test bench</strong>, enter one word per line, then click <strong>Run</strong>. For the example above, <code>a</code> becomes <code>b</code>. Use <strong>From rule</strong> and <strong>Stop before</strong> to test just part of a file.</li>
+          <li>Check <strong>Trace applied rules</strong> before running. Select result rows or their checkboxes to see which rules changed each word.</li>
+          <li>Click <strong>Docs</strong> to open the Lexurgy manual in a separate Obsidian tab, or read the <a href="https://www.lexurgy.com/sc/docs">manual on the web</a>.</li>
+        </ul>
+      </section>
+
+      <section id="automations">
+        <h2>Recipe automations</h2>
+        <p>Run <strong>Langscape: Create recipe</strong> to make a <code>.recipe</code> file. Recipes use Lexurgy to batch-transform notes into copies.</p>
+        <ol class="steps">
+          <li>Choose an <strong>Input folder</strong>. Only Markdown notes directly in that folder are read, not subfolders.</li>
+          <li>In the <strong>Property</strong> menu, choose <strong>Note title (filename)</strong> or a text property. Title mode changes the copy’s filename, not its contents or headings. Property mode keeps the filename and changes only the selected frontmatter value, such as <code>word: apa</code>. Notes without a nonblank text value for that property are skipped.</li>
+          <li>Use <strong>Add sound changes…</strong> to select <code>.lsc</code> files. Files run from top to bottom; you can disable individual rules in each file.</li>
+          <li>Choose a different <strong>Output folder</strong> and click <strong>Run recipe</strong>.</li>
+        </ol>
+        <p class="callout"><strong>Use a dedicated output folder.</strong> Source notes are untouched, but a run replaces any Markdown note at a generated output path, including manual edits. Other output files are left alone. If two inputs would generate the same filename, the run stops rather than picking one.</p>
+      </section>
+
+      <section id="syntax-trees">
+        <h2>Syntax trees</h2>
+        <p>Put the markup on its own Markdown line, with blank lines around it and no code fence. Start with one root label, put its children in parentheses, and separate siblings with commas:</p>
+        <pre><code>{tree: S(NP(I), VP(V(see), NP(stars)))}</code></pre>
+        <p>Use an inline font span as a label, for example <code>{tree: NP({gothic: 𐌰𐍆𐌰})}</code>. An empty label is written <code>""</code>.</p>
+        <ul>
+          <li>Run <strong>Langscape: Insert syntax tree</strong> to start with <code>{tree: ""}</code>, or edit the markup directly in Source mode.</li>
+          <li>In Live Preview, click a label to rename it. Hover over a node for controls to add a child or delete a node. Drag a non-root node to move or reorder its subtree.</li>
+          <li>Use the alignment button above the tree to switch between centered and left-aligned trees.</li>
+        </ul>
+      </section>
+
+      <section id="tables">
+        <h2>Merged table cells</h2>
+        <p>In a Markdown table, select at least two cells and run <strong>Langscape: Merge table cells</strong>. To unmerge, put the cursor in the merged cell and run <strong>Langscape: Split merged table cell</strong>. The merge joins nonempty text into the top-left cell; splitting leaves that text there and clears the other cells.</p>
+        <h3>Write markers by hand</h3>
+        <ul>
+          <li><code>&lt;</code> joins the cell to the one immediately to its left.</li>
+          <li><code>^</code> joins the cell to the one immediately above.</li>
+          <li><code>&gt;</code> joins the cell to the one immediately to its right. Live Preview may rewrite this in the usual left/up form.</li>
+        </ul>
+        <p>Markers occupy the whole cell. Each merge must form a rectangle with one content cell and cannot cross the header/body boundary. This example makes one cell that spans both body rows and columns:</p>
+        <pre><code>| Form | Gloss |
+| --- | --- |
+| apa · father | &lt; |
+| ^ | &lt; |</code></pre>
+        <p>The note stays Markdown. Apps that don’t support these merges may show the markers as text.</p>
+      </section>
+
+      <section id="troubleshooting">
+        <h2>Troubleshooting</h2>
+        <ul>
+          <li><strong>Font missing or characters look wrong:</strong> Rescan vault fonts, confirm the nickname, and check that the font covers the characters you typed. Test in Live Preview or Reading view.</li>
+          <li><strong>Lexurgy won’t run:</strong> Check both paths under <strong>Advanced</strong>, then use <strong>Test</strong>. If the connection works but a rule fails, check the validation message in the <code>.lsc</code> editor.</li>
+          <li><strong>Recipe skipped a note:</strong> Check that it is directly in the input folder and, in property mode, that the chosen YAML property contains nonblank text rather than a number or list.</li>
+          <li><strong>Tree or table markup is still visible:</strong> Switch from Source mode to Live Preview or Reading view. Check that the tree is on its own line or that the merge markers form a valid rectangle.</li>
+        </ul>
+      </section>
+
+      <section id="privacy">
+        <h2>Privacy</h2>
+        <p>Langscape has no telemetry. It checks local paths, including paths outside your vault, for Java and Lexurgy. Rules and test words go to a local Lexurgy process, not an online service.</p>
+        <p>The in-app <strong>Docs</strong> tab fetches public manual pages from <code>lexurgy.com</code> and examples from <code>raw.githubusercontent.com</code>. Vault fonts load locally; older fonts configured with a URL still load from that host.</p>
+      </section>
+    </article>
+  </main>
+
+  <footer class="site-footer">
+    <div class="shell footer-inner"><p><a href="../">Langscape</a> <span>·</span> A conlanger’s toolkit for Obsidian</p></div>
+  </footer>
+</body>
+</html>
