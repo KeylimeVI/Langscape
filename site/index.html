@@ -4,11 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Langscape brings custom writing systems, Lexurgy, and editable syntax trees into your Obsidian vault.">
-  <meta name="theme-color" content="#0a0a0b">
+  <meta name="theme-color" content="#080808">
   <title>Langscape — A conlanger's toolkit for Obsidian</title>
   <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
   <link rel="preload" href="assets/inter.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="assets/swiper.min.css">
   <link rel="stylesheet" href="assets/site.css">
+  <script src="assets/swiper.min.js" defer></script>
   <script src="assets/deck.js" defer></script>
 </head>
 <body class="home">
@@ -42,29 +44,29 @@
         Read the docs <span aria-hidden="true">→</span>
       </a>
     </div>
-    <section class="feature-deck" aria-labelledby="features-title">
-      <h2 class="sr-only" id="features-title">Feature previews</h2>
-      <div class="deck-stack">
-        <div class="deck-stage">
-          <article class="deck-card" id="preview-writing-systems" aria-labelledby="label-writing-systems">
+    <section class="feature-deck" aria-label="Langscape features" aria-roledescription="carousel">
+      <div class="swiper">
+        <div class="swiper-wrapper">
+          <article class="swiper-slide deck-card" id="preview-writing-systems" aria-labelledby="label-writing-systems" data-swiper-autoplay="5800">
             <video class="deck-video" muted playsinline preload="none" width="1080" height="514" poster="media/writing-systems.webp" data-src="media/writing-systems.mp4" aria-label="Writing systems preview in Obsidian"></video>
             <div class="card-copy"><h3 id="label-writing-systems">Writing systems</h3><p>Use your own fonts directly in your notes.</p></div>
           </article>
-          <article class="deck-card" id="preview-lexurgy" aria-labelledby="label-lexurgy" hidden>
+          <article class="swiper-slide deck-card" id="preview-lexurgy" aria-labelledby="label-lexurgy" data-swiper-autoplay="5400" inert aria-hidden="true">
             <video class="deck-video" muted playsinline preload="none" width="1080" height="514" poster="media/lexurgy.webp" data-src="media/lexurgy.mp4" aria-label="Lexurgy workbench preview in Obsidian"></video>
             <div class="card-copy"><h3 id="label-lexurgy">Lexurgy workbench</h3><p>Edit, run, and trace sound changes locally.</p></div>
           </article>
-          <article class="deck-card" id="preview-automations" aria-labelledby="label-automations" hidden>
+          <article class="swiper-slide deck-card" id="preview-automations" aria-labelledby="label-automations" data-swiper-autoplay="12000" inert aria-hidden="true">
             <video class="deck-video" muted playsinline preload="none" width="1080" height="514" poster="media/automations.webp" data-src="media/automations.mp4" aria-label="Sound change automations preview in Obsidian"></video>
             <div class="card-copy"><h3 id="label-automations">Sound change automations</h3><p>Batch-apply sound changes to your notes.</p></div>
           </article>
-          <article class="deck-card" id="preview-syntax-trees" aria-labelledby="label-syntax-trees" hidden>
+          <article class="swiper-slide deck-card" id="preview-syntax-trees" aria-labelledby="label-syntax-trees" data-swiper-autoplay="3900" inert aria-hidden="true">
             <video class="deck-video" muted playsinline preload="none" width="1080" height="514" poster="media/syntax-trees.webp" data-src="media/syntax-trees.mp4" aria-label="Syntax trees preview in Obsidian"></video>
             <div class="card-copy"><h3 id="label-syntax-trees">Syntax trees</h3><p>Build and edit trees directly in your notes.</p></div>
           </article>
         </div>
       </div>
       <div class="deck-controls" hidden>
+        <div class="deck-progress" aria-hidden="true"><span></span></div>
         <div class="deck-tabs" role="group" aria-label="Choose a feature">
           <button type="button" class="deck-tab" aria-label="Show Writing systems" aria-controls="preview-writing-systems" aria-pressed="true"><span></span></button>
           <button type="button" class="deck-tab" aria-label="Show Lexurgy workbench" aria-controls="preview-lexurgy" aria-pressed="false"><span></span></button>

@@ -1,99 +1,82 @@
 (() => {
   const deck = document.querySelector(".feature-deck");
-  if (!deck) return;
+  if (!deck || typeof window.Swiper !== "function") return;
 
-  const cards = [...deck.querySelectorAll(".deck-card")];
   const tabs = [...deck.querySelectorAll(".deck-tab")];
-  const videos = cards.map((card) => card.querySelector("video"));
   const toggle = deck.querySelector(".deck-play");
+  const progress = deck.querySelector(".deck-progress span");
   const status = deck.querySelector('[role="status"]');
-  const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)");
-  let active = 0;
-  let timer;
-  let playback = 0;
-  let running = !reduceMotion.matches;
-  let hovering = false;
+  const motion = matchMedia("(prefers-reduced-motion: reduce)");
 
-  const canPlay = () => running && !hovering && !document.hidden;
-  const advance = () => show((active + 1) % cards.length);
-
-  function schedule(delay) {
-    clearTimeout(timer);
-    timer = setTimeout(advance, delay);
-  }
-
-  function sync() {
-    clearTimeout(timer);
-    const serial = ++playback;
-    const label = running ? "Pause autoplay" : "Start autoplay";
-    toggle.setAttribute("aria-label", label);
-    toggle.title = label;
-    toggle.dataset.playing = String(running);
-    const video = videos[active];
-    if (!canPlay()) {
-      video.pause();
-      return;
-    }
-    if (video.ended) {
-      schedule(420);
-      return;
-    }
-    if (!video.hasAttribute("src")) video.src = video.dataset.src;
-    // Keep the deck usable in browsers that block autoplay or fail to load a clip.
-    schedule(14000);
-    video.play().then(() => {
-      if (serial !== playback) return;
-      const remaining = video.duration - video.currentTime;
-      if (Number.isFinite(remaining)) schedule(Math.max(0, remaining) * 1000 + 1600);
-    }).catch(() => {
-      if (serial === playback) schedule(4800);
+  function syncVideo(swiper) {
+    swiper.slides.forEach((slide, i) => {
+      const active = i === swiper.activeIndex;
+      const video = slide.querySelector("video");
+      slide.inert = !active;
+      if (active) slide.removeAttribute("aria-hidden");
+      else slide.setAttribute("aria-hidden", "true");
+      tabs[i].setAttribute("aria-pressed", String(active));
+      if (!active || !swiper.autoplay.running || swiper.autoplay.paused || document.hidden) {
+        video.pause();
+      } else {
+        if (!video.hasAttribute("src")) video.src = video.dataset.src;
+        void video.play().catch(() => {}); // The poster remains if playback is blocked.
+      }
     });
   }
 
-  function show(index, announce = false) {
-    if (index !== active) {
-      videos[active].pause();
-      active = index;
-      if (videos[active].readyState) videos[active].currentTime = 0;
-    }
-    cards.forEach((card, i) => { card.hidden = i !== active; });
-    tabs.forEach((tab, i) => tab.setAttribute("aria-pressed", String(i === active)));
-    if (announce) status.textContent = cards[active].querySelector("h3").textContent;
-    sync();
+  function updateToggle(swiper) {
+    const playing = swiper.autoplay.running;
+    const label = playing ? "Pause autoplay" : "Start autoplay";
+    toggle.setAttribute("aria-label", label);
+    toggle.title = label;
+    toggle.dataset.playing = String(playing);
+    syncVideo(swiper);
   }
 
-  tabs.forEach((tab, i) => tab.addEventListener("click", () => show(i, true)));
-  videos.forEach((video, i) => video.addEventListener("ended", () => {
-    if (i === active && canPlay()) schedule(420);
-  }));
-  toggle.addEventListener("click", () => {
-    running = !running;
-    if (running) hovering = false;
-    sync();
-  });
-  deck.addEventListener("pointerenter", (event) => {
-    if (event.pointerType !== "mouse") return;
-    hovering = true;
-    sync();
-  });
-  deck.addEventListener("pointerleave", () => {
-    hovering = false;
-    sync();
-  });
-  deck.addEventListener("focusin", (event) => {
-    if (event.target.matches(":focus-visible")) {
-      running = false;
-      sync();
-    }
-  });
-  document.addEventListener("visibilitychange", sync);
-  reduceMotion.addEventListener("change", () => {
-    if (reduceMotion.matches) {
-      running = false;
-      sync();
-    }
+  const swiper = new window.Swiper(deck.querySelector(".swiper"), {
+    effect: "cards",
+    cardsEffect: { perSlideOffset: 9, perSlideRotate: 3, slideShadows: false },
+    rewind: true,
+    speed: motion.matches ? 0 : 440,
+    autoplay: { enabled: !motion.matches, disableOnInteraction: false, pauseOnMouseEnter: false },
+    on: {
+      slideChange(instance) {
+        const video = instance.slides[instance.activeIndex].querySelector("video");
+        if (video.readyState) video.currentTime = 0;
+        progress.style.transform = "scaleX(0)";
+        syncVideo(instance);
+      },
+      autoplayTimeLeft(_instance, _time, remaining) {
+        if (Number.isFinite(remaining)) progress.style.transform = `scaleX(${Math.min(1, Math.max(0, 1 - remaining))})`;
+      },
+      autoplayStart: updateToggle,
+      autoplayStop: updateToggle,
+      autoplayPause: syncVideo,
+      autoplayResume: syncVideo,
+    },
   });
 
+  tabs.forEach((tab, i) => tab.addEventListener("click", () => {
+    swiper.slideTo(i);
+    status.textContent = swiper.slides[i].querySelector("h3").textContent;
+  }));
+  toggle.addEventListener("click", () => {
+    if (swiper.autoplay.running) swiper.autoplay.stop();
+    else {
+      const video = swiper.slides[swiper.activeIndex].querySelector("video");
+      if (video.readyState) video.currentTime = 0;
+      swiper.autoplay.start();
+    }
+  });
+  deck.addEventListener("focusin", (event) => {
+    if (event.target.matches(".deck-tab:focus-visible") && swiper.autoplay.running) swiper.autoplay.stop();
+  });
+  document.addEventListener("visibilitychange", () => syncVideo(swiper));
+  motion.addEventListener("change", () => {
+    swiper.params.speed = motion.matches ? 0 : 440;
+    if (motion.matches) swiper.autoplay.stop();
+  });
   deck.querySelector(".deck-controls").hidden = false;
-  show(0);
+  updateToggle(swiper);
 })();
