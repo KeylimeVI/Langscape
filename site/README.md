@@ -17,6 +17,6 @@ Open the URL printed by the preview server. Do not serve or upload the entire re
 
 1. Push the site source and the [Pages workflow](<../.github/workflows/pages.yml>) to `main` in the Langscape repository.
 2. In **Settings → Pages → Build and deployment**, set **Source** to **GitHub Actions**.
-3. Go to **Actions → Deploy website → Run workflow**, select `main`, and run it. The job shows the deployed URL (normally `https://keylimevi.github.io/Langscape/`). Run the workflow again after pushing site updates.
+3. Go to **Actions → Deploy website → Run workflow**, select `main`, and run it. The job shows the deployed URL (normally `https://keylimevi.github.io/Langscape/`). After pushing updates, start a new run with **Run workflow**. **Re-run jobs** uses the old commit.
 
 All site links use relative paths so the same build works under `/Langscape/` and at the root of a custom domain. **Docs** lives at `/docs/` relative to the site root.
