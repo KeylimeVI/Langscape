@@ -1,6 +1,6 @@
 # Langscape website
 
-The site is plain HTML and CSS. Its build copies the approved silent trailer, screenshots, and fonts from the repository. The output is self-contained; the site doesn't use scripts, analytics, or a hosted font service.
+The site is plain HTML and CSS with a small local script for the feature deck. Its build copies four muted clips cut from the trailer, their static posters, and the bundled fonts. The output is self-contained and doesn't use analytics or a hosted font service.
 
 ## Preview
 
