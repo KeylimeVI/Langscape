@@ -1,7 +1,7 @@
 import { promises as fs } from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   detectJava,
   detectLexurgyEnvironment,
@@ -29,6 +29,7 @@ let server: LexurgyServer | undefined;
 afterEach(async () => {
   await server?.stop();
   server = undefined;
+  vi.unstubAllEnvs();
 });
 
 describe.skipIf(!hasArchive || !java)("real Lexurgy integration", () => {
@@ -63,6 +64,31 @@ describe.skipIf(!hasArchive || !java)("real Lexurgy integration", () => {
     });
     expect(result.words).toEqual(["aba", "egi", "pada"]);
     expect(result.traceLines.join("\n")).toContain("Tracing pata");
+  });
+
+  it.each(["direct", "wrapper"])("preserves IPA and diacritics with an ASCII Java console (%s)", async (mode) => {
+    // Older Java honors the sun.* properties, while newer Java honors the standard names.
+    vi.stubEnv("LC_ALL", "C");
+    vi.stubEnv("JAVA_TOOL_OPTIONS", "-Dsun.stdout.encoding=US-ASCII -Dstdout.encoding=US-ASCII");
+    const env = await detectLexurgyEnvironment({ configuredPath: installDir });
+    const launch = env.installation!.launch;
+    server = new LexurgyServer(mode === "direct" ? launch : {
+      // A stand-in for an installed CLI launcher that forwards its environment to Java.
+      command: process.execPath,
+      args: ["-e", `
+        const [command, ...args] = process.argv.slice(1);
+        const child = require("node:child_process").spawn(command, args, { stdio: "inherit" });
+        child.once("exit", (code) => process.exit(code ?? 1));
+      `, "--", launch.command, ...launch.args],
+      cwd: launch.cwd,
+    });
+
+    const changes = await fs.readFile(path.join(root, "tests/fixtures/changes/unicode.lsc"), "utf8");
+    const result = await server.run(changes, ["aqelar", "ñu"], {
+      traceWords: ["aqelar"],
+    });
+    expect(result.words).toEqual(["at͡ʃélar", "ñu"]);
+    expect(result.traceLines.join("\n").normalize("NFC")).toContain("at͡ʃélar");
   });
 
   it("surfaces Lexurgy errors with line numbers", async () => {

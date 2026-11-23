@@ -186,7 +186,7 @@ async function installationFromConfiguredPath(
       label: `Lexurgy jar (${resolved})`,
       launch: {
         command: java.path,
-        args: ["-Dfile.encoding=UTF-8", "-jar", resolved, "server"],
+        args: ["-jar", resolved, "server"],
         label: "Lexurgy jar",
       },
     };
@@ -211,7 +211,6 @@ function classpathLaunch(javaPath: string, libDir: string, cwd: string): LaunchS
   return {
     command: javaPath,
     args: [
-      "-Dfile.encoding=UTF-8",
       "-cp",
       path.join(libDir, "*"),
       "com.meamoria.lexurgy.cli.MainKt",

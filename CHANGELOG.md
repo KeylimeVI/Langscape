@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.3
+
+- Fix IPA and accented characters turning into question marks in Lexurgy results and rule traces on systems with a non-UTF-8 console.
+
 ## 1.0.2
 
 - Remove the duplicate plugin-name heading in settings.

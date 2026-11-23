@@ -52,6 +52,16 @@ export class LexurgyError extends Error {
   }
 }
 
+// Lexurgy's JSON pipes must be UTF-8 even when the OS uses a legacy code page.
+// Java 17 uses the sun.* names; newer Java uses stdout/stderr.encoding.
+const JAVA_UTF8_OPTIONS = [
+  "-Dfile.encoding=UTF-8",
+  "-Dsun.stdout.encoding=UTF-8",
+  "-Dsun.stderr.encoding=UTF-8",
+  "-Dstdout.encoding=UTF-8",
+  "-Dstderr.encoding=UTF-8",
+].join(" ");
+
 interface Pending {
   request: ServerRequest;
   resolve: (response: ServerResponse) => void;
@@ -107,9 +117,14 @@ export class LexurgyServer {
 
       let child: ChildProcessWithoutNullStreams;
       try {
+        // Apply this to the child only, including installs launched through a CLI wrapper.
+        const env = {
+          ...process.env,
+          JAVA_TOOL_OPTIONS: [process.env.JAVA_TOOL_OPTIONS, JAVA_UTF8_OPTIONS].filter(Boolean).join(" "),
+        };
         child = spawn(this.launch.command, this.launch.args, {
           cwd: this.launch.cwd,
-          env: { ...process.env, LC_ALL: process.env.LC_ALL ?? "C.UTF-8" },
+          env,
           windowsHide: true,
           stdio: ["pipe", "pipe", "pipe"],
         });

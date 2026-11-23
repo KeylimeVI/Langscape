@@ -569,6 +569,42 @@ async function testLexurgyUi(cdp, liveDocs) {
   }
   log("native explorer menu creates and opens Lexurgy files in the root and clicked folder");
 
+  if (testLexurgyPath) {
+    const changes = await fs.readFile(path.join(root, "tests/fixtures/changes/unicode.lsc"), "utf8");
+    await cdp.eval(`(async () => {
+      const file = await app.vault.create("Unicode test.lsc", ${JSON.stringify(changes)});
+      await app.workspace.getMostRecentLeaf().openFile(file);
+      return true;
+    })()`);
+    const view = `app.workspace.getMostRecentLeaf().view.contentEl`;
+    await waitFor(() => cdp.eval(`Boolean(app.workspace.getActiveFile()?.path === 'Unicode test.lsc' &&
+      ${view}.querySelector('.langscape-lexurgy-status.is-ready') &&
+      ${view}.querySelector('.langscape-validation-status.is-valid'))`), 20_000, "the Unicode rules to compile");
+    await cdp.eval(`(() => {
+      const panel = ${view}.querySelector('.langscape-test-panel');
+      const input = panel.querySelector('.langscape-words-input');
+      input.value = "aqelar\\nñu";
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      const trace = panel.querySelector('.langscape-checkbox-label input');
+      if (!trace.checked) trace.click();
+      panel.querySelector('.langscape-run-button').click();
+      return true;
+    })()`);
+    const result = await waitFor(() => cdp.eval(`(() => {
+      const panel = ${view}.querySelector('.langscape-test-panel');
+      const error = panel.querySelector('.langscape-error:not(.is-hidden)');
+      if (error) return { error: error.textContent };
+      const table = panel.querySelector('.langscape-results-table');
+      if (!table) return false;
+      const trace = panel.querySelector('.langscape-trace-table');
+      return { words: [...table.tBodies[0].rows].map(row => row.cells[2].textContent), trace: trace?.textContent.normalize('NFC') ?? '' };
+    })()`), 20_000, "the Unicode test bench results");
+    assert.equal(result.error, undefined);
+    assert.deepEqual(result.words, ["at͡ʃélar", "ñu"]);
+    assert.ok(result.trace.includes("at͡ʃélar"), result.trace);
+    log("Lexurgy test bench preserves IPA, combining marks, and accented vowels in results and traces");
+  }
+
   await cdp.eval(`app.workspace.getMostRecentLeaf().view.contentEl.querySelector('.langscape-docs-button').click()`);
   await waitFor(() => cdp.eval(`(() => {
     const docs = app.workspace.getLeavesOfType('langscape-lexurgy-docs');
