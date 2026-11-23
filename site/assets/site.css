@@ -21,7 +21,7 @@
 *, *::before, *::after { box-sizing: border-box; }
 [hidden] { display: none !important; }
 body { margin: 0; background: var(--bg); color: var(--fg); font-size: 16px; line-height: 1.65; }
-.home { display: grid; grid-template-rows: auto 1fr; min-height: 100svh; overflow-x: clip; background: radial-gradient(ellipse at 73% 48%, #101010 0%, transparent 67%), var(--bg); }
+.home { --nav-height: 68px; overflow-x: clip; background: radial-gradient(ellipse at 73% 48%, #101010 0%, transparent 67%), var(--bg); }
 img, svg, video { display: block; max-width: 100%; }
 a { color: var(--accent); text-underline-offset: .19em; }
 a:hover { color: #a6ffd9; }
@@ -36,7 +36,7 @@ code, pre { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
 .skip-link { position: fixed; top: .5rem; left: 1rem; z-index: 10; padding: .6rem 1rem; background: var(--bg); transform: translateY(-180%); }
 .skip-link:focus { transform: translateY(0); }
 .site-header { border-bottom: 1px solid var(--line); background: var(--bg); }
-.nav { display: flex; align-items: center; justify-content: space-between; min-height: 68px; gap: 1rem; }
+.nav { display: flex; align-items: center; justify-content: space-between; min-height: var(--nav-height, 68px); gap: 1rem; }
 .brand { display: inline-flex; align-items: center; gap: .65rem; color: var(--fg); font-weight: 680; font-size: 1.16rem; letter-spacing: -.04em; text-decoration: none; white-space: nowrap; }
 .brand-mark { flex: none; position: relative; width: 35px; height: 35px; border-radius: 10px; background: var(--accent); }
 .brand-mark::before { content: ""; position: absolute; inset: 6px 8px; background: var(--ink); mask: url("lam-alif.svg") center / contain no-repeat; }
@@ -45,7 +45,7 @@ code, pre { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
 .icon-link { display: grid; place-items: center; width: 40px; height: 40px; color: var(--fg); text-decoration: none; border-radius: .6rem; }
 .icon-link:is(:hover, :focus-visible) { color: var(--accent); background: var(--panel-2); }
 .icon-link svg { width: 21px; height: 21px; }
-.hero { display: grid; grid-template-columns: minmax(0, .94fr) minmax(0, 1.06fr); align-items: center; align-content: center; gap: clamp(2rem, 5vw, 4.5rem); padding-block: clamp(1.5rem, 5vh, 4rem); }
+.hero { min-height: calc(100svh - var(--nav-height) - 1px); display: grid; grid-template-columns: minmax(0, .94fr) minmax(0, 1.06fr); align-items: center; align-content: center; gap: clamp(2rem, 5vw, 4.5rem); padding-block: clamp(1.5rem, 5vh, 4rem); }
 .eyebrow { color: var(--accent); font-size: .73rem; font-weight: 680; letter-spacing: .14em; text-transform: uppercase; display: flex; align-items: center; gap: .55rem; }
 .status-dot { width: .42rem; height: .42rem; border-radius: 50%; background: var(--accent); }
 h1 { font-size: clamp(2.6rem, 5.1vw, 4.6rem); font-weight: 620; letter-spacing: -.059em; line-height: 1.04; }
@@ -78,6 +78,9 @@ h1 { font-size: clamp(2.6rem, 5.1vw, 4.6rem); font-weight: 620; letter-spacing: 
 .deck-tab:hover, .deck-play:hover { background: var(--panel-2); color: var(--fg); }
 .deck-play { justify-self: end; border: 1px solid var(--line); }
 .deck-play[data-playing="true"] .play-icon, .deck-play[data-playing="false"] .pause-icon { display: none; }
+.trailer { max-width: 960px; padding-block: clamp(2rem, 6vw, 4.5rem); }
+.trailer h2 { margin-bottom: 1.2rem; font-size: clamp(1.6rem, 4vw, 2.5rem); letter-spacing: -.045em; }
+.trailer video { width: 100%; height: auto; aspect-ratio: 16 / 9; background: var(--panel); border: 1px solid var(--line); border-radius: .9rem; }
 .site-footer { border-top: 1px solid var(--line); background: var(--bg); }
 .footer-inner { display: flex; justify-content: space-between; flex-wrap: wrap; align-items: center; padding-block: 1.25rem; gap: .75rem 1.25rem; color: var(--muted); font-size: .88rem; }
 .footer-inner a { color: var(--muted); }
@@ -124,7 +127,7 @@ h1 { font-size: clamp(2.6rem, 5.1vw, 4.6rem); font-weight: 620; letter-spacing: 
 }
 @media (max-width: 600px) {
   .shell, .hero { width: calc(100% - 36px); }
-  .nav { min-height: 60px; }
+  :root, .home { --nav-height: 60px; }
   .feature-deck { padding-inline: 20px; }
   .docs-layout, .doc-grid { grid-template-columns: 1fr; }
   .docs-sidebar { position: static; }

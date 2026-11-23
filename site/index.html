@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="assets/site.css">
   <script src="assets/swiper.min.js" defer></script>
   <script src="assets/deck.js" defer></script>
+  <script src="assets/trailer.js" defer></script>
 </head>
 <body class="home">
   <a class="skip-link" href="#main">Skip to content</a>
@@ -34,7 +35,8 @@
     </nav>
   </header>
 
-  <main id="main" class="shell hero">
+  <main id="main">
+  <section class="shell hero" aria-label="Introducing Langscape">
     <div class="hero-copy">
       <p class="eyebrow"><span class="status-dot" aria-hidden="true"></span> Desktop Obsidian plugin</p>
       <h1>The ultimate <span>conlanger’s toolkit.</span></h1>
@@ -82,6 +84,16 @@
       </div>
       <p class="sr-only" role="status"></p>
     </section>
+  </section>
+
+  <section class="shell trailer" aria-labelledby="trailer-title">
+    <h2 id="trailer-title">Langscape in action</h2>
+    <video id="trailer-video" controls muted playsinline preload="none" width="1920" height="1080"
+      poster="media/trailer-poster.jpg" aria-labelledby="trailer-title">
+      <source src="media/langscape-trailer.mp4" type="video/mp4">
+      <a href="media/langscape-trailer.mp4">Open the Langscape trailer</a>.
+    </video>
+  </section>
   </main>
 </body>
 </html>

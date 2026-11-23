@@ -1,6 +1,6 @@
 # Langscape website
 
-The site is plain HTML and CSS with a [Swiper](https://swiperjs.com/) feature deck. The official Swiper 14.4.0 bundle is served locally under the [MIT license](<vendor/swiper/LICENSE>). The build packages four muted trailer clips, their posters, and the bundled fonts, and fingerprints CSS and JavaScript so older cached assets cannot style a new page. The output doesn't use analytics or a hosted font service.
+The site is plain HTML and CSS with a [Swiper](https://swiperjs.com/) feature deck. The official Swiper 14.4.0 bundle is served locally under the [MIT license](<vendor/swiper/LICENSE>). The build packages four muted feature clips, the silent trailer, their posters, and the bundled fonts. It fingerprints CSS and JavaScript so older cached assets cannot style a new page. The output doesn't use analytics or a hosted font service.
 
 ## Preview
 
