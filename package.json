@@ -1,6 +1,6 @@
 {
   "name": "langscape",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "A conlanger's workbench for Obsidian: custom writing-system fonts, a Lexurgy sound-change editor, and sound-change recipes.",
   "main": "main.js",
   "scripts": {

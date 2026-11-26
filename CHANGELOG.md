@@ -1,8 +1,10 @@
 # Changelog
 
-## Unreleased
+## 1.0.4
 
 - Enable a mobile reading preview for vault fonts, syntax trees, and merged tables. The Lexurgy workbench and sound-change recipes remain desktop-only.
+- Fix vault font discovery repeatedly listing fonts under symlinked directories or nested `.obsidian` vaults.
+- Rebuild font loading to register vault fonts from binary `ArrayBuffer` data across all windows (fixing Settings font previews in Obsidian 1.15), update open notes live on font or nickname changes, pick valid preview glyphs from each font's `cmap`, surface font decode errors inline, and allow deleting vault fonts from Settings.
 
 ## 1.0.3
 
