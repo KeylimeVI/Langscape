@@ -1,25 +1,52 @@
 // @vitest-environment jsdom
 import { promises as fs } from "node:fs";
+import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { beforeEach, describe, expect, it } from "vitest";
-import { TFile, TFolder } from "obsidian";
+import { FileSystemAdapter, Platform, TFile, TFolder } from "obsidian";
 import { FontManager, type FontManagerSettings } from "../../src/fonts/manager";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const fontBytes = await fs.readFile(path.join(root, "tests/fixtures/fonts/NotoSansGothic-Regular.ttf"));
 
 class Vault {
+  private readonly rootFolder = new (TFolder as any)("/") as TFolder;
+  private readonly entries = new Map<string, TFile | TFolder>([["/", this.rootFolder]]);
   files: TFile[] = [];
-  folders = new Set<string>();
-  adapter = {
+  folders = new Set<string>(["/"]);
+  configDir = ".obsidian";
+  adapter: Record<string, any> = {
     getResourcePath: (p: string) => `app://local/${p}`,
   };
+  add(...items: TFile[]): void {
+    for (const item of items) {
+      const parent = this.ensureFolder(parentPath(item.path));
+      item.parent = parent;
+      parent.children.push(item);
+      this.entries.set(item.path, item);
+      this.files.push(item);
+    }
+  }
+  private ensureFolder(folderPath: string): TFolder {
+    const existing = this.entries.get(folderPath);
+    if (existing instanceof TFolder) return existing;
+    const parent = this.ensureFolder(parentPath(folderPath));
+    const folder = new (TFolder as any)(folderPath) as TFolder;
+    folder.parent = parent;
+    parent.children.push(folder);
+    this.entries.set(folderPath, folder);
+    this.folders.add(folderPath);
+    return folder;
+  }
+  getRoot(): TFolder {
+    return this.rootFolder;
+  }
   getFiles(): TFile[] {
     return this.files;
   }
   getAbstractFileByPath(p: string): TFile | TFolder | null {
-    return this.files.find((file) => file.path === p) ?? (this.folders.has(p) ? new (TFolder as any)(p) : null);
+    return this.entries.get(p) ?? (this.folders.has(p) ? new (TFolder as any)(p) : null);
   }
   async readBinary(): Promise<ArrayBuffer> {
     return fontBytes.buffer.slice(
@@ -27,6 +54,11 @@ class Vault {
       fontBytes.byteOffset + fontBytes.byteLength
     ) as ArrayBuffer;
   }
+}
+
+function parentPath(p: string): string {
+  const slash = p.lastIndexOf("/");
+  return slash > 0 ? p.slice(0, slash) : "/";
 }
 
 function settings(overrides: Partial<FontManagerSettings> = {}): FontManagerSettings {
@@ -63,7 +95,7 @@ describe("FontManager", () => {
 
   it("discovers TTF files and registers FontFaces without stylesheets", async () => {
     const vault = new Vault();
-    vault.files.push(file("Fonts/NotoSansGothic-Regular.ttf"));
+    vault.add(file("Fonts/NotoSansGothic-Regular.ttf"));
     const manager = new FontManager({ vault } as any, () => settings());
     const faces = fontSet(document);
     manager.attachDocument(document);
@@ -94,7 +126,7 @@ describe("FontManager", () => {
 
   it("scans every folder, honours aliases, and exposes nicknames", async () => {
     const vault = new Vault();
-    vault.files.push(file("Fonts/A.ttf"), file("Other/B.ttf"));
+    vault.add(file("Fonts/A.ttf"), file("Other/B.ttf"));
     const manager = new FontManager({ vault } as any, () =>
       settings({
         fontAliases: { "Fonts/A.ttf": "Tengwar" },
@@ -141,7 +173,7 @@ describe("FontManager", () => {
 
   it("applies custom path metadata and keeps the settings entry id", async () => {
     const vault = new Vault();
-    vault.files.push(file("Fonts/A.ttf"));
+    vault.add(file("Fonts/A.ttf"));
     const manager = new FontManager({ vault } as any, () =>
       settings({
         customFonts: [
@@ -167,11 +199,82 @@ describe("FontManager", () => {
 
   it("disambiguates duplicate family names", async () => {
     const vault = new Vault();
-    vault.files.push(file("Fonts/A.ttf"), file("Fonts/B.ttf"));
+    vault.add(file("Fonts/A.ttf"), file("Fonts/B.ttf"));
     const manager = new FontManager({ vault } as any, () =>
       settings({ fontAliases: { "Fonts/A.ttf": "Script", "Fonts/B.ttf": "Script" } })
     );
     const fonts = await manager.refresh();
     expect(fonts.map((font) => font.family)).toEqual(["Script", "Script (2)"]);
+  });
+
+  it.skipIf(process.platform === "win32")(
+    "omits nested vaults, symlinked files, and repeated paths through a root link",
+    async () => {
+      const disk = await fs.mkdtemp(path.join(tmpdir(), "langscape-fonts-"));
+      try {
+        const realFiles = [
+          "Fonts/Tengwar.ttf",
+          "Notes/Obsidian Vault/Legit.ttf",
+          "Backup/Fonts/Tengwar.ttf",
+        ];
+        await Promise.all(
+          realFiles.map(async (rel) => {
+            await fs.mkdir(path.dirname(path.join(disk, rel)), { recursive: true });
+            await fs.writeFile(path.join(disk, rel), fontBytes);
+          })
+        );
+        await fs.mkdir(path.join(disk, "Backup", ".obsidian"), { recursive: true });
+        await fs.symlink(disk, path.join(disk, "Obsidian Vault"), "dir");
+        await fs.symlink(path.join(disk, "Fonts/Tengwar.ttf"), path.join(disk, "Linked.ttf"), "file");
+
+        const vault = new Vault();
+        Object.setPrototypeOf(vault.adapter, FileSystemAdapter.prototype);
+        vault.adapter.getFullPath = (vaultPath: string) => path.join(disk, vaultPath);
+        vault.add(
+          ...realFiles.map((rel) => file(rel)),
+          file("Obsidian Vault/Fonts/Tengwar.ttf"),
+          file("Obsidian Vault/Obsidian Vault/Fonts/Tengwar.ttf"),
+          file("Obsidian Vault/Obsidian Vault/Obsidian Vault/Fonts/Tengwar.ttf"),
+          file("Linked.ttf")
+        );
+
+        const manager = new FontManager({ vault } as any, () => settings());
+        const fonts = await manager.refresh();
+        expect(fonts.map((font) => font.path)).toEqual([
+          "Fonts/Tengwar.ttf",
+          "Notes/Obsidian Vault/Legit.ttf",
+        ]);
+      } finally {
+        await fs.rm(disk, { recursive: true, force: true });
+      }
+    }
+  );
+
+  it("omits nested vaults via adapter.stat when desktop fs access is unavailable", async () => {
+    const previousDesktop = Platform.isDesktopApp;
+    Platform.isDesktopApp = false;
+    try {
+      const vault = new Vault();
+      vault.adapter.stat = async (p: string) =>
+        p === "Obsidian Vault/.obsidian" || p === "Backup/.obsidian"
+          ? { type: "folder", ctime: 0, mtime: 0, size: 0 }
+          : null;
+      vault.add(
+        file("Fonts/Tengwar.ttf"),
+        file("Notes/Obsidian Vault/Legit.ttf"),
+        file("Backup/Fonts/Tengwar.ttf"),
+        file("Obsidian Vault/Fonts/Tengwar.ttf"),
+        file("Obsidian Vault/Obsidian Vault/Fonts/Tengwar.ttf")
+      );
+
+      const manager = new FontManager({ vault } as any, () => settings());
+      const fonts = await manager.refresh();
+      expect(fonts.map((font) => font.path)).toEqual([
+        "Fonts/Tengwar.ttf",
+        "Notes/Obsidian Vault/Legit.ttf",
+      ]);
+    } finally {
+      Platform.isDesktopApp = previousDesktop;
+    }
   });
 });

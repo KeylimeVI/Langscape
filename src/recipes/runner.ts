@@ -24,7 +24,7 @@ interface RecipeNote {
 
 export async function listRecipeProperties(app: App, folder: string): Promise<string[]> {
   const names = new Set<string>();
-  const files = await directMarkdownFiles(app, vaultPath(folder), getRecipeDisk(app.vault));
+  const files = await directMarkdownFiles(app, vaultPath(folder), await getRecipeDisk(app.vault));
   for (const file of files) {
     const frontmatter = parseFrontmatter(await app.vault.read(file));
     if (!frontmatter || !isMap(frontmatter.document.contents)) continue;
@@ -54,7 +54,7 @@ export async function runRecipe({ app, recipe, apply }: {
   if (inputFolder.toLowerCase() === outputFolder.toLowerCase()) {
     throw new Error("The recipe input and output folders must be different.");
   }
-  const disk = getRecipeDisk(app.vault);
+  const disk = await getRecipeDisk(app.vault);
   const files = await directMarkdownFiles(app, inputFolder, disk);
   const notes: RecipeNote[] = [];
   for (const file of files) {

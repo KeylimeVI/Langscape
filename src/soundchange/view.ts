@@ -1,7 +1,7 @@
 import { DEFAULT_SETTINGS } from "../settings";
 import { TextFileView, type WorkspaceLeaf } from "obsidian";
 import type LangscapePlugin from "../main";
-import type { ValidationResult } from "../lexurgy/service";
+import type { LexurgyService, ValidationResult } from "../lexurgy/service";
 import { cleanLexurgyMessage } from "../lexurgy/protocol";
 import { openLexurgyDocs } from "../lexurgy/docs-view";
 import { SoundChangeEditor } from "./editor";
@@ -21,7 +21,8 @@ export class SoundChangeView extends TextFileView {
 
   constructor(
     leaf: WorkspaceLeaf,
-    private readonly plugin: LangscapePlugin
+    private readonly plugin: LangscapePlugin,
+    private readonly lexurgy: LexurgyService
   ) {
     super(leaf);
     this.navigation = true;
@@ -58,7 +59,7 @@ export class SoundChangeView extends TextFileView {
         parent: this.editorHost,
         doc: data,
         onChange: (doc) => this.handleChange(doc),
-        validate: (doc) => this.plugin.lexurgy.validate(doc),
+        validate: (doc) => this.lexurgy.validate(doc),
         onValidationStarted: () => this.panel?.setCompileStatus("checking", "Checking…"),
         onValidation: (result) => this.handleValidation(result),
         onSave: () => {
@@ -126,8 +127,8 @@ export class SoundChangeView extends TextFileView {
     this.panel = new SoundChangeTestPanel(this.testHost, {
       getSource: () => this.editor?.getDoc() ?? this.data,
       getOutline: () => this.outline,
-      run: (changes, words, options) => this.plugin.lexurgy.apply(changes, words, options),
-      getEnvironment: () => this.plugin.lexurgy.getEnvironment(),
+      run: (changes, words, options) => this.lexurgy.apply(changes, words, options),
+      getEnvironment: () => this.lexurgy.getEnvironment(),
       onOpenSettings: () => this.plugin.openSettings(),
       onOpenDocs: () => openLexurgyDocs(this.app.workspace),
       onWordsChange: (words) => {

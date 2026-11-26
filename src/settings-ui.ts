@@ -1,5 +1,6 @@
 import { fontFamilyValue } from "./fonts/css";
 import { Notice, PluginSettingTab, Setting, setIcon } from "obsidian";
+import type { LexurgyService } from "./lexurgy/service";
 import type LangscapePlugin from "./main";
 import { JAVA_DOWNLOAD_URL } from "./lexurgy/java";
 import { LEXURGY_RELEASES_URL, LEXURGY_SETUP_HINT } from "./lexurgy/setup";
@@ -19,7 +20,11 @@ export class LangscapeSettingTab extends PluginSettingTab {
     containerEl.addClass("langscape-settings");
 
     this.renderFonts();
-    this.renderLexurgy();
+    if (this.plugin.lexurgy) this.renderLexurgy(this.plugin.lexurgy);
+    else this.containerEl.createEl("p", {
+      cls: "langscape-muted",
+      text: "Lexurgy and sound-change recipes are available on desktop only.",
+    });
     this.renderAbout();
   }
 
@@ -125,12 +130,12 @@ export class LangscapeSettingTab extends PluginSettingTab {
     }
   }
 
-  private renderLexurgy(): void {
+  private renderLexurgy(lexurgy: LexurgyService): void {
     const { containerEl } = this;
     new Setting(containerEl).setName("Lexurgy").setHeading();
     const status = containerEl.createDiv({ cls: "langscape-lexurgy-setting-status" });
     status.createDiv({ cls: "langscape-muted", text: "Checking…" });
-    void this.refreshLexurgyStatus(status);
+    void this.refreshLexurgyStatus(lexurgy, status);
 
     containerEl.createEl("p", { cls: "langscape-muted", text: LEXURGY_SETUP_HINT });
     containerEl.createEl("a", {
@@ -142,9 +147,9 @@ export class LangscapeSettingTab extends PluginSettingTab {
       .addButton((button) =>
         button.setButtonText("Test").onClick(async () => {
           try {
-            const result = await this.plugin.lexurgy.testConnection();
+            const result = await lexurgy.testConnection();
             new Notice(`Lexurgy works (${result.version}).`);
-            await this.refreshLexurgyStatus(status, true);
+            await this.refreshLexurgyStatus(lexurgy, status, true);
           } catch (error) {
             new Notice(
               `Lexurgy test failed: ${error instanceof Error ? error.message : String(error)}`
@@ -167,8 +172,8 @@ export class LangscapeSettingTab extends PluginSettingTab {
           .onChange(async (value) => {
             this.plugin.settings.javaPath = value.trim();
             await this.plugin.saveSettings();
-            await this.plugin.lexurgy.restart();
-            void this.refreshLexurgyStatus(status, true);
+            await lexurgy.restart();
+            void this.refreshLexurgyStatus(lexurgy, status, true);
           })
       );
 
@@ -182,8 +187,8 @@ export class LangscapeSettingTab extends PluginSettingTab {
           .onChange(async (value) => {
             this.plugin.settings.lexurgyPath = value.trim();
             await this.plugin.saveSettings();
-            await this.plugin.lexurgy.restart();
-            void this.refreshLexurgyStatus(status, true);
+            await lexurgy.restart();
+            void this.refreshLexurgyStatus(lexurgy, status, true);
           })
       );
 
@@ -193,9 +198,9 @@ export class LangscapeSettingTab extends PluginSettingTab {
     });
   }
 
-  private async refreshLexurgyStatus(parent: HTMLElement, force = false): Promise<void> {
+  private async refreshLexurgyStatus(lexurgy: LexurgyService, parent: HTMLElement, force = false): Promise<void> {
     try {
-      const env = await this.plugin.lexurgy.getEnvironment(force);
+      const env = await lexurgy.getEnvironment(force);
       parent.empty();
       const javaRow = parent.createDiv({ cls: "langscape-status-row" });
       javaRow.createSpan({ cls: "langscape-status-label", text: "Java" });

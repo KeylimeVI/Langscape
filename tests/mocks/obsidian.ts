@@ -62,10 +62,17 @@ export class Notice {
   constructor(public message: string, public timeout?: number) {}
 }
 
+export const Platform = {
+  isDesktopApp: true,
+  isMobile: false,
+  isMobileApp: false,
+};
+
 export class TFile {
   path: string;
   extension: string;
   basename: string;
+  parent: TFolder | null = null;
   stat = { mtime: 0, ctime: 0, size: 0 };
   constructor(path: string) {
     this.path = path;
@@ -77,6 +84,7 @@ export class TFile {
 
 export class TFolder {
   children: Array<TFile | TFolder> = [];
+  parent: TFolder | null = null;
   constructor(public path: string) {}
   isRoot(): boolean {
     return this.path === "/";

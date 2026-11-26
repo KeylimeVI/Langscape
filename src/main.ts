@@ -2,9 +2,8 @@ import {
   Editor,
   MarkdownView,
   Notice,
+  Platform,
   Plugin,
-  TFolder,
-  normalizePath,
 } from "obsidian";
 import { createStarterVault } from "./demo";
 import { installFontClipboard } from "./fonts/clipboard";
@@ -18,14 +17,9 @@ import {
   createFontPostProcessor,
   createNoteFontExtension,
 } from "./fonts/render";
-import { LEXURGY_DOCS_VIEW_TYPE, LexurgyDocsView } from "./lexurgy/docs-view";
-import { LexurgyService } from "./lexurgy/service";
-import { EMPTY_RECIPE, serializeRecipe } from "./recipes/model";
-import { RECIPE_VIEW_TYPE, RecipeView } from "./recipes/view";
+import type { LexurgyService } from "./lexurgy/service";
 import { DEFAULT_SETTINGS, mergeSettings, type LangscapeSettings } from "./settings";
 import { LangscapeSettingTab } from "./settings-ui";
-import { SOUNDCHANGE_VIEW_TYPE, SoundChangeView } from "./soundchange/view";
-import { NEW_LSC_TEMPLATE } from "./soundchange/template";
 import {
   addTableMenuItems,
   hasTableAtCursor,
@@ -49,10 +43,9 @@ export default class LangscapePlugin extends Plugin {
   settings: LangscapeSettings = { ...DEFAULT_SETTINGS };
   fontManager!: FontManager;
   private fontDomDecorator: FontDomDecorator | null = null;
-  lexurgy!: LexurgyService;
+  lexurgy?: LexurgyService;
   private testWordsSaveTimer: number | null = null;
   private fontRefreshTimer: number | null = null;
-  private lexurgyProbeTimer: number | null = null;
 
   async onload(): Promise<void> {
     await this.loadSettings();
@@ -65,13 +58,11 @@ export default class LangscapePlugin extends Plugin {
     });
     this.register(installFontClipboard(this.fontManager));
     this.fontDomDecorator = new FontDomDecorator(this.app, this.fontManager);
-    this.lexurgy = new LexurgyService(this);
 
-    this.registerView(SOUNDCHANGE_VIEW_TYPE, (leaf) => new SoundChangeView(leaf, this));
-    this.registerView(LEXURGY_DOCS_VIEW_TYPE, (leaf) => new LexurgyDocsView(leaf));
-    this.registerExtensions(["lsc"], SOUNDCHANGE_VIEW_TYPE);
-    this.registerView(RECIPE_VIEW_TYPE, (leaf) => new RecipeView(leaf, this));
-    this.registerExtensions(["recipe"], RECIPE_VIEW_TYPE);
+    if (Platform.isDesktopApp) {
+      const { registerDesktopFeatures } = await import("./desktop");
+      this.lexurgy = registerDesktopFeatures(this);
+    }
     this.addSettingTab(new LangscapeSettingTab(this));
 
     const treeAlignment: TreeAlignmentPreference = {
@@ -99,26 +90,6 @@ export default class LangscapePlugin extends Plugin {
     this.register(() => this.fontDomDecorator?.stop());
     this.registerFontEvents();
     this.addCommands();
-    // Obsidian passes the vault root for a right-click on blank explorer space.
-    this.registerEvent(
-      this.app.workspace.on("file-menu", (menu, file, source) => {
-        if (source !== "file-explorer-context-menu" || !(file instanceof TFolder)) return;
-        menu.addItem((item) => {
-          item
-            .setTitle("New Lexurgy file")
-            .setIcon("languages")
-            .setSection("action-primary")
-            .onClick(() => void this.createSoundChangeFile(file));
-        });
-        menu.addItem((item) => {
-          item
-            .setTitle("New recipe")
-            .setIcon("book-open")
-            .setSection("action-primary")
-            .onClick(() => void this.createRecipeFile(file));
-        });
-      })
-    );
     this.registerEvent(
       this.app.workspace.on("editor-menu", (menu, editor) => {
         if (!this.app.workspace.getActiveViewOfType(MarkdownView)) return;
@@ -145,18 +116,11 @@ export default class LangscapePlugin extends Plugin {
         addTableMenuItems(menu, editor);
       })
     );
-
-    this.lexurgyProbeTimer = window.setTimeout(() => {
-      this.lexurgyProbeTimer = null;
-      void this.lexurgy.getEnvironment().catch(() => undefined);
-    }, 1500);
   }
 
   onunload(): void {
     if (this.testWordsSaveTimer) window.clearTimeout(this.testWordsSaveTimer);
     if (this.fontRefreshTimer) window.clearTimeout(this.fontRefreshTimer);
-    if (this.lexurgyProbeTimer) window.clearTimeout(this.lexurgyProbeTimer);
-    void this.lexurgy?.dispose();
     this.fontManager?.unload();
   }
 
@@ -255,29 +219,6 @@ export default class LangscapePlugin extends Plugin {
     target.focus();
   }
 
-  private createSoundChangeFile(folder = this.app.workspace.getActiveFile()?.parent): Promise<void> {
-    return this.createEditableFile(folder, "Sound Changes", "lsc", NEW_LSC_TEMPLATE);
-  }
-
-  private createRecipeFile(folder = this.app.workspace.getActiveFile()?.parent): Promise<void> {
-    return this.createEditableFile(folder, "Recipe", "recipe", serializeRecipe(EMPTY_RECIPE));
-  }
-
-  private async createEditableFile(
-    folder: TFolder | null | undefined,
-    name: string,
-    extension: string,
-    content: string
-  ): Promise<void> {
-    const base = folder && !folder.isRoot() ? `${folder.path}/${name}` : name;
-    try {
-      const file = await this.app.vault.create(this.availablePath(base, extension), content);
-      await this.app.workspace.getLeaf("tab").openFile(file);
-    } catch (error) {
-      new Notice(`Could not create .${extension} file: ${error instanceof Error ? error.message : String(error)}`);
-    }
-  }
-
   async createStarterVault(): Promise<void> {
     await createStarterVault(this.app);
   }
@@ -308,18 +249,6 @@ export default class LangscapePlugin extends Plugin {
   }
 
   private addCommands(): void {
-    this.addCommand({
-      id: "create-sound-change-file",
-      name: "Create sound-change file",
-      callback: () => void this.createSoundChangeFile(),
-    });
-
-    this.addCommand({
-      id: "create-recipe",
-      name: "Create recipe",
-      callback: () => void this.createRecipeFile(),
-    });
-
     this.addCommand({
       id: "insert-font-span",
       name: "Insert custom-font text",
@@ -411,14 +340,4 @@ export default class LangscapePlugin extends Plugin {
     });
   }
 
-  private availablePath(base: string, extension: string): string {
-    const clean = normalizePath(base);
-    let candidate = `${clean}.${extension}`;
-    let index = 2;
-    while (this.app.vault.getAbstractFileByPath(candidate)) {
-      candidate = `${clean} ${index}.${extension}`;
-      index++;
-    }
-    return candidate;
-  }
 }

@@ -1,5 +1,5 @@
 import { setIcon, TextFileView, TFile, type WorkspaceLeaf } from "obsidian";
-import type LangscapePlugin from "../main";
+import type { LexurgyService } from "../lexurgy/service";
 import { pickPath, type PathOption } from "../ui/path-picker";
 import { readRecipe, serializeRecipe, type Recipe } from "./model";
 import { listRecipeFolders, listRecipeSoundChanges } from "./paths";
@@ -48,7 +48,10 @@ export class RecipeView extends TextFileView {
   private card: Card | null = null;
   private rows: ChangeRow[] = [];
 
-  constructor(leaf: WorkspaceLeaf, private readonly plugin: LangscapePlugin) {
+  constructor(
+    leaf: WorkspaceLeaf,
+    private readonly lexurgy: LexurgyService
+  ) {
     super(leaf);
     this.navigation = true;
   }
@@ -504,7 +507,7 @@ export class RecipeView extends TextFileView {
       const { written, skipped } = await runRecipe({
         app: this.app,
         recipe,
-        apply: (changes, words) => this.plugin.lexurgy.apply(changes, words),
+        apply: (changes, words) => this.lexurgy.apply(changes, words),
       });
       result = {
         state: "success",

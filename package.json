@@ -15,6 +15,12 @@
     "test:unit": "vitest run tests/unit",
     "test:e2e": "node scripts/e2e-obsidian.mjs",
     "test:obsidian": "npm run build && node scripts/headless-obsidian-test.mjs",
+    "test:visual": "npm run build && node scripts/visual-e2e/run.mjs --target all",
+    "test:visual:desktop": "npm run build && node scripts/visual-e2e/run.mjs --target desktop",
+    "test:visual:mobile": "npm run build && node scripts/visual-e2e/run.mjs --target mobile",
+    "test:visual:android": "npm run build && node scripts/visual-e2e/android-adb.mjs",
+    "test:visual:setup-android": "node scripts/visual-e2e/setup-android.mjs",
+    "test:visual:verify": "node scripts/visual-e2e/verify-report.mjs",
     "package:release": "node scripts/package.mjs",
     "install:vault": "node scripts/install-to-vault.mjs",
     "test:release": "npm run verify && npm run package:release"

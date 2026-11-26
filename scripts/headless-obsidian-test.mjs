@@ -9,6 +9,7 @@
  *
  * Usage:
  *   npm run test:obsidian
+ *   npm run test:obsidian -- --mobile  # exercise the mobile path in a desktop test host
  *   npm run test:obsidian -- --live-docs  # also check the official manual over HTTPS
  *   npm run test:obsidian -- --capture-recipe  # save a cropped recipe card screenshot
  *   node scripts/headless-obsidian-test.mjs --keep
@@ -27,7 +28,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const tools = path.join(root, ".tools", "headless-obsidian");
+const mobile = process.argv.includes("--mobile");
+const tools = path.join(root, ".tools", mobile ? "headless-obsidian-mobile" : "headless-obsidian");
 const vault = path.join(tools, "vault");
 const home = path.join(tools, "home");
 const screenshot = path.join(tools, "last-run.png");
@@ -141,7 +143,23 @@ async function prepareVault() {
   for (const file of ["main.js", "manifest.json", "styles.css"]) {
     const source = path.join(root, file);
     await ensure(existsSync(source), `${file} is missing; run npm run build first.`);
-    await fs.copyFile(source, path.join(vault, ".obsidian/plugins/langscape", file));
+    const dest = path.join(vault, ".obsidian/plugins/langscape", file);
+    if (mobile && file === "main.js") {
+      // Give the real bundle only the modules provided by Obsidian Mobile.
+      const bundle = await fs.readFile(source, "utf8");
+      await fs.writeFile(dest, `(function (require, process, Buffer) {
+${bundle}
+})(function (name) {
+  if (name === "obsidian") {
+    const api = require(name);
+    return Object.create(api, { Platform: { value: { ...api.Platform, isDesktop: false, isDesktopApp: false, isMobile: true, isMobileApp: true, isPhone: true } } });
+  }
+  if (name.startsWith("@codemirror/")) return require(name);
+  throw new Error("Unavailable module on mobile: " + name);
+});`);
+    } else {
+      await fs.copyFile(source, dest);
+    }
   }
   await fs.copyFile(
     path.join(root, "tests/fixtures/fonts/NotoSansGothic-Regular.ttf"),
@@ -156,6 +174,7 @@ async function prepareVault() {
     [
       "# Headless test",
       "",
+      ...(mobile ? ["{tree: S(NP(N(cat)), VP(V(sleeps)))}", ""] : []),
       "Font: {Noto-Sans-Gothic: 𐌰𐍆𐌰}",
       "",
       "| Region | Q1 | < | Q2 | < |",
@@ -234,10 +253,10 @@ async function openVault() {
 
   const cdp = await Cdp.connect(page.webSocketDebuggerUrl);
   await cdp.send("Emulation.setDeviceMetricsOverride", {
-    width: 1600,
-    height: 1000,
+    width: mobile ? 430 : 1600,
+    height: mobile ? 900 : 1000,
     deviceScaleFactor: 1,
-    mobile: false,
+    mobile,
   });
   await cdp.send("Emulation.setFocusEmulationEnabled", { enabled: true });
   await cdp.send("Page.bringToFront").catch(() => {});
@@ -288,7 +307,7 @@ async function openVault() {
     return true;
   })()`);
 
-  await waitFor(
+  if (!mobile) await waitFor(
     () => cdp.eval("document.querySelectorAll('.cm-table-widget table').length >= 3"),
     20_000,
     "table widgets"
@@ -874,6 +893,46 @@ async function testManualLexurgySetup(cdp) {
   log("Lexurgy setup links to the official releases and accepts a configured path without an in-app installer");
 }
 
+async function testMobileReading(cdp) {
+  const check = await cdp.eval(`(() => {
+    const plugin = app.plugins.plugins.langscape;
+    const commands = Object.keys(app.commands.commands);
+    return {
+      desktopOnly: plugin.manifest.isDesktopOnly,
+      lexurgy: Boolean(plugin.lexurgy),
+      desktopCommands: commands.filter(id => ['langscape:create-recipe', 'langscape:create-sound-change-file'].includes(id)),
+      fontCommand: commands.includes('langscape:insert-font-span'),
+    };
+  })()`);
+  assert.deepEqual(check, { desktopOnly: false, lexurgy: false, desktopCommands: [], fontCommand: true });
+  await cdp.eval(`(async () => {
+    const leaf = app.workspace.getMostRecentLeaf();
+    await leaf.setViewState({ type: 'markdown', state: { file: ${JSON.stringify(note)}, mode: 'preview' }, active: true });
+  })()`);
+  await waitFor(() => cdp.eval(`(async () => {
+    const preview = app.workspace.getMostRecentLeaf().view.contentEl.querySelector('.markdown-reading-view');
+    const tree = preview?.querySelector('.langscape-tree-block');
+    const table = preview?.querySelector('table.langscape-merged-table');
+    const font = preview?.querySelector('[class*="langscape-font-"]');
+    if (!font || !tree?.textContent.includes('sleeps') || !table) return false;
+    const family = getComputedStyle(font).fontFamily.split(',')[0];
+    if (!family.includes('Noto Sans Gothic')) return false;
+    const faces = await document.fonts.load('16px ' + family, '𐌰');
+    return faces.some(face => face.family.includes('Noto Sans Gothic') && face.status === 'loaded') &&
+      table.rows[0].cells[1].colSpan === 2 && table.rows[1].cells[0].rowSpan === 2;
+  })()`), 20_000, "mobile reading mode fonts, trees and merged tables");
+  log("mobile-mode bundle loads without Node modules and renders vault fonts, trees, and merged tables");
+
+  const demo = await cdp.eval(`(async () => {
+    await app.plugins.plugins.langscape.createStarterVault();
+    return app.vault.getFiles().map(file => file.path).filter(path => path.startsWith('Langscape Demo/'));
+  })()`);
+  assert.ok(demo.includes('Langscape Demo/Notes/Font demo.md'));
+  assert.ok(demo.includes('Langscape Demo/Notes/Tree demo.md'));
+  assert.ok(demo.every(path => !/\\.(recipe|lsc)$/.test(path)));
+  log("mobile starter vault includes only the shared demos");
+}
+
 async function main() {
   await ensure(existsSync(obsidianBin), `Obsidian binary not found: ${obsidianBin}`);
   await prepareVault();
@@ -883,6 +942,11 @@ async function main() {
   let passed = false;
   try {
     cdp = await openVault();
+    if (mobile) {
+      await testMobileReading(cdp);
+      passed = true;
+      return;
+    }
     await testMergedTable(cdp);
     await testFontCellAndClipboard(cdp);
     await testRectangularSelection(cdp);

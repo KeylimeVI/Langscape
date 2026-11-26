@@ -1,4 +1,4 @@
-import { App, Notice, TFile, normalizePath } from "obsidian";
+import { App, Notice, Platform, TFile, normalizePath } from "obsidian";
 import { ensureVaultFolder } from "./utils/vault";
 import { NOTO_GOTHIC_BASE64, NOTO_GOTHIC_LICENSE_BASE64 } from "./assets/noto-gothic";
 import { EXAMPLE_LSC } from "./soundchange/template";
@@ -9,12 +9,9 @@ export async function createStarterVault(
   root = "Langscape Demo"
 ): Promise<void> {
   const folder = normalizePath(root);
+  const desktop = Platform.isDesktopApp;
   await ensureVaultFolder(app, folder);
   await ensureVaultFolder(app, `${folder}/Fonts`);
-  await ensureVaultFolder(app, `${folder}/Words/Proto`);
-  await ensureVaultFolder(app, `${folder}/Changes`);
-  await ensureVaultFolder(app, `${folder}/Recipes`);
-  await ensureVaultFolder(app, `${folder}/Words/Modern`);
 
   await writeIfMissing(
     app,
@@ -27,33 +24,6 @@ export async function createStarterVault(
     `${folder}/Fonts/OFL-NotoSansGothic.txt`,
     base64ToText(NOTO_GOTHIC_LICENSE_BASE64)
   );
-  await writeIfMissing(app, `${folder}/Changes/Demo.lsc`, EXAMPLE_LSC);
-
-  await writeIfMissing(
-    app,
-    `${folder}/Words/Proto/apa.md`,
-    [
-      "---",
-      "word: apa",
-      "gloss: father",
-      "---",
-      "# apa",
-      "",
-      "A reconstructed proto-form used by the demo recipe.",
-      "",
-    ].join("\n")
-  );
-  await writeIfMissing(
-    app,
-    `${folder}/Words/Proto/eke.md`,
-    ["---", "word: eke", "gloss: edge", "---", "# eke", ""].join("\n")
-  );
-  await writeIfMissing(
-    app,
-    `${folder}/Words/Proto/pataka.md`,
-    ["---", "word: pataka", "gloss: plateau", "---", "# pataka", ""].join("\n")
-  );
-
   await writeIfMissing(
     app,
     `${folder}/Notes/Tree demo.md`,
@@ -64,7 +34,9 @@ export async function createStarterVault(
       "",
       "{tree: VP(NP({Noto-Sans-Gothic: 𐌰𐍆𐌰}), V(see), NP(Det(the), Adj(blue), N(sky)))}",
       "",
-      "Fonts render inside node labels. Hover a node for its add and delete controls, click a label to rename it, drag a node to move its subtree, and use the top-right toggle to align the tree.",
+      desktop
+        ? "Fonts render inside node labels. Hover a node for its add and delete controls, click a label to rename it, drag a node to move its subtree, and use the top-right toggle to align the tree."
+        : "Fonts render inside node labels. Switch to Reading view to see the rendered tree.",
       "",
     ].join("\n")
   );
@@ -94,12 +66,43 @@ export async function createStarterVault(
   );
 
   const recipePath = `${folder}/Recipes/Demo.recipe`;
-  await writeIfMissing(app, recipePath, serializeRecipe({
-    inputFolder: `${folder}/Words/Proto`,
-    property: "word",
-    changes: [{ path: `${folder}/Changes/Demo.lsc`, disabledRules: [] }],
-    outputFolder: `${folder}/Words/Modern`,
-  }));
+  if (desktop) {
+    await writeIfMissing(app, `${folder}/Changes/Demo.lsc`, EXAMPLE_LSC);
+
+    await writeIfMissing(
+      app,
+      `${folder}/Words/Proto/apa.md`,
+      [
+        "---",
+        "word: apa",
+        "gloss: father",
+        "---",
+        "# apa",
+        "",
+        "A reconstructed proto-form used by the demo recipe.",
+        "",
+      ].join("\n")
+    );
+    await writeIfMissing(
+      app,
+      `${folder}/Words/Proto/eke.md`,
+      ["---", "word: eke", "gloss: edge", "---", "# eke", ""].join("\n")
+    );
+    await writeIfMissing(
+      app,
+      `${folder}/Words/Proto/pataka.md`,
+      ["---", "word: pataka", "gloss: plateau", "---", "# pataka", ""].join("\n")
+    );
+
+    await writeIfMissing(app, recipePath, serializeRecipe({
+      inputFolder: `${folder}/Words/Proto`,
+      property: "word",
+      changes: [{ path: `${folder}/Changes/Demo.lsc`, disabledRules: [] }],
+      outputFolder: `${folder}/Words/Modern`,
+    }));
+
+    await ensureVaultFolder(app, `${folder}/Words/Modern`);
+  }
 
   await writeIfMissing(
     app,
@@ -109,23 +112,29 @@ export async function createStarterVault(
       "",
       "This folder was created by the **Langscape: Create starter vault** command.",
       "",
-      "- `Recipes/Demo.recipe` — applies Lexurgy changes to the `word` property.",
-      "- `Words/Proto` — one note per proto-word, with `word:` frontmatter.",
-      "- `Changes/Demo.lsc` — Lexurgy sound changes.",
+      ...(desktop ? [
+        "- `Recipes/Demo.recipe` — applies Lexurgy changes to the `word` property.",
+        "- `Words/Proto` — one note per proto-word, with `word:` frontmatter.",
+        "- `Changes/Demo.lsc` — Lexurgy sound changes.",
+      ] : []),
       "- `Fonts/NotoSansGothic-Regular.ttf` — an OFL font used by the font demo.",
       "- `Notes/Font demo.md` — inline `{nickname: text}` examples.",
       "- `Notes/Tree demo.md` — a syntax tree with a font inside a node label.",
       "",
-      "Open the recipe and press **Run recipe**. The copies appear in `Words/Modern`; the proto notes stay untouched.",
-      "",
-      "Install the official Lexurgy CLI separately, then add it to PATH or configure it in Langscape settings.",
+      ...(desktop ? [
+        "Open the recipe and press **Run recipe**. The copies appear in `Words/Modern`; the proto notes stay untouched.",
+        "",
+        "Install the official Lexurgy CLI separately, then add it to PATH or configure it in Langscape settings.",
+      ] : ["Lexurgy and sound-change recipes are available on desktop only."]),
       "",
     ].join("\n")
   );
 
-  const recipeFile = app.vault.getAbstractFileByPath(recipePath);
-  if (recipeFile instanceof TFile) await app.workspace.getLeaf("tab").openFile(recipeFile);
-  new Notice("Langscape starter vault created. Open Demo.recipe and press Run recipe.");
+  const entry = app.vault.getAbstractFileByPath(desktop ? recipePath : `${folder}/README.md`);
+  if (entry instanceof TFile) await app.workspace.getLeaf("tab").openFile(entry);
+  new Notice(desktop
+    ? "Langscape starter vault created. Open Demo.recipe and press Run recipe."
+    : "Langscape starter vault created. Try the font and syntax tree demo notes.");
 }
 
 async function writeIfMissing(

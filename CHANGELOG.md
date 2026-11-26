@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Enable a mobile reading preview for vault fonts, syntax trees, and merged tables. The Lexurgy workbench and sound-change recipes remain desktop-only.
+
 ## 1.0.3
 
 - Fix IPA and accented characters turning into question marks in Lexurgy results and rule traces on systems with a non-UTF-8 console.

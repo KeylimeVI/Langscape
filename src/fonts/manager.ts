@@ -1,4 +1,5 @@
 import { TFile, type App } from "obsidian";
+import { listVaultFiles } from "../utils/vault";
 import { parseFontNames, humanizeFontFilename, sanitizeFamilyName } from "./font-name";
 import {
   fontFaceSource,
@@ -116,7 +117,7 @@ export class FontManager {
         .filter((config) => config.enabled && Boolean(config.path))
         .map((config) => [config.path as string, config] as const)
     );
-    const files = this.app.vault.getFiles().filter((file) => isFontFile(file.path));
+    const files = await listVaultFiles(this.app.vault, (file) => isFontFile(file.path));
     for (const file of files) {
       if (seenPaths.has(file.path)) continue;
       seenPaths.add(file.path);

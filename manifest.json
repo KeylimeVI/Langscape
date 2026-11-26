@@ -5,6 +5,6 @@
   "minAppVersion": "1.15.0",
   "description": "A conlanger's workbench: custom writing-system fonts, a Lexurgy sound-change editor, and sound-change recipes.",
   "author": "Langscape contributors",
-  "isDesktopOnly": true,
+  "isDesktopOnly": false,
   "authorUrl": "https://github.com/KeylimeVI"
 }
