@@ -17,6 +17,6 @@
 - **Why**: Some user vaults contain a symlink or Windows junction pointing back to the vault root (e.g., `Obsidian Vault/Obsidian Vault/...`) or contain nested Obsidian vaults (subdirectories with `.obsidian` / `vault.configDir`). Calling `vault.getFiles()` directly exposes repeated paths indefinitely and causes files (fonts, recipes, `.lsc` scripts, etc.) to be duplicated endlessly.
 - `src/utils/vault.ts` (with lazy desktop-only fs access via `src/utils/vault-disk.ts`) stops at symlinks/junctions (`lstat`), tracks visited `realpath`s to break directory cycles, skips nested vaults, and falls back to `vault.adapter.stat` on mobile without eager Node `require` calls.
 
-## Verification
+## Verification & Packaging
 
-- Run `npm run verify` (`tsc --noEmit`, `esbuild` bundle, and unit tests) before committing and pushing to `beta`.
+- Run `npm run test:release` (`npm run verify && npm run package:release`) before committing and pushing to `beta`, so `main.js` and `dist/langscape-*.zip` are both up to date for testers using `scripts/install-from-homelab.sh`.

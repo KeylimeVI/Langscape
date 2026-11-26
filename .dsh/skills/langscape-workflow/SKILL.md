@@ -23,4 +23,4 @@ Follow these two standing rules on every task in this repository.
 
 ## 3. Before Pushing
 
-- Run `npm run verify` (`tsc --noEmit`, `esbuild`, and Vitest unit tests) and ensure it passes before pushing to `origin/beta`.
+- Run `npm run test:release` (`npm run verify && npm run package:release`) before committing and pushing to `origin/beta` so both `main.js` and `dist/langscape-*.zip` stay in sync with the latest `beta` commit.

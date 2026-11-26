@@ -3,7 +3,7 @@
 # Install the newest Langscape build from the homelab into an Obsidian vault.
 #
 # By default, install the current beta build from GitHub:
-#   https://github.com/KeylimeVI/Langscape/tree/beta/dist
+#   https://github.com/KeylimeVI/Langscape/tree/beta
 #
 # The homelab can also be read directly over Tailscale/SSH:
 #   ./install-from-homelab.sh --source ssh --host keylime@homelab
@@ -111,7 +111,9 @@ PLUGINS_DIR="$VAULT/.obsidian/plugins"
 DESTINATION="$PLUGINS_DIR/langscape"
 COMMUNITY_PLUGINS="$VAULT/.obsidian/community-plugins.json"
 
-require unzip unzip
+if [ "$SOURCE" != "github" ]; then
+  require unzip unzip
+fi
 if [ "$SOURCE" = "github" ] || [ "$SOURCE" = "url" ]; then
   require curl curl
 fi
@@ -141,6 +143,8 @@ cleanup() {
 trap cleanup EXIT
 
 ZIP="$TMP_DIR/langscape.zip"
+BUILD_DIR="$TMP_DIR/build"
+GITHUB_COMMIT=""
 
 github_commit() {
   local ref="$GITHUB_REF" response=""
@@ -168,46 +172,22 @@ github_commit() {
   return 1
 }
 
-latest_github_zip() {
+download_github_files() {
   local commit="$1"
-  local api="https://api.github.com/repos/$GITHUB_REPO/contents/dist?ref=$commit"
-  local json=""
-  local download=""
-  local version=""
-  local headers=(-H "Accept: application/vnd.github+json")
-  if [ -n "${GITHUB_TOKEN:-}" ]; then
-    headers+=(-H "Authorization: Bearer $GITHUB_TOKEN")
-  fi
-
-  if json="$(curl -fsSL "${headers[@]}" "$api" 2>/dev/null)"; then
-    download="$(printf '%s' "$json" \
-      | grep -o '"download_url"[[:space:]]*:[[:space:]]*"[^"]*"' \
-      | sed -E 's/.*"([^"]+)"$/\1/' \
-      | grep -E '/dist/langscape-[^/]+\.zip$' \
-      | sort -V \
-      | tail -1 || true)"
-    if [ -n "$download" ]; then
-      printf 'https://raw.githubusercontent.com/%s/%s/dist/%s\n' \
-        "$GITHUB_REPO" "$commit" "${download##*/}"
-      return 0
-    fi
-  fi
-
-  # If the listing is unavailable, use the manifest from the same commit.
-  version="$(curl -fsSL "https://raw.githubusercontent.com/$GITHUB_REPO/$commit/manifest.json" 2>/dev/null \
-    | tr -d '\r\n' \
-    | sed -nE 's/.*"version"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/p' || true)"
-  [ -n "$version" ] || return 1
-  printf 'https://raw.githubusercontent.com/%s/%s/dist/langscape-%s.zip\n' \
-    "$GITHUB_REPO" "$commit" "$version"
+  local raw_base="https://raw.githubusercontent.com/$GITHUB_REPO/$commit"
+  local file=""
+  mkdir -p "$BUILD_DIR"
+  for file in main.js manifest.json styles.css; do
+    curl -fL --retry 3 --connect-timeout 15 -o "$BUILD_DIR/$file" "$raw_base/$file" \
+      || die "Could not download $raw_base/$file"
+  done
 }
 
 case "$SOURCE" in
   github)
-    # The bundle name can stay the same across pushes. A raw branch URL can
-    # serve an older ZIP from GitHub's cache, so download by immutable commit.
-    commit="$(github_commit)" || die "Could not resolve $GITHUB_REPO/$GITHUB_REF to a commit. If the GitHub API is unavailable, set LANGSCAPE_REF to the full commit SHA or use --zip."
-    ZIP_URL="$(latest_github_zip "$commit")" || die "Could not find a Langscape build in $GITHUB_REPO/$commit/dist"
+    # Download the built plugin files directly from the immutable commit SHA so
+    # branch caches and stale dist/*.zip archives can never serve an older build.
+    GITHUB_COMMIT="$(github_commit)" || die "Could not resolve $GITHUB_REPO/$GITHUB_REF to a commit. If the GitHub API is unavailable, set LANGSCAPE_REF to the full commit SHA or use --zip."
     ;;
   url)
     [ -n "$ZIP_URL" ] || die "--source url needs --url or LANGSCAPE_ZIP_URL"
@@ -220,7 +200,12 @@ case "$SOURCE" in
 esac
 
 printf 'Source: %s\n' "$SOURCE"
-if [ "$SOURCE" = "ssh" ]; then
+if [ "$SOURCE" = "github" ]; then
+  printf 'Ref: %s (%s)\n' "$GITHUB_REF" "${GITHUB_COMMIT:0:7}"
+  printf 'Build: https://raw.githubusercontent.com/%s/%s/{main.js,manifest.json,styles.css}\n' \
+    "$GITHUB_REPO" "$GITHUB_COMMIT"
+  download_github_files "$GITHUB_COMMIT"
+elif [ "$SOURCE" = "ssh" ]; then
   remote_zip=""
   if [ "$REMOTE_BUILD" -eq 1 ]; then
     printf 'Building on %s:%s ...\n' "$SSH_HOST" "$REMOTE_REPO"
@@ -247,15 +232,21 @@ else
     || die "Could not download $ZIP_URL"
 fi
 
-ENTRIES="$(unzip -Z1 "$ZIP")"
-for required in main.js manifest.json styles.css; do
-  printf '%s\n' "$ENTRIES" | grep -qx "$required" || die "Zip is missing $required"
-done
-if printf '%s\n' "$ENTRIES" | grep -Eq '(^/|(^|/)\.\.(/|$))'; then
-  die "Zip contains an unsafe absolute or parent path"
+if [ "$SOURCE" = "github" ]; then
+  for required in main.js manifest.json styles.css; do
+    [ -s "$BUILD_DIR/$required" ] || die "Downloaded build is missing $required"
+  done
+  MANIFEST="$(tr -d '\r\n' < "$BUILD_DIR/manifest.json")"
+else
+  ENTRIES="$(unzip -Z1 "$ZIP")"
+  for required in main.js manifest.json styles.css; do
+    printf '%s\n' "$ENTRIES" | grep -qx "$required" || die "Zip is missing $required"
+  done
+  if printf '%s\n' "$ENTRIES" | grep -Eq '(^/|(^|/)\.\.(/|$))'; then
+    die "Zip contains an unsafe absolute or parent path"
+  fi
+  MANIFEST="$(unzip -p "$ZIP" manifest.json | tr -d '\r\n')"
 fi
-
-MANIFEST="$(unzip -p "$ZIP" manifest.json | tr -d '\r\n')"
 PLUGIN_ID="$(printf '%s' "$MANIFEST" | sed -nE 's/.*"id"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/p')"
 VERSION="$(printf '%s' "$MANIFEST" | sed -nE 's/.*"version"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/p')"
 [ "$PLUGIN_ID" = "langscape" ] || die "Unexpected plugin id \"$PLUGIN_ID\""
@@ -295,7 +286,11 @@ if [ "$DRY_RUN" -eq 1 ]; then
 fi
 
 STAGING="$(mktemp -d "$PLUGINS_DIR/.langscape-install.XXXXXX")"
-unzip -q "$ZIP" -d "$STAGING"
+if [ "$SOURCE" = "github" ]; then
+  cp "$BUILD_DIR/main.js" "$BUILD_DIR/manifest.json" "$BUILD_DIR/styles.css" "$STAGING/"
+else
+  unzip -q "$ZIP" -d "$STAGING"
+fi
 
 if [ "$PRESERVE" -eq 1 ] && [ -n "$runtime_source" ]; then
   if [ -f "$runtime_source/data.json" ]; then
