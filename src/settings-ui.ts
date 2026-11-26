@@ -1,13 +1,15 @@
 import { fontFamilyValue } from "./fonts/css";
-import { Notice, PluginSettingTab, Setting, setIcon } from "obsidian";
+import { Notice, PluginSettingTab, Setting, TFile, setIcon } from "obsidian";
 import type { LexurgyService } from "./lexurgy/service";
 import type LangscapePlugin from "./main";
 import { JAVA_DOWNLOAD_URL } from "./lexurgy/java";
 import { LEXURGY_RELEASES_URL, LEXURGY_SETUP_HINT } from "./lexurgy/setup";
-import { promptText } from "./ui/modals";
+import { confirmAction, promptText } from "./ui/modals";
 
 export class LangscapeSettingTab extends PluginSettingTab {
   plugin: LangscapePlugin;
+  private fontChangeUnsub: (() => void) | null = null;
+  private fontListContainer: HTMLElement | null = null;
 
   constructor(plugin: LangscapePlugin) {
     super(plugin.app, plugin);
@@ -16,16 +18,39 @@ export class LangscapeSettingTab extends PluginSettingTab {
 
   display(): void {
     const { containerEl } = this;
+    this.unsubscribeFonts();
     containerEl.empty();
     containerEl.addClass("langscape-settings");
 
+    // Obsidian 1.15+ renders Settings in its own window/Document, which does not
+    // fire workspace "window-open". Attach it so FontFaces render in previews.
+    this.plugin.fontManager.attachDocument(containerEl.ownerDocument);
+
     this.renderFonts();
+    this.fontChangeUnsub = this.plugin.fontManager.onChange(() => {
+      if (!this.fontListContainer?.isConnected) {
+        this.unsubscribeFonts();
+        return;
+      }
+      this.plugin.fontManager.attachDocument(this.fontListContainer.ownerDocument);
+      this.renderFontList(this.fontListContainer);
+    });
     if (this.plugin.lexurgy) this.renderLexurgy(this.plugin.lexurgy);
     else this.containerEl.createEl("p", {
       cls: "langscape-muted",
       text: "Lexurgy and sound-change recipes are available on desktop only.",
     });
     this.renderAbout();
+  }
+
+  hide(): void {
+    this.unsubscribeFonts();
+    this.fontListContainer = null;
+  }
+
+  private unsubscribeFonts(): void {
+    this.fontChangeUnsub?.();
+    this.fontChangeUnsub = null;
   }
 
   private renderFonts(): void {
@@ -35,7 +60,10 @@ export class LangscapeSettingTab extends PluginSettingTab {
       button.setButtonText("Rescan").onClick(async () => {
         await this.plugin.refreshFonts();
         new Notice(`Loaded ${this.plugin.fontManager.list().length} font(s).`);
-        this.display();
+        if (this.fontListContainer?.isConnected) {
+          this.plugin.fontManager.attachDocument(this.fontListContainer.ownerDocument);
+          this.renderFontList(this.fontListContainer);
+        }
       })
     );
     containerEl.createEl("p", {
@@ -43,16 +71,22 @@ export class LangscapeSettingTab extends PluginSettingTab {
       text: "Fonts are discovered everywhere in the vault. Set a short nickname to use {nickname: text} in notes.",
     });
 
+    this.fontListContainer = containerEl.createDiv({ cls: "langscape-font-settings-host" });
+    this.renderFontList(this.fontListContainer);
+  }
+
+  private renderFontList(host: HTMLElement): void {
+    host.empty();
     const fonts = this.plugin.fontManager.list();
     if (fonts.length === 0) {
-      containerEl.createEl("p", {
+      host.createEl("p", {
         cls: "langscape-empty",
         text: "No fonts found. Drop a .ttf/.otf/.woff/.woff2 file anywhere in the vault, then press Rescan.",
       });
       return;
     }
 
-    const list = containerEl.createDiv({ cls: "langscape-font-settings-list" });
+    const list = host.createDiv({ cls: "langscape-font-settings-list" });
     for (const font of fonts) {
       const row = list.createDiv({ cls: "langscape-font-setting" });
       const preview = row.createDiv({
@@ -71,6 +105,12 @@ export class LangscapeSettingTab extends PluginSettingTab {
         cls: "langscape-font-setting-source",
         text: font.source === "vault" ? font.path ?? "vault" : font.url ?? "web",
       });
+      if (font.loadStatus === "error" && font.loadError) {
+        info.createDiv({
+          cls: "langscape-font-setting-error",
+          text: `Could not load font: ${font.loadError}`,
+        });
+      }
       const actions = row.createDiv({ cls: "langscape-font-setting-actions" });
       const nickname = actions.createEl("button", {
         cls: "clickable-icon",
@@ -107,24 +147,61 @@ export class LangscapeSettingTab extends PluginSettingTab {
         else delete this.plugin.settings.fontNicknames[key];
         await this.plugin.saveSettings();
         await this.plugin.refreshFonts();
-        this.display();
+        if (this.fontListContainer?.isConnected) this.renderFontList(this.fontListContainer);
       });
 
       const customId = font.customId ?? font.id;
       const custom = this.plugin.settings.customFonts.find((entry) => entry.id === customId);
-      if (custom) {
+      const isVaultFont = font.source === "vault" && Boolean(font.path);
+      if (isVaultFont || custom) {
         const remove = actions.createEl("button", {
-          cls: "clickable-icon",
-          attr: { "aria-label": "Remove font" },
+          cls: "clickable-icon langscape-font-delete",
+          attr: { "aria-label": isVaultFont ? "Delete font" : "Remove font" },
         });
         setIcon(remove, "trash-2");
         remove.addEventListener("click", async () => {
-          this.plugin.settings.customFonts = this.plugin.settings.customFonts.filter(
-            (entry) => entry.id !== custom.id
-          );
-          await this.plugin.saveSettings();
-          await this.plugin.refreshFonts();
-          this.display();
+          const confirmed = await confirmAction(this.app, {
+            title: isVaultFont
+              ? `Delete "${font.displayName}"?`
+              : `Remove "${font.displayName}"?`,
+            body: isVaultFont
+              ? `This moves "${font.path}" to trash.`
+              : "This removes the font entry from Langscape settings.",
+            confirmText: isVaultFont ? "Delete" : "Remove",
+            warning: true,
+          });
+          if (!confirmed) return;
+
+          try {
+            if (isVaultFont && font.path) {
+              const file = this.app.vault.getAbstractFileByPath(font.path);
+              if (file instanceof TFile) {
+                await this.app.fileManager.trashFile(file);
+              }
+              delete this.plugin.settings.fontNicknames[font.path];
+              delete this.plugin.settings.fontAliases[font.path];
+              this.plugin.settings.customFonts = this.plugin.settings.customFonts.filter(
+                (entry) => entry.path !== font.path && entry.id !== custom?.id
+              );
+            } else if (custom) {
+              this.plugin.settings.customFonts = this.plugin.settings.customFonts.filter(
+                (entry) => entry.id !== custom.id
+              );
+              delete this.plugin.settings.fontNicknames[custom.id];
+            }
+            await this.plugin.saveSettings();
+            await this.plugin.refreshFonts();
+            new Notice(
+              isVaultFont
+                ? `Deleted "${font.displayName}".`
+                : `Removed "${font.displayName}".`
+            );
+            if (this.fontListContainer?.isConnected) this.renderFontList(this.fontListContainer);
+          } catch (error) {
+            new Notice(
+              `Could not delete font: ${error instanceof Error ? error.message : String(error)}`
+            );
+          }
         });
       }
     }

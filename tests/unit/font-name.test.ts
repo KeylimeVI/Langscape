@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
   humanizeFontFilename,
+  inspectFontData,
   parseFontNames,
   sanitizeFamilyName,
 } from "../../src/fonts/font-name";
@@ -12,33 +13,37 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..")
 const fontPath = path.join(root, "tests/fixtures/fonts/NotoSansGothic-Regular.ttf");
 
 describe("OpenType name table parser", () => {
-  it("reads the family and subfamily from a real TTF", async () => {
+  it("reads the family, subfamily, format, and Gothic cmap sample from a real TTF", async () => {
     const data = new Uint8Array(await fs.readFile(fontPath));
-    const names = parseFontNames(data);
-    expect(names.family).toBe("Noto Sans Gothic");
-    expect(names.subfamily?.toLowerCase()).toContain("regular");
-    expect(names.postScriptName).toBeTruthy();
+    const inspection = inspectFontData(data);
+    expect(inspection.names.family).toBe("Noto Sans Gothic");
+    expect(inspection.names.subfamily?.toLowerCase()).toContain("regular");
+    expect(inspection.names.postScriptName).toBeTruthy();
+    expect(inspection.detectedFormat).toBe("truetype");
+    expect(inspection.autoSample).toBeTruthy();
+    expect(inspection.autoSample).toContain("𐌰");
   });
 
-  it("reads a format-1 name table", () => {
+  it("reads a spec-compliant format-1 name table", () => {
     const family = "Test Font";
     const encoded = new Uint8Array(family.length * 2);
     for (let i = 0; i < family.length; i++) {
       encoded[i * 2] = family.charCodeAt(i) >> 8;
       encoded[i * 2 + 1] = family.charCodeAt(i) & 0xff;
     }
+    // Format 1 layout: header(6) + nameRecord[1](12) + langTagCount(2) + strings
     const nameTable = new Uint8Array(20 + encoded.length);
     const table = new DataView(nameTable.buffer);
     table.setUint16(0, 1, false); // format 1
     table.setUint16(2, 1, false); // one name record
     table.setUint16(4, 20, false); // strings start at 20
-    table.setUint16(6, 0, false); // no language-tag records
-    table.setUint16(8, 3, false); // Windows
-    table.setUint16(10, 1, false); // Unicode BMP
-    table.setUint16(12, 0x409, false); // en-US
-    table.setUint16(14, 1, false); // family
-    table.setUint16(16, encoded.length, false);
-    table.setUint16(18, 0, false);
+    table.setUint16(6, 3, false); // Windows
+    table.setUint16(8, 1, false); // Unicode BMP
+    table.setUint16(10, 0x409, false); // en-US
+    table.setUint16(12, 1, false); // family
+    table.setUint16(14, encoded.length, false);
+    table.setUint16(16, 0, false);
+    table.setUint16(18, 0, false); // langTagCount after name records
     nameTable.set(encoded, 20);
 
     const font = new Uint8Array(12 + 16 + nameTable.length);
@@ -51,6 +56,17 @@ describe("OpenType name table parser", () => {
     font.set(nameTable, 28);
 
     expect(parseFontNames(font).family).toBe(family);
+  });
+
+  it("detects binary formats even when name parsing is skipped", () => {
+    expect(inspectFontData(new Uint8Array([0x77, 0x4f, 0x46, 0x46, 0, 0, 0, 0, 0, 0, 0, 0]))).toEqual({
+      names: {},
+      detectedFormat: "woff",
+    });
+    expect(inspectFontData(new Uint8Array([0x77, 0x4f, 0x46, 0x32, 0, 0, 0, 0, 0, 0, 0, 0]))).toEqual({
+      names: {},
+      detectedFormat: "woff2",
+    });
   });
 
   it("rejects non-font data and truncated fonts", () => {

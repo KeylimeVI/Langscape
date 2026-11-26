@@ -755,6 +755,10 @@ export function getDesktopScenarios({ liveDocs = false } = {}) {
               return {
                 headings: [...el.querySelectorAll('.setting-item-heading .setting-item-name')].map((n) => n.textContent.trim()),
                 fontRows: el.querySelectorAll('.langscape-font-setting').length,
+                deleteButtons: el.querySelectorAll('.langscape-font-setting button[aria-label="Delete font"]').length,
+                previewText: el.querySelector('.langscape-font-setting-preview')?.textContent ?? '',
+                settingsLoadedFonts: [...el.ownerDocument.fonts]
+                  .filter((f) => f.family.includes('Noto Sans Gothic') && f.status === 'loaded').length,
                 statusText: statusText.replace(/\\s+/g, ' ').trim(),
                 hasReleasesLink: [...el.querySelectorAll('a')].some((a) => a.href.includes('def-gthill/lexurgy/releases')),
               };
@@ -764,6 +768,9 @@ export function getDesktopScenarios({ liveDocs = false } = {}) {
         );
         assert.deepEqual(settingsInfo.headings, ["Fonts", "Lexurgy"]);
         assert.ok(settingsInfo.fontRows >= 1, "Expected at least one vault font in Settings");
+        assert.equal(settingsInfo.deleteButtons, settingsInfo.fontRows, "Expected a Delete font button on every vault font row");
+        assert.ok(settingsInfo.settingsLoadedFonts >= 1, "Expected Noto Sans Gothic FontFace loaded inside the Settings document");
+        assert.ok(settingsInfo.previewText.includes("𐌰"), `Expected Gothic glyphs in Settings preview, got: ${settingsInfo.previewText}`);
         assert.equal(settingsInfo.hasReleasesLink, true, "Missing official Lexurgy releases link");
         if (session.javaBin && session.lexurgyPath) {
           assert.ok(!settingsInfo.statusText.includes("not found"), `Expected Java & Lexurgy detected: ${settingsInfo.statusText}`);

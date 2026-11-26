@@ -1,4 +1,5 @@
 import type { MarkdownPostProcessorContext } from "obsidian";
+import { StateEffect } from "@codemirror/state";
 import {
   Decoration,
   type DecorationSet,
@@ -10,6 +11,15 @@ import type { FontManager } from "./manager";
 import { fontFamilyAttribute, fontFamilyValue } from "./css";
 import { isInCode } from "../utils/codemirror";
 import { findFontSpans, formatFontSpan, parseFontSpanSegments } from "./spans";
+
+/** Dispatched when vault fonts or nicknames change so open editors re-decorate. */
+export const refreshFontViews = StateEffect.define<null>();
+
+function hasFontRefreshEffect(update: ViewUpdate): boolean {
+  return update.transactions.some((tr) =>
+    tr.effects.some((effect) => effect.is(refreshFontViews))
+  );
+}
 
 /**
  * Reading view / exported HTML: rewrite inline font spans in text nodes.
@@ -36,6 +46,7 @@ export function decorateFontSpans(
   doc: Document = root.ownerDocument,
   options: FontDecorateOptions = {}
 ): void {
+  manager.attachDocument?.(doc);
   const walker = doc.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
     acceptNode(node) {
       const parent = node.parentElement;
@@ -112,11 +123,15 @@ export function createNoteFontExtension(manager: FontManager) {
       decorations: DecorationSet = Decoration.none;
 
       constructor(view: EditorView) {
+        manager.attachDocument?.(view.dom.ownerDocument);
         this.refresh(view);
       }
 
       update(update: ViewUpdate): void {
-        if (update.docChanged) this.refresh(update.view);
+        if (update.docChanged || hasFontRefreshEffect(update)) {
+          manager.attachDocument?.(update.view.dom.ownerDocument);
+          this.refresh(update.view);
+        }
       }
 
       private refresh(view: EditorView): void {
@@ -125,7 +140,7 @@ export function createNoteFontExtension(manager: FontManager) {
         let requested: string | undefined;
         if (frontmatter) {
           for (const line of frontmatter.split(/\r?\n/)) {
-            const match = /^langscape-font:\s*(.+?)\s*$/.exec(line);
+            const match = /^(?:langscape-font|langscape_font):\s*(.+?)\s*$/.exec(line);
             if (match) {
               requested = match[1].replace(/^["']|["']$/g, "").trim();
               break;
@@ -138,7 +153,10 @@ export function createNoteFontExtension(manager: FontManager) {
           return;
         }
         const decorations = [
-          Decoration.mark({ class: `langscape-note-font ${record.className}`, attributes: { style: fontFamilyAttribute(record) } }).range(0, view.state.doc.length),
+          Decoration.mark({
+            class: `langscape-note-font ${record.className}`,
+            attributes: { style: fontFamilyAttribute(record) },
+          }).range(0, view.state.doc.length),
         ];
         for (let line = 1; line <= view.state.doc.lines; line++) {
           decorations.push(
@@ -162,11 +180,18 @@ export function createFontLivePreviewExtension(manager: FontManager) {
       decorations: DecorationSet;
 
       constructor(view: EditorView) {
+        manager.attachDocument?.(view.dom.ownerDocument);
         this.decorations = build(view, manager);
       }
 
       update(update: ViewUpdate): void {
-        if (update.docChanged || update.viewportChanged || update.selectionSet) {
+        if (
+          update.docChanged ||
+          update.viewportChanged ||
+          update.selectionSet ||
+          hasFontRefreshEffect(update)
+        ) {
+          manager.attachDocument?.(update.view.dom.ownerDocument);
           this.decorations = build(update.view, manager);
         }
       }
@@ -268,6 +293,7 @@ function isEditable(element: HTMLElement): boolean {
 /** Register the post-processor; returns a function for easy testing. */
 export function createFontPostProcessor(manager: FontManager) {
   return (el: HTMLElement, context: MarkdownPostProcessorContext): void => {
+    manager.attachDocument?.(el.ownerDocument);
     applyFrontmatterFont(el, context.frontmatter, manager);
     decorateFontSpans(el, manager);
   };

@@ -715,17 +715,31 @@ body.langscape-resizing * {
   white-space: nowrap;
 }
 
+.langscape-font-setting-error {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-error);
+  margin-top: 2px;
+  overflow-wrap: anywhere;
+}
+
 .langscape-font-setting-actions {
   display: flex;
   gap: 6px;
   flex: 0 0 auto;
 }
 
+.langscape-font-delete:hover {
+  color: var(--text-error);
+}
+
+.langscape-note-font {
+  font-family: var(--langscape-font-family, var(--font-text)), var(--font-text);
+}
+
 .langscape-font,
-.langscape-note-font,
 .langscape-font-preview,
 .langscape-font-setting-preview {
-  font-family: var(--langscape-font-family, var(--font-text)), var(--font-text);
+  font-family: var(--langscape-font-family, var(--font-text)), var(--font-text) !important;
 }
 
 /* ==========================================================================

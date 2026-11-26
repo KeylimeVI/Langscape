@@ -16,6 +16,7 @@ import {
   createFontLivePreviewExtension,
   createFontPostProcessor,
   createNoteFontExtension,
+  refreshFontViews,
 } from "./fonts/render";
 import type { LexurgyService } from "./lexurgy/service";
 import { DEFAULT_SETTINGS, mergeSettings, type LangscapeSettings } from "./settings";
@@ -43,6 +44,7 @@ export default class LangscapePlugin extends Plugin {
   settings: LangscapeSettings = { ...DEFAULT_SETTINGS };
   fontManager!: FontManager;
   private fontDomDecorator: FontDomDecorator | null = null;
+  private readonly clipboardCleanups = new Map<Document, () => void>();
   lexurgy?: LexurgyService;
   private testWordsSaveTimer: number | null = null;
   private fontRefreshTimer: number | null = null;
@@ -50,13 +52,22 @@ export default class LangscapePlugin extends Plugin {
   async onload(): Promise<void> {
     await this.loadSettings();
     this.fontManager = new FontManager(this.app, () => this.settings);
-    this.fontManager.attachDocument(document);
-    this.registerEvent(this.app.workspace.on("window-open", (_workspace, win) => this.fontManager.attachDocument(win.document)));
-    this.registerEvent(this.app.workspace.on("window-close", (_workspace, win) => this.fontManager.detachDocument(win.document)));
+    this.attachFontDocument(document);
+    this.registerEvent(
+      this.app.workspace.on("window-open", (_workspace, win) =>
+        this.attachFontDocument(win.document)
+      )
+    );
+    this.registerEvent(
+      this.app.workspace.on("window-close", (_workspace, win) =>
+        this.detachFontDocument(win.document)
+      )
+    );
     this.app.workspace.onLayoutReady(() => {
-      this.app.workspace.iterateAllLeaves((leaf) => this.fontManager.attachDocument(leaf.view.containerEl.ownerDocument));
+      this.app.workspace.iterateAllLeaves((leaf) =>
+        this.attachFontDocument(leaf.view.containerEl.ownerDocument)
+      );
     });
-    this.register(installFontClipboard(this.fontManager));
     this.fontDomDecorator = new FontDomDecorator(this.app, this.fontManager);
 
     if (Platform.isDesktopApp) {
@@ -121,7 +132,22 @@ export default class LangscapePlugin extends Plugin {
   onunload(): void {
     if (this.testWordsSaveTimer) window.clearTimeout(this.testWordsSaveTimer);
     if (this.fontRefreshTimer) window.clearTimeout(this.fontRefreshTimer);
+    for (const cleanup of this.clipboardCleanups.values()) cleanup();
+    this.clipboardCleanups.clear();
     this.fontManager?.unload();
+  }
+
+  private attachFontDocument(doc: Document): void {
+    this.fontManager.attachDocument(doc);
+    if (!this.clipboardCleanups.has(doc)) {
+      this.clipboardCleanups.set(doc, installFontClipboard(this.fontManager, doc));
+    }
+  }
+
+  private detachFontDocument(doc: Document): void {
+    this.clipboardCleanups.get(doc)?.();
+    this.clipboardCleanups.delete(doc);
+    this.fontManager.detachDocument(doc);
   }
 
   async loadSettings(): Promise<void> {
@@ -148,9 +174,10 @@ export default class LangscapePlugin extends Plugin {
   async refreshFonts(): Promise<void> {
     await this.fontManager.refresh();
     this.refreshTreeViews();
+    this.fontDomDecorator?.scan();
   }
 
-  /** Rebuild tree widgets and Reading-view trees after fonts finish loading. */
+  /** Rebuild font decorations, tree widgets, and Reading-view panes after fonts finish loading. */
   private refreshTreeViews(): void {
     for (const leaf of this.app.workspace.getLeavesOfType("markdown")) {
       const view = leaf.view as MarkdownView;
@@ -162,7 +189,9 @@ export default class LangscapePlugin extends Plugin {
       try {
         const cm = editor?.cm;
         if (cm) {
-          cm.dispatch({ effects: refreshSyntaxTrees.of(null) });
+          cm.dispatch({
+            effects: [refreshSyntaxTrees.of(null), refreshFontViews.of(null)],
+          });
         }
         view.previewMode?.rerender(true);
       } catch {
@@ -233,6 +262,11 @@ export default class LangscapePlugin extends Plugin {
     };
     this.registerEvent(
       this.app.vault.on("create", (file) => {
+        if (isFontFile(file.path)) refresh();
+      })
+    );
+    this.registerEvent(
+      this.app.vault.on("modify", (file) => {
         if (isFontFile(file.path)) refresh();
       })
     );

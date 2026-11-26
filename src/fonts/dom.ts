@@ -50,6 +50,7 @@ export class FontDomDecorator {
   /** Exposed for tests and for a manual refresh after a font rescan. */
   scan(): void {
     const doc = this.doc();
+    this.manager.attachDocument?.(doc);
     for (const root of doc.querySelectorAll<HTMLElement>(FONT_DOM_SELECTORS)) {
       // Non-editable Bases content, such as card labels and rendered values.
       decorateFontSpans(root, this.manager);

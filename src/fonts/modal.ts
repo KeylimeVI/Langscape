@@ -23,6 +23,7 @@ export class FontPickerModal extends Modal {
 
   onOpen(): void {
     const { contentEl } = this;
+    this.options.manager.attachDocument?.(contentEl.ownerDocument);
     contentEl.addClass("langscape-font-picker");
     contentEl.createEl("h2", { text: "Insert custom-font text" });
     contentEl.createEl("p", {
@@ -88,6 +89,12 @@ export class FontPickerModal extends Modal {
         cls: "langscape-font-source",
         text: font.source === "vault" ? font.path ?? "vault font" : font.url ?? "web font",
       });
+      if (font.loadStatus === "error" && font.loadError) {
+        meta.createDiv({
+          cls: "langscape-font-setting-error",
+          text: `Could not load font: ${font.loadError}`,
+        });
+      }
       const button = row.createEl("button", {
         cls: "mod-cta",
         text: "Insert",

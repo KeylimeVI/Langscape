@@ -1,4 +1,5 @@
 export type FontSourceKind = "vault" | "url";
+export type FontLoadStatus = "unloaded" | "loading" | "loaded" | "error";
 
 export interface FontRecord {
   id: string;
@@ -19,10 +20,17 @@ export interface FontRecord {
   format?: string;
   /** Settings entry id when this font was added as a custom font. */
   customId?: string;
+  /** Auto-detected preview sample for scripts that do not map lowercase ASCII. */
+  autoSample?: string;
+  /** Current browser FontFace load status. */
+  loadStatus?: FontLoadStatus;
+  /** Human-readable error when the font file could not be read or decoded. */
+  loadError?: string;
 }
 
 export function fontFormatFromPath(filePath: string): string | undefined {
-  const ext = filePath.split(".").pop()?.toLowerCase();
+  const clean = filePath.split(/[?#]/, 1)[0];
+  const ext = clean.split(".").pop()?.toLowerCase();
   switch (ext) {
     case "ttf":
     case "ttc":

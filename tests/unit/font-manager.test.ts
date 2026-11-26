@@ -78,7 +78,12 @@ function file(path: string): TFile {
 }
 
 class TestFontFace {
-  constructor(readonly family: string, readonly source: string) {}
+  status: FontFaceLoadStatus = "unloaded";
+  constructor(readonly family: string, readonly source: string | ArrayBuffer) {}
+  async load(): Promise<this> {
+    this.status = "loaded";
+    return this;
+  }
 }
 
 function fontSet(doc: Document) {
@@ -276,5 +281,63 @@ describe("FontManager", () => {
     } finally {
       Platform.isDesktopApp = previousDesktop;
     }
+  });
+
+  it("loads vault fonts from ArrayBuffer, reloads when modified, and records decode errors", async () => {
+    const vault = new Vault();
+    const fontFile = file("Fonts/Reedline-Regular.ttf");
+    vault.add(fontFile);
+
+    let shouldFail = false;
+    class FailingAwareFontFace {
+      status = "unloaded";
+      constructor(readonly family: string, readonly source: string | ArrayBuffer) {}
+      async load(): Promise<this> {
+        if (shouldFail) {
+          this.status = "error";
+          throw new SyntaxError("Invalid font data in ArrayBuffer.");
+        }
+        this.status = "loaded";
+        return this;
+      }
+    }
+
+    const faces = new Set<FailingAwareFontFace>();
+    Object.defineProperty(document.defaultView, "FontFace", {
+      configurable: true,
+      value: FailingAwareFontFace,
+    });
+    Object.defineProperty(document, "fonts", { configurable: true, value: faces });
+
+    const manager = new FontManager({ vault } as any, () =>
+      settings({
+        fontAliases: { "Fonts/Reedline-Regular.ttf": "Reedline" },
+        fontNicknames: { "Fonts/Reedline-Regular.ttf": "rl" },
+      })
+    );
+    manager.attachDocument(document);
+    const loaded = await manager.refresh();
+    expect(loaded[0].loadStatus).toBe("loaded");
+    expect(loaded[0].loadError).toBeUndefined();
+    expect([...faces]).toHaveLength(1);
+    expect([...faces][0].source).toBeInstanceOf(ArrayBuffer);
+    expect(manager.find("rl")?.family).toBe("Reedline");
+
+    // Simulate editing the font file in place with invalid bytes.
+    shouldFail = true;
+    fontFile.stat.mtime = 2;
+    fontFile.stat.size = fontBytes.length + 1;
+    const reloaded = await manager.refresh();
+    expect(reloaded[0].loadStatus).toBe("error");
+    expect(reloaded[0].loadError).toContain("Invalid font data");
+    expect([...faces]).toHaveLength(1);
+  });
+
+  it("uses auto-detected cmap glyphs for non-ASCII fonts like Noto Sans Gothic", async () => {
+    const vault = new Vault();
+    vault.add(file("Fonts/NotoSansGothic-Regular.ttf"));
+    const manager = new FontManager({ vault } as any, () => settings());
+    const [gothic] = await manager.refresh();
+    expect(manager.sampleFor(gothic)).toContain("𐌰");
   });
 });
