@@ -6,7 +6,7 @@
 
 [![Langscape trailer: click to watch](docs/video/langscape-trailer-poster.jpg)](docs/video/langscape-trailer.mp4)
 
-[Watch the trailer](docs/video/langscape-trailer.mp4) · [Visual credits](trailer/README.md#visual-credits)
+[Watch the trailer](docs/video/langscape-trailer.mp4) · [Visual credits](https://github.com/KeylimeVI/Langscape/blob/trailer/trailer/README.md#visual-credits)
 
 ## Features
 
