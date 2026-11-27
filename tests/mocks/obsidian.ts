@@ -63,6 +63,7 @@ export class Notice {
 }
 
 export const Platform = {
+  isDesktop: true,
   isDesktopApp: true,
   isMobile: false,
   isMobileApp: false,
@@ -141,9 +142,18 @@ export class Plugin extends Component {
 
 export class PluginSettingTab {
   containerEl: HTMLElement;
+  settingItems: any[] = [];
   constructor(public app: any, public plugin: any) {
     this.containerEl = document.createElement("div");
   }
+  getSettingDefinitions(): any[] {
+    return [];
+  }
+  update(): void {}
+  getControlValue(_key: string): unknown {
+    return undefined;
+  }
+  setControlValue(_key: string, _value: unknown): void | Promise<void> {}
   display(): void {}
   hide(): void {}
 }

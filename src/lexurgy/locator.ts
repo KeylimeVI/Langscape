@@ -1,7 +1,4 @@
-import { execFile } from "node:child_process";
-import { promises as fs } from "node:fs";
-import * as os from "node:os";
-import * as path from "node:path";
+import { Platform } from "obsidian";
 import type { LaunchSpec } from "./server";
 
 export interface JavaInfo {
@@ -41,12 +38,50 @@ export interface DetectOptions {
   extraSearchPaths?: string[];
 }
 
+interface LocatorNodeModules {
+  execFile: typeof import("node:child_process").execFile;
+  fs: typeof import("node:fs").promises;
+  os: typeof import("node:os");
+  path: typeof import("node:path");
+}
+
+let locatorModulesPromise: Promise<LocatorNodeModules | undefined> | undefined;
+
+async function loadLocatorNodeModules(): Promise<LocatorNodeModules | undefined> {
+  if (!Platform.isDesktopApp) return undefined;
+  if (!locatorModulesPromise) {
+    locatorModulesPromise = (async () => {
+      if (!Platform.isDesktopApp) return undefined;
+      const [childProcess, fsMod, osMod, pathMod] = await Promise.all([
+        import("node:child_process"),
+        import("node:fs"),
+        import("node:os"),
+        import("node:path"),
+      ]);
+      return {
+        execFile: childProcess.execFile,
+        fs: fsMod.promises,
+        os: osMod,
+        path: pathMod,
+      };
+    })();
+  }
+  return locatorModulesPromise;
+}
+
 const VERSION_FILE = "version.json";
 
 export async function detectLexurgyEnvironment(
   options: DetectOptions = {}
 ): Promise<LexurgyEnvironment> {
   const notes: string[] = [];
+  const mods = await loadLocatorNodeModules();
+  if (!mods) {
+    return {
+      notes,
+      error: "Lexurgy is only available on desktop.",
+    };
+  }
   const java = await detectJava(options.javaPath);
   if (!java) {
     return {
@@ -60,21 +95,24 @@ export async function detectLexurgyEnvironment(
   // A user can switch to a newer, manually installed copy even if a legacy copy remains.
   const configuredPath = options.configuredPath?.trim();
   if (configuredPath) {
-    const configured = await installationFromConfiguredPath(configuredPath, java);
+    const configured = await installationFromConfiguredPath(mods, configuredPath, java);
     if (configured) return { java, installation: configured, notes };
     notes.push(`The configured Lexurgy path was not usable: ${configuredPath}`);
   }
 
   if (options.managedDir) {
-    const legacy = await installationFromDirectory(options.managedDir, "managed", java);
+    const legacy = await installationFromDirectory(mods, options.managedDir, "managed", java);
     if (legacy) return { java, installation: legacy, notes };
   }
   for (const dir of options.extraSearchPaths ?? []) {
-    const installation = await installationFromDirectory(dir, "configured", java);
+    const installation = await installationFromDirectory(mods, dir, "configured", java);
     if (installation) return { java, installation, notes };
   }
 
-  const onPath = await findExecutableOnPath(process.platform === "win32" ? "lexurgy.bat" : "lexurgy");
+  const onPath = await findExecutableOnPath(
+    mods,
+    process.platform === "win32" ? "lexurgy.bat" : "lexurgy"
+  );
   if (onPath) {
     return {
       java,
@@ -87,8 +125,8 @@ export async function detectLexurgyEnvironment(
     };
   }
 
-  for (const dir of defaultLexurgyLocations()) {
-    const installation = await installationFromDirectory(dir, "configured", java);
+  for (const dir of defaultLexurgyLocations(mods)) {
+    const installation = await installationFromDirectory(mods, dir, "configured", java);
     if (installation) return { java, installation, notes };
   }
 
@@ -102,23 +140,28 @@ export async function detectLexurgyEnvironment(
 }
 
 export async function detectJava(configuredPath?: string): Promise<JavaInfo | undefined> {
+  const mods = await loadLocatorNodeModules();
+  if (!mods) return undefined;
   const candidates: string[] = [];
   if (configuredPath?.trim()) candidates.push(configuredPath.trim());
   if (process.env.JAVA_HOME) {
-    candidates.push(path.join(process.env.JAVA_HOME, "bin", javaExecutable()));
+    candidates.push(mods.path.join(process.env.JAVA_HOME, "bin", javaExecutable()));
   }
   candidates.push(javaExecutable());
 
   for (const candidate of candidates) {
-    const info = await probeJava(candidate);
+    const info = await probeJava(mods, candidate);
     if (info) return info;
   }
   return undefined;
 }
 
-async function probeJava(command: string): Promise<JavaInfo | undefined> {
+async function probeJava(
+  mods: LocatorNodeModules,
+  command: string
+): Promise<JavaInfo | undefined> {
   return new Promise((resolve) => {
-    execFile(
+    mods.execFile(
       command,
       ["-version"],
       { timeout: 8_000, windowsHide: true },
@@ -138,15 +181,16 @@ async function probeJava(command: string): Promise<JavaInfo | undefined> {
 }
 
 async function installationFromDirectory(
+  mods: LocatorNodeModules,
   dir: string,
   kind: InstallationKind,
   java: JavaInfo
 ): Promise<LexurgyInstallation | undefined> {
-  const home = path.resolve(dir);
-  const libDir = path.join(home, "lib");
-  const jars = await listJars(libDir);
+  const home = mods.path.resolve(dir);
+  const libDir = mods.path.join(home, "lib");
+  const jars = await listJars(mods, libDir);
   if (jars.length === 0) return undefined;
-  const version = await readManagedVersion(home);
+  const version = await readManagedVersion(mods, home);
   const label =
     kind === "managed"
       ? `Existing Lexurgy${version ? ` ${version}` : ""}`
@@ -156,28 +200,25 @@ async function installationFromDirectory(
     label,
     home,
     version,
-    launch: classpathLaunch(java.path, libDir, home),
+    launch: classpathLaunch(mods, java.path, libDir, home),
   };
 }
 
 async function installationFromConfiguredPath(
+  mods: LocatorNodeModules,
   target: string,
   java: JavaInfo
 ): Promise<LexurgyInstallation | undefined> {
-  const resolved = path.resolve(target);
-  let stats;
-  try {
-    stats = await fs.stat(resolved);
-  } catch {
-    return undefined;
-  }
+  const resolved = mods.path.resolve(target);
+  const stats = await mods.fs.stat(resolved).catch(() => undefined);
+  if (!stats) return undefined;
 
   if (stats.isDirectory()) {
-    const asHome = await installationFromDirectory(resolved, "configured", java);
+    const asHome = await installationFromDirectory(mods, resolved, "configured", java);
     if (asHome) return asHome;
     // A bin directory next to lib.
-    const parent = path.dirname(resolved);
-    return installationFromDirectory(parent, "configured", java);
+    const parent = mods.path.dirname(resolved);
+    return installationFromDirectory(mods, parent, "configured", java);
   }
 
   if (resolved.toLowerCase().endsWith(".jar")) {
@@ -194,8 +235,8 @@ async function installationFromConfiguredPath(
 
   // Scripts on Windows are usually .bat and need cmd.exe; Node's spawn handles
   // .bat on win32 only with shell:true, so prefer the classpath if we can find it.
-  const home = path.dirname(path.dirname(resolved));
-  const sibling = await installationFromDirectory(home, "configured", java);
+  const home = mods.path.dirname(mods.path.dirname(resolved));
+  const sibling = await installationFromDirectory(mods, home, "configured", java);
   if (sibling) return sibling;
 
   return {
@@ -205,14 +246,19 @@ async function installationFromConfiguredPath(
   };
 }
 
-function classpathLaunch(javaPath: string, libDir: string, cwd: string): LaunchSpec {
+function classpathLaunch(
+  mods: LocatorNodeModules,
+  javaPath: string,
+  libDir: string,
+  cwd: string
+): LaunchSpec {
   // The JVM expands a trailing "*" in a classpath entry into every jar in that
   // directory. This works cross-platform without constructing a giant path.
   return {
     command: javaPath,
     args: [
       "-cp",
-      path.join(libDir, "*"),
+      mods.path.join(libDir, "*"),
       "com.meamoria.lexurgy.cli.MainKt",
       "server",
     ],
@@ -221,31 +267,40 @@ function classpathLaunch(javaPath: string, libDir: string, cwd: string): LaunchS
   };
 }
 
-async function listJars(dir: string): Promise<string[]> {
+async function listJars(mods: LocatorNodeModules, dir: string): Promise<string[]> {
   try {
-    const entries = await fs.readdir(dir, { withFileTypes: true });
+    const entries = await mods.fs.readdir(dir, { withFileTypes: true });
     return entries
       .filter((entry) => entry.isFile() && entry.name.toLowerCase().endsWith(".jar"))
-      .map((entry) => path.join(dir, entry.name));
+      .map((entry) => mods.path.join(dir, entry.name));
   } catch {
     return [];
   }
 }
 
-async function readManagedVersion(home: string): Promise<string | undefined> {
+async function readManagedVersion(
+  mods: LocatorNodeModules,
+  home: string
+): Promise<string | undefined> {
   try {
-    const raw = await fs.readFile(path.join(home, VERSION_FILE), "utf8");
-    const parsed = JSON.parse(raw) as { version?: unknown };
-    return typeof parsed.version === "string" ? parsed.version : undefined;
+    const raw = await mods.fs.readFile(mods.path.join(home, VERSION_FILE), "utf8");
+    const parsed = JSON.parse(raw) as unknown;
+    if (typeof parsed === "object" && parsed !== null && "version" in parsed) {
+      return typeof parsed.version === "string" ? parsed.version : undefined;
+    }
+    return undefined;
   } catch {
     return undefined;
   }
 }
 
-async function findExecutableOnPath(name: string): Promise<string | undefined> {
+async function findExecutableOnPath(
+  mods: LocatorNodeModules,
+  name: string
+): Promise<string | undefined> {
   const command = process.platform === "win32" ? "where" : "which";
   return new Promise((resolve) => {
-    execFile(command, [name], { timeout: 5_000, windowsHide: true }, (error, stdout) => {
+    mods.execFile(command, [name], { timeout: 5_000, windowsHide: true }, (error, stdout) => {
       if (error) {
         resolve(undefined);
         return;
@@ -259,12 +314,12 @@ async function findExecutableOnPath(name: string): Promise<string | undefined> {
   });
 }
 
-export function defaultLexurgyLocations(): string[] {
-  const home = os.homedir();
+function defaultLexurgyLocations(mods: LocatorNodeModules): string[] {
+  const home = mods.os.homedir();
   const locations = [
-    path.join(home, "lexurgy"),
-    path.join(home, "lexurgy-1.7.7"),
-    path.join(home, "Applications", "lexurgy"),
+    mods.path.join(home, "lexurgy"),
+    mods.path.join(home, "lexurgy-1.7.7"),
+    mods.path.join(home, "Applications", "lexurgy"),
     "/usr/local/lexurgy",
     "/opt/lexurgy",
   ];

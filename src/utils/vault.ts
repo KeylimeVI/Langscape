@@ -15,9 +15,7 @@ function loadVaultDiskModule(): Promise<VaultDiskModule | undefined> {
 }
 
 function configDirNames(vault: Vault): string[] {
-  const names = new Set([".obsidian"]);
-  if (vault.configDir) names.add(vault.configDir);
-  return [...names];
+  return vault.configDir ? [vault.configDir] : [];
 }
 
 export async function getVaultDisk(vault: Vault): Promise<VaultDisk | undefined> {
@@ -25,7 +23,7 @@ export async function getVaultDisk(vault: Vault): Promise<VaultDisk | undefined>
   if (!(adapter instanceof FileSystemAdapter)) return undefined;
   const mod = await loadVaultDiskModule();
   if (!mod) return undefined;
-  return mod.createDesktopVaultDisk(adapter, configDirNames(vault));
+  return await mod.createDesktopVaultDisk(adapter, configDirNames(vault));
 }
 
 /**
@@ -110,11 +108,11 @@ async function walkVault(
 }
 
 async function isNestedVaultViaAdapter(vault: Vault, path: string): Promise<boolean> {
-  const stat = vault.adapter?.stat;
-  if (typeof stat !== "function") return false;
+  const adapter = vault.adapter;
+  if (!adapter || typeof adapter.stat !== "function") return false;
   for (const configDir of configDirNames(vault)) {
     try {
-      const entry = await stat.call(vault.adapter, `${path}/${configDir}`);
+      const entry = await adapter.stat(`${path}/${configDir}`);
       if (entry?.type === "folder") return true;
     } catch {
       // Ignore unreadable adapter paths.

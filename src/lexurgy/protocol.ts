@@ -45,8 +45,8 @@ export function encodeRequest(request: ServerRequest): string {
 }
 
 export function isServerResponse(value: unknown): value is ServerResponse {
-  if (typeof value !== "object" || value === null) return false;
-  const type = (value as { type?: unknown }).type;
+  if (typeof value !== "object" || value === null || !("type" in value)) return false;
+  const type = value.type;
   return type === "ok" || type === "changed" || type === "error";
 }
 
@@ -55,7 +55,7 @@ export function parseResponseLine(line: string): ServerResponse {
   if (!trimmed) throw new Error("Lexurgy returned an empty response line.");
   let parsed: unknown;
   try {
-    parsed = JSON.parse(trimmed);
+    parsed = JSON.parse(trimmed) as unknown;
   } catch {
     throw new Error(`Lexurgy returned invalid JSON: ${trimmed.slice(0, 240)}`);
   }

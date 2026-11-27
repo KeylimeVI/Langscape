@@ -40,10 +40,10 @@ export function createTreeDrag(block: HTMLElement, onChange: () => void) {
     zones.push({ element: anchor.label, anchor, kind: "child" });
     if (anchor.parent) {
       for (const kind of ["before", "after"] as const) {
-        const element = doc.createElement("span");
-        element.className = `langscape-tree-drop-side is-${kind}`;
-        element.setAttribute("aria-hidden", "true");
-        anchor.row.appendChild(element);
+        const element = anchor.row.createSpan({
+          cls: `langscape-tree-drop-side is-${kind}`,
+          attr: { "aria-hidden": "true" },
+        });
         zones.push({ element, anchor, kind });
       }
     }
@@ -82,16 +82,15 @@ export function createTreeDrag(block: HTMLElement, onChange: () => void) {
         }
         block.classList.add("is-tree-dragging");
         item.classList.add("is-dragging-source");
-        preview = doc.createElement("div");
-        preview.className = "langscape-tree-drag-preview";
-        preview.setAttribute("aria-hidden", "true");
+        preview = doc.body.createDiv({
+          cls: "langscape-tree-drag-preview",
+          attr: { "aria-hidden": "true" },
+        });
         const replica = label.cloneNode(true) as HTMLElement;
         replica.removeAttribute("tabindex");
         replica.removeAttribute("role");
         preview.appendChild(replica);
-        hint = preview.appendChild(doc.createElement("small"));
-        hint.textContent = "Drop on a label or a side mark";
-        doc.body.appendChild(preview);
+        hint = preview.createEl("small", { text: "Drop on a label or a side mark" });
       };
 
       const hit = (pointer: PointerEvent) => {

@@ -77,28 +77,45 @@ export function renderSyntaxTree(
   doc: Document = document,
   actions: SyntaxTreeActions = {}
 ): HTMLElement {
-  const block = doc.createElement("div");
-  block.className = "langscape-tree-block";
+  const block = createDiv({ cls: "langscape-tree-block" });
+  if (block.ownerDocument !== doc) doc.adoptNode(block);
 
-  const toolbar = doc.createElement("div");
-  toolbar.className = "langscape-tree-toolbar";
-  const alignButton = doc.createElement("button");
-  alignButton.type = "button";
-  alignButton.className = "langscape-tree-align";
-  alignButton.setAttribute("aria-pressed", "false");
-  toolbar.appendChild(alignButton);
+  const toolbar = block.createDiv({ cls: "langscape-tree-toolbar" });
+  const alignButton = toolbar.createEl("button", {
+    type: "button",
+    cls: "langscape-tree-align",
+    attr: { "aria-pressed": "false" },
+  });
 
-  const tree = doc.createElement("div");
-  tree.className = "langscape-tree";
-  tree.setAttribute("role", actions.onChange ? "tree" : "img");
+  const tree = block.createDiv({
+    cls: "langscape-tree",
+    attr: { role: actions.onChange ? "tree" : "img" },
+  });
 
-  const svg = doc.createElementNS("http://www.w3.org/2000/svg", "svg");
-  svg.classList.add("langscape-tree-edges");
-  svg.setAttribute("aria-hidden", "true");
-  tree.appendChild(svg);
+  const svg = tree.createSvg("svg", {
+    cls: "langscape-tree-edges",
+    attr: { "aria-hidden": "true" },
+  });
 
   const editable = Boolean(actions.onChange);
   const redrawEdges = () => drawEdges(tree, svg);
+
+  // Highlight only the innermost hovered node without relying on CSS :has().
+  if (editable) {
+    let hoveredNode: HTMLElement | null = null;
+    const setHovered = (next: HTMLElement | null) => {
+      if (hoveredNode === next) return;
+      hoveredNode?.classList.remove("is-tree-hovered");
+      next?.classList.add("is-tree-hovered");
+      hoveredNode = next;
+    };
+    tree.addEventListener("mouseover", (event) => {
+      const target = event.target as HTMLElement | null;
+      const node = target?.closest?.<HTMLElement>(".langscape-tree-node") ?? null;
+      setHovered(node && tree.contains(node) ? node : null);
+    });
+    tree.addEventListener("mouseleave", () => setHovered(null));
+  }
 
   const notify = () => {
     if (!actions.onChange) return;
@@ -145,18 +162,18 @@ export function renderSyntaxTree(
   const beginEdit = (context: NodeContext) => {
     if (!editable || context.label.dataset.editing === "true") return;
     context.label.dataset.editing = "true";
-    const input = doc.createElement("input");
-    input.type = "text";
-    input.className = "langscape-tree-edit";
-    input.value = context.node.label;
+    // Keep the input outside CodeMirror. A native input nested in the CM
+    // contenteditable leaks keystrokes into the Markdown source.
+    const input = doc.body.createEl("input", {
+      type: "text",
+      cls: "langscape-tree-edit",
+      value: context.node.label,
+    });
     const rect = context.label.getBoundingClientRect();
     input.style.left = `${Math.max(4, rect.left - 5)}px`;
     input.style.top = `${Math.max(4, rect.top - 1)}px`;
     input.style.width = `${Math.max(52, rect.width + 10)}px`;
     input.style.height = `${Math.max(26, rect.height + 2)}px`;
-    // Keep the input outside CodeMirror. A native input nested in the CM
-    // contenteditable leaks keystrokes into the Markdown source.
-    doc.body.appendChild(input);
 
     let finished = false;
     const restoreLabel = () => {
@@ -222,31 +239,29 @@ export function renderSyntaxTree(
   };
 
   const renderNode = (
+    container: HTMLElement,
     node: SyntaxTreeNode,
     parent: SyntaxTreeNode | null,
     level: number
   ): HTMLDivElement => {
-    const item = doc.createElement("div");
-    item.className = "langscape-tree-node";
-    item.setAttribute("role", "treeitem");
-    item.setAttribute("aria-level", String(level));
+    const item = container.createDiv({
+      cls: "langscape-tree-node",
+      attr: { role: "treeitem", "aria-level": String(level) },
+    });
 
-    const row = doc.createElement("div");
-    row.className = "langscape-tree-label-row";
-
-    const label = doc.createElement("span");
-    label.className = "langscape-tree-label";
+    const row = item.createDiv({ cls: "langscape-tree-label-row" });
+    const label = row.createSpan({ cls: "langscape-tree-label" });
     paintLabelText(label, node.label, manager, doc);
-    row.appendChild(label);
 
     const context: NodeContext = { node, parent, item, row, label };
     bindLabel(context);
 
     if (editable) {
-      const add = doc.createElement("button");
-      add.type = "button";
-      add.className = "langscape-tree-add";
-      add.textContent = "+";
+      const add = row.createEl("button", {
+        type: "button",
+        cls: "langscape-tree-add",
+        text: "+",
+      });
       add.addEventListener("pointerdown", (event) => {
         event.preventDefault();
         event.stopPropagation();
@@ -257,20 +272,18 @@ export function renderSyntaxTree(
         node.children.push({ label: "", children: [] });
         notify();
       });
-      row.appendChild(add);
 
       if (parent || actions.onRemove) {
-        const remove = doc.createElement("button");
-        remove.type = "button";
-        remove.className = "langscape-tree-delete";
-        setTrashIcon(remove, doc);
+        const remove = row.createEl("button", {
+          type: "button",
+          cls: "langscape-tree-delete",
+        });
+        setTrashIcon(remove);
         remove.addEventListener("pointerdown", (event) => {
           event.preventDefault();
           event.stopPropagation();
         });
-        remove.addEventListener("click", async (event) => {
-          event.preventDefault();
-          event.stopPropagation();
+        const handleRemove = async (): Promise<void> => {
           const count = countNodes(node);
           if (count >= 2 && actions.confirmDelete) {
             const confirmed = await actions.confirmDelete(node, count);
@@ -284,27 +297,25 @@ export function renderSyntaxTree(
           if (index < 0) return;
           parent.children.splice(index, 1);
           notify();
+        };
+        remove.addEventListener("click", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          void handleRemove();
         });
-        row.appendChild(remove);
       }
     }
 
-    item.appendChild(row);
-
     if (node.children.length > 0) {
-      const children = doc.createElement("div");
-      children.className = "langscape-tree-children";
+      const children = item.createDiv({ cls: "langscape-tree-children" });
       for (const child of node.children) {
-        children.appendChild(renderNode(child, node, level + 1));
+        renderNode(children, child, node, level + 1);
       }
-      item.appendChild(children);
     }
     return item;
   };
 
-  tree.appendChild(renderNode(root, null, 1));
-  block.appendChild(toolbar);
-  block.appendChild(tree);
+  renderNode(tree, root, null, 1);
 
   const schedule = () => {
     const win = doc.defaultView;
@@ -330,45 +341,48 @@ export function renderSyntaxTree(
 }
 
 function setAlignmentIcon(button: HTMLButtonElement, alignment: TreeAlignment): void {
-  const doc = button.ownerDocument;
-  const svg = doc.createElementNS("http://www.w3.org/2000/svg", "svg");
-  svg.setAttribute("viewBox", "0 0 24 24");
-  svg.setAttribute("width", "16");
-  svg.setAttribute("height", "16");
-  svg.setAttribute("fill", "none");
-  svg.setAttribute("stroke", "currentColor");
-  svg.setAttribute("stroke-width", "2");
-  svg.setAttribute("stroke-linecap", "round");
+  button.empty();
+  const svg = button.createSvg("svg", {
+    attr: {
+      viewBox: "0 0 24 24",
+      width: "16",
+      height: "16",
+      fill: "none",
+      stroke: "currentColor",
+      "stroke-width": "2",
+      "stroke-linecap": "round",
+    },
+  });
   const paths =
     alignment === "left"
       ? ["M4 6h16", "M4 10h10", "M4 14h14", "M4 18h6"]
       : ["M4 6h16", "M7 10h10", "M5 14h14", "M9 18h6"];
   for (const definition of paths) {
-    const path = doc.createElementNS("http://www.w3.org/2000/svg", "path");
-    path.setAttribute("d", definition);
-    svg.appendChild(path);
+    svg.createSvg("path", { attr: { d: definition } });
   }
-  button.replaceChildren(svg);
   button.setAttribute("aria-pressed", String(alignment === "left"));
   button.dataset.alignment = alignment;
 }
-
 
 function countNodes(node: SyntaxTreeNode): number {
   return 1 + node.children.reduce((total, child) => total + countNodes(child), 0);
 }
 
-function setTrashIcon(button: HTMLButtonElement, doc: Document): void {
-  const svg = doc.createElementNS("http://www.w3.org/2000/svg", "svg");
-  svg.setAttribute("viewBox", "0 0 24 24");
-  svg.setAttribute("width", "14");
-  svg.setAttribute("height", "14");
-  svg.setAttribute("fill", "none");
-  svg.setAttribute("stroke", "currentColor");
-  svg.setAttribute("stroke-width", "2");
-  svg.setAttribute("stroke-linecap", "round");
-  svg.setAttribute("stroke-linejoin", "round");
-  svg.setAttribute("aria-hidden", "true");
+function setTrashIcon(button: HTMLButtonElement): void {
+  button.empty();
+  const svg = button.createSvg("svg", {
+    attr: {
+      viewBox: "0 0 24 24",
+      width: "14",
+      height: "14",
+      fill: "none",
+      stroke: "currentColor",
+      "stroke-width": "2",
+      "stroke-linecap": "round",
+      "stroke-linejoin": "round",
+      "aria-hidden": "true",
+    },
+  });
   for (const definition of [
     "M3 6h18",
     "M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2",
@@ -376,11 +390,8 @@ function setTrashIcon(button: HTMLButtonElement, doc: Document): void {
     "M10 11v6",
     "M14 11v6",
   ]) {
-    const path = doc.createElementNS("http://www.w3.org/2000/svg", "path");
-    path.setAttribute("d", definition);
-    svg.appendChild(path);
+    svg.createSvg("path", { attr: { d: definition } });
   }
-  button.replaceChildren(svg);
 }
 
 function paintLabel(
@@ -397,12 +408,9 @@ function paintLabelText(
   manager: FontManager,
   doc: Document
 ): void {
-  label.textContent = "";
+  label.empty();
   if (!text.trim()) {
-    const placeholder = doc.createElement("span");
-    placeholder.className = "langscape-tree-empty";
-    placeholder.textContent = "○";
-    label.appendChild(placeholder);
+    label.createSpan({ cls: "langscape-tree-empty", text: "○" });
     return;
   }
   label.textContent = text;
@@ -432,7 +440,6 @@ function drawEdges(tree: HTMLElement, svg: SVGSVGElement): void {
   const treeRect = tree.getBoundingClientRect();
   if (!treeRect.width || !treeRect.height) return;
 
-  const doc = tree.ownerDocument;
   for (const parent of tree.querySelectorAll<HTMLElement>(".langscape-tree-node")) {
     const parentLabel = parent.querySelector<HTMLElement>(
       ":scope > .langscape-tree-label-row > .langscape-tree-label"
@@ -451,20 +458,16 @@ function drawEdges(tree: HTMLElement, svg: SVGSVGElement): void {
       if (!childLabel) continue;
       const childRect = childLabel.getBoundingClientRect();
       if (!childRect.width || !childRect.height) continue;
-      const line = doc.createElementNS("http://www.w3.org/2000/svg", "line");
-      line.setAttribute(
-        "x1",
-        String(parentRect.left - treeRect.left + parentRect.width / 2)
-      );
-      line.setAttribute("y1", String(parentRect.bottom - treeRect.top));
-      line.setAttribute(
-        "x2",
-        String(childRect.left - treeRect.left + childRect.width / 2)
-      );
-      line.setAttribute("y2", String(childRect.top - treeRect.top));
-      line.setAttribute("stroke-width", "1");
-      line.setAttribute("stroke", "currentColor");
-      svg.appendChild(line);
+      svg.createSvg("line", {
+        attr: {
+          x1: String(parentRect.left - treeRect.left + parentRect.width / 2),
+          y1: String(parentRect.bottom - treeRect.top),
+          x2: String(childRect.left - treeRect.left + childRect.width / 2),
+          y2: String(childRect.top - treeRect.top),
+          "stroke-width": "1",
+          stroke: "currentColor",
+        },
+      });
     }
   }
 }

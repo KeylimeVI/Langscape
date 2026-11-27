@@ -74,24 +74,26 @@ export function decorateFontSpans(
       if (segments[0].text !== text) node.nodeValue = segments[0].text;
       continue;
     }
-    const fragment = doc.createDocumentFragment();
+    const fragment = createFragment();
     for (const segment of segments) {
       if (segment.type === "text") {
-        fragment.appendChild(doc.createTextNode(segment.text));
+        fragment.appendText(segment.text);
         continue;
       }
       const record = segment.name ? manager.find(segment.name) : undefined;
       if (!record) {
-        fragment.appendChild(doc.createTextNode(formatFontSpan(segment.name ?? "", segment.text)));
+        fragment.appendText(formatFontSpan(segment.name ?? "", segment.text));
         continue;
       }
-      const span = doc.createElement("span");
-      span.className = `langscape-font ${record.className}`;
-      span.setAttribute("style", fontFamilyAttribute(record));
+      const span = fragment.createSpan({
+        cls: `langscape-font ${record.className}`,
+        text: segment.text,
+        attr: {
+          style: fontFamilyAttribute(record),
+          spellcheck: "false",
+        },
+      });
       span.dataset.langscapeFont = record.displayName;
-      span.setAttribute("spellcheck", "false");
-      span.textContent = segment.text;
-      fragment.appendChild(span);
     }
     node.replaceWith(fragment);
   }
@@ -100,11 +102,12 @@ export function decorateFontSpans(
 /** Apply a note-level font declared in frontmatter. */
 export function applyFrontmatterFont(
   el: HTMLElement,
-  frontmatter: Record<string, unknown> | undefined,
+  frontmatter: unknown,
   manager: FontManager
 ): void {
-  if (!frontmatter) return;
-  const requested = frontmatter["langscape-font"] ?? frontmatter["langscape_font"];
+  if (!frontmatter || typeof frontmatter !== "object") return;
+  const fm = frontmatter as Record<string, unknown>;
+  const requested = fm["langscape-font"] ?? fm["langscape_font"];
   if (typeof requested !== "string" || !requested.trim()) return;
   const record = manager.find(requested);
   if (!record) return;
@@ -284,7 +287,10 @@ function isEditable(element: HTMLElement): boolean {
   );
   if (!editable) return false;
   const win = editable.ownerDocument.defaultView;
-  if (win && (editable instanceof win.HTMLInputElement || editable instanceof win.HTMLTextAreaElement)) {
+  if (
+    win &&
+    (editable.instanceOf(win.HTMLInputElement) || editable.instanceOf(win.HTMLTextAreaElement))
+  ) {
     return true;
   }
   return editable.getAttribute("contenteditable") !== "false";

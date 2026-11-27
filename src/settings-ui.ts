@@ -1,5 +1,13 @@
-import { fontFamilyValue } from "./fonts/css";
-import { Notice, PluginSettingTab, Setting, TFile, setIcon } from "obsidian";
+import { fontFamilyValue, type FontRecord } from "./fonts/css";
+import type { CustomFontConfig } from "./fonts/manager";
+import {
+  Notice,
+  PluginSettingTab,
+  Setting,
+  TFile,
+  setIcon,
+  type SettingDefinitionItem,
+} from "obsidian";
 import type { LexurgyService } from "./lexurgy/service";
 import type LangscapePlugin from "./main";
 import { JAVA_DOWNLOAD_URL } from "./lexurgy/java";
@@ -10,10 +18,166 @@ export class LangscapeSettingTab extends PluginSettingTab {
   plugin: LangscapePlugin;
   private fontChangeUnsub: (() => void) | null = null;
   private fontListContainer: HTMLElement | null = null;
+  private lexurgyStatusEl: HTMLElement | null = null;
 
   constructor(plugin: LangscapePlugin) {
     super(plugin.app, plugin);
     this.plugin = plugin;
+  }
+
+  getSettingDefinitions(): SettingDefinitionItem[] {
+    const lexurgy = this.plugin.lexurgy;
+    const items: SettingDefinitionItem[] = [
+      {
+        type: "group",
+        heading: "Fonts",
+        items: [
+          {
+            name: "Vault fonts",
+            desc: "Fonts are discovered everywhere in the vault. Set a short nickname to use {nickname: text} in notes.",
+            aliases: ["fonts", "rescan", "writing system", "nickname"],
+            render: (setting) => {
+              this.containerEl.addClass("langscape-settings");
+              // Obsidian 1.15+ renders Settings in its own window/Document, which does not
+              // fire workspace "window-open". Attach it so FontFaces render in previews.
+              this.plugin.fontManager.attachDocument(setting.settingEl.ownerDocument);
+              setting.addButton((button) =>
+                button.setButtonText("Rescan").onClick(async () => {
+                  await this.rescanFonts();
+                })
+              );
+            },
+          },
+          {
+            name: "Discovered fonts",
+            searchable: false,
+            render: (setting) => {
+              this.containerEl.addClass("langscape-settings");
+              setting.settingEl.addClass("langscape-setting-block-row");
+              setting.infoEl.detach();
+              setting.controlEl.detach();
+              this.plugin.fontManager.attachDocument(setting.settingEl.ownerDocument);
+              const host = setting.settingEl.createDiv({ cls: "langscape-font-settings-host" });
+              this.fontListContainer = host;
+              this.renderFontList(host);
+              this.unsubscribeFonts();
+              const unsub = this.plugin.fontManager.onChange(() => {
+                if (!host.isConnected) {
+                  unsub();
+                  return;
+                }
+                this.plugin.fontManager.attachDocument(host.ownerDocument);
+                this.renderFontList(host);
+              });
+              this.fontChangeUnsub = unsub;
+              return () => {
+                unsub();
+                if (this.fontChangeUnsub === unsub) this.fontChangeUnsub = null;
+                if (this.fontListContainer === host) this.fontListContainer = null;
+              };
+            },
+          },
+        ],
+      },
+    ];
+
+    if (lexurgy) {
+      items.push({
+        type: "group",
+        heading: "Lexurgy",
+        items: [
+          {
+            name: "Lexurgy status",
+            desc: LEXURGY_SETUP_HINT,
+            aliases: ["lexurgy", "java", "sound changes", "test"],
+            render: (setting) => {
+              setting.settingEl.addClass("langscape-setting-block-row");
+              setting.infoEl.detach();
+              setting.controlEl.detach();
+              const body = setting.settingEl.createDiv({ cls: "langscape-lexurgy-setting-block" });
+              const status = body.createDiv({ cls: "langscape-lexurgy-setting-status" });
+              status.createDiv({ cls: "langscape-muted", text: "Checking…" });
+              this.lexurgyStatusEl = status;
+              void this.refreshLexurgyStatus(lexurgy, status);
+
+              body.createEl("p", { cls: "langscape-muted", text: LEXURGY_SETUP_HINT });
+              const footer = body.createDiv({ cls: "langscape-lexurgy-setting-actions" });
+              footer.createEl("a", {
+                text: "Open official Lexurgy releases",
+                href: LEXURGY_RELEASES_URL,
+                attr: { target: "_blank", rel: "noopener noreferrer" },
+              });
+              const testButton = footer.createEl("button", { text: "Test" });
+              testButton.addEventListener("click", () => {
+                void this.testLexurgy(lexurgy, status);
+              });
+              return () => {
+                if (this.lexurgyStatusEl === status) this.lexurgyStatusEl = null;
+              };
+            },
+          },
+          {
+            name: "Java path",
+            desc: "Blank uses JAVA_HOME or java on PATH.",
+            aliases: ["jre", "jdk", "java_home"],
+            control: {
+              type: "text",
+              key: "javaPath",
+              placeholder: "/usr/bin/java",
+            },
+          },
+          {
+            name: "Lexurgy path",
+            desc: "Install directory, bin script, or .jar.",
+            aliases: ["cli", "jar", "sound change"],
+            control: {
+              type: "text",
+              key: "lexurgyPath",
+              placeholder: "/home/you/lexurgy",
+            },
+          },
+          {
+            name: "Third-party notice",
+            desc: "Lexurgy is a separate GPL-3.0 program and is not bundled with Langscape.",
+            searchable: false,
+          },
+        ],
+      });
+    } else {
+      items.push({
+        name: "Lexurgy",
+        desc: "Lexurgy and sound-change recipes are available on desktop only.",
+        searchable: false,
+      });
+    }
+
+    items.push({
+      name: `Langscape ${this.plugin.manifest.version}`,
+      searchable: false,
+    });
+
+    return items;
+  }
+
+  getControlValue(key: string): unknown {
+    if (key === "javaPath") return this.plugin.settings.javaPath;
+    if (key === "lexurgyPath") return this.plugin.settings.lexurgyPath;
+    return undefined;
+  }
+
+  async setControlValue(key: string, value: unknown): Promise<void> {
+    if (key !== "javaPath" && key !== "lexurgyPath") return;
+    const trimmed = typeof value === "string" ? value.trim() : "";
+    if (key === "javaPath") this.plugin.settings.javaPath = trimmed;
+    else this.plugin.settings.lexurgyPath = trimmed;
+    await this.plugin.saveSettings();
+    const lexurgy = this.plugin.lexurgy;
+    if (lexurgy) {
+      await lexurgy.restart();
+      if (this.lexurgyStatusEl?.isConnected) {
+        void this.refreshLexurgyStatus(lexurgy, this.lexurgyStatusEl, true);
+      }
+    }
   }
 
   display(): void {
@@ -46,6 +210,7 @@ export class LangscapeSettingTab extends PluginSettingTab {
   hide(): void {
     this.unsubscribeFonts();
     this.fontListContainer = null;
+    this.lexurgyStatusEl = null;
   }
 
   private unsubscribeFonts(): void {
@@ -53,17 +218,33 @@ export class LangscapeSettingTab extends PluginSettingTab {
     this.fontChangeUnsub = null;
   }
 
+  private async rescanFonts(): Promise<void> {
+    await this.plugin.refreshFonts();
+    new Notice(`Loaded ${this.plugin.fontManager.list().length} font(s).`);
+    if (this.fontListContainer?.isConnected) {
+      this.plugin.fontManager.attachDocument(this.fontListContainer.ownerDocument);
+      this.renderFontList(this.fontListContainer);
+    }
+  }
+
+  private async testLexurgy(lexurgy: LexurgyService, status: HTMLElement): Promise<void> {
+    try {
+      const result = await lexurgy.testConnection();
+      new Notice(`Lexurgy works (${result.version}).`);
+      await this.refreshLexurgyStatus(lexurgy, status, true);
+    } catch (error) {
+      new Notice(
+        `Lexurgy test failed: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+  }
+
   private renderFonts(): void {
     const { containerEl } = this;
     const heading = new Setting(containerEl).setName("Fonts").setHeading();
     heading.addButton((button) =>
       button.setButtonText("Rescan").onClick(async () => {
-        await this.plugin.refreshFonts();
-        new Notice(`Loaded ${this.plugin.fontManager.list().length} font(s).`);
-        if (this.fontListContainer?.isConnected) {
-          this.plugin.fontManager.attachDocument(this.fontListContainer.ownerDocument);
-          this.renderFontList(this.fontListContainer);
-        }
+        await this.rescanFonts();
       })
     );
     containerEl.createEl("p", {
@@ -117,37 +298,8 @@ export class LangscapeSettingTab extends PluginSettingTab {
         attr: { "aria-label": "Set font nickname" },
       });
       setIcon(nickname, "pencil");
-      nickname.addEventListener("click", async () => {
-        const value = await promptText(this.app, {
-          title: "Font nickname",
-          description:
-            "A short code for {nickname: text}. Use letters, numbers, underscores, or hyphens; leave blank to use the font name.",
-          value: font.nickname ?? "",
-          placeholder: "tengwar",
-          cta: "Save",
-        });
-        if (value === null) return;
-        const clean = value.trim();
-        if (clean && !/^[\p{L}\p{N}_-]+$/u.test(clean)) {
-          new Notice("Nicknames can only contain letters, numbers, underscores, and hyphens.");
-          return;
-        }
-        const key = font.path ?? font.customId ?? font.id;
-        if (
-          clean &&
-          Object.entries(this.plugin.settings.fontNicknames).some(
-            ([path, existing]) =>
-              path !== key && existing.trim().toLowerCase() === clean.toLowerCase()
-          )
-        ) {
-          new Notice("That font nickname is already in use.");
-          return;
-        }
-        if (clean) this.plugin.settings.fontNicknames[key] = clean;
-        else delete this.plugin.settings.fontNicknames[key];
-        await this.plugin.saveSettings();
-        await this.plugin.refreshFonts();
-        if (this.fontListContainer?.isConnected) this.renderFontList(this.fontListContainer);
+      nickname.addEventListener("click", () => {
+        void this.editFontNickname(font);
       });
 
       const customId = font.customId ?? font.id;
@@ -159,51 +311,92 @@ export class LangscapeSettingTab extends PluginSettingTab {
           attr: { "aria-label": isVaultFont ? "Delete font" : "Remove font" },
         });
         setIcon(remove, "trash-2");
-        remove.addEventListener("click", async () => {
-          const confirmed = await confirmAction(this.app, {
-            title: isVaultFont
-              ? `Delete "${font.displayName}"?`
-              : `Remove "${font.displayName}"?`,
-            body: isVaultFont
-              ? `This moves "${font.path}" to trash.`
-              : "This removes the font entry from Langscape settings.",
-            confirmText: isVaultFont ? "Delete" : "Remove",
-            warning: true,
-          });
-          if (!confirmed) return;
-
-          try {
-            if (isVaultFont && font.path) {
-              const file = this.app.vault.getAbstractFileByPath(font.path);
-              if (file instanceof TFile) {
-                await this.app.fileManager.trashFile(file);
-              }
-              delete this.plugin.settings.fontNicknames[font.path];
-              delete this.plugin.settings.fontAliases[font.path];
-              this.plugin.settings.customFonts = this.plugin.settings.customFonts.filter(
-                (entry) => entry.path !== font.path && entry.id !== custom?.id
-              );
-            } else if (custom) {
-              this.plugin.settings.customFonts = this.plugin.settings.customFonts.filter(
-                (entry) => entry.id !== custom.id
-              );
-              delete this.plugin.settings.fontNicknames[custom.id];
-            }
-            await this.plugin.saveSettings();
-            await this.plugin.refreshFonts();
-            new Notice(
-              isVaultFont
-                ? `Deleted "${font.displayName}".`
-                : `Removed "${font.displayName}".`
-            );
-            if (this.fontListContainer?.isConnected) this.renderFontList(this.fontListContainer);
-          } catch (error) {
-            new Notice(
-              `Could not delete font: ${error instanceof Error ? error.message : String(error)}`
-            );
-          }
+        remove.addEventListener("click", () => {
+          void this.deleteFont(font, isVaultFont, custom);
         });
       }
+    }
+  }
+
+  private async editFontNickname(font: FontRecord): Promise<void> {
+    const value = await promptText(this.app, {
+      title: "Font nickname",
+      description:
+        "A short code for {nickname: text}. Use letters, numbers, underscores, or hyphens; leave blank to use the font name.",
+      value: font.nickname ?? "",
+      placeholder: "tengwar",
+      cta: "Save",
+    });
+    if (value === null) return;
+    const clean = value.trim();
+    if (clean && !/^[\p{L}\p{N}_-]+$/u.test(clean)) {
+      new Notice("Nicknames can only contain letters, numbers, underscores, and hyphens.");
+      return;
+    }
+    const key = font.path ?? font.customId ?? font.id;
+    if (
+      clean &&
+      Object.entries(this.plugin.settings.fontNicknames).some(
+        ([path, existing]) =>
+          path !== key && existing.trim().toLowerCase() === clean.toLowerCase()
+      )
+    ) {
+      new Notice("That font nickname is already in use.");
+      return;
+    }
+    if (clean) this.plugin.settings.fontNicknames[key] = clean;
+    else delete this.plugin.settings.fontNicknames[key];
+    await this.plugin.saveSettings();
+    await this.plugin.refreshFonts();
+    if (this.fontListContainer?.isConnected) this.renderFontList(this.fontListContainer);
+  }
+
+  private async deleteFont(
+    font: FontRecord,
+    isVaultFont: boolean,
+    custom: CustomFontConfig | undefined
+  ): Promise<void> {
+    const confirmed = await confirmAction(this.app, {
+      title: isVaultFont
+        ? `Delete "${font.displayName}"?`
+        : `Remove "${font.displayName}"?`,
+      body: isVaultFont
+        ? `This moves "${font.path}" to trash.`
+        : "This removes the font entry from Langscape settings.",
+      confirmText: isVaultFont ? "Delete" : "Remove",
+      warning: true,
+    });
+    if (!confirmed) return;
+
+    try {
+      if (isVaultFont && font.path) {
+        const file = this.app.vault.getAbstractFileByPath(font.path);
+        if (file instanceof TFile) {
+          await this.app.fileManager.trashFile(file);
+        }
+        delete this.plugin.settings.fontNicknames[font.path];
+        delete this.plugin.settings.fontAliases[font.path];
+        this.plugin.settings.customFonts = this.plugin.settings.customFonts.filter(
+          (entry) => entry.path !== font.path && entry.id !== custom?.id
+        );
+      } else if (custom) {
+        this.plugin.settings.customFonts = this.plugin.settings.customFonts.filter(
+          (entry) => entry.id !== custom.id
+        );
+        delete this.plugin.settings.fontNicknames[custom.id];
+      }
+      await this.plugin.saveSettings();
+      await this.plugin.refreshFonts();
+      new Notice(
+        isVaultFont
+          ? `Deleted "${font.displayName}".`
+          : `Removed "${font.displayName}".`
+      );
+      if (this.fontListContainer?.isConnected) this.renderFontList(this.fontListContainer);
+    } catch (error) {
+      new Notice(
+        `Could not delete font: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
   }
 
@@ -212,6 +405,7 @@ export class LangscapeSettingTab extends PluginSettingTab {
     new Setting(containerEl).setName("Lexurgy").setHeading();
     const status = containerEl.createDiv({ cls: "langscape-lexurgy-setting-status" });
     status.createDiv({ cls: "langscape-muted", text: "Checking…" });
+    this.lexurgyStatusEl = status;
     void this.refreshLexurgyStatus(lexurgy, status);
 
     containerEl.createEl("p", { cls: "langscape-muted", text: LEXURGY_SETUP_HINT });
@@ -223,15 +417,7 @@ export class LangscapeSettingTab extends PluginSettingTab {
     new Setting(containerEl)
       .addButton((button) =>
         button.setButtonText("Test").onClick(async () => {
-          try {
-            const result = await lexurgy.testConnection();
-            new Notice(`Lexurgy works (${result.version}).`);
-            await this.refreshLexurgyStatus(lexurgy, status, true);
-          } catch (error) {
-            new Notice(
-              `Lexurgy test failed: ${error instanceof Error ? error.message : String(error)}`
-            );
-          }
+          await this.testLexurgy(lexurgy, status);
         })
       );
 
@@ -247,10 +433,7 @@ export class LangscapeSettingTab extends PluginSettingTab {
           .setPlaceholder("/usr/bin/java")
           .setValue(this.plugin.settings.javaPath)
           .onChange(async (value) => {
-            this.plugin.settings.javaPath = value.trim();
-            await this.plugin.saveSettings();
-            await lexurgy.restart();
-            void this.refreshLexurgyStatus(lexurgy, status, true);
+            await this.setControlValue("javaPath", value);
           })
       );
 
@@ -262,10 +445,7 @@ export class LangscapeSettingTab extends PluginSettingTab {
           .setPlaceholder("/home/you/lexurgy")
           .setValue(this.plugin.settings.lexurgyPath)
           .onChange(async (value) => {
-            this.plugin.settings.lexurgyPath = value.trim();
-            await this.plugin.saveSettings();
-            await lexurgy.restart();
-            void this.refreshLexurgyStatus(lexurgy, status, true);
+            await this.setControlValue("lexurgyPath", value);
           })
       );
 

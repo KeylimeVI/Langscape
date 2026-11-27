@@ -186,4 +186,39 @@ describe("LangscapeSettingTab fonts UI", () => {
     tab.hide();
     tab.containerEl.remove();
   });
+
+  it("exposes declarative setting definitions for Obsidian settings search", async () => {
+    const restart = vi.fn(async () => {});
+    const saveSettings = vi.fn(async () => {});
+    const settings = { ...DEFAULT_SETTINGS, javaPath: "/usr/bin/java", lexurgyPath: "" };
+    const plugin: any = {
+      app: { vault: {}, fileManager: {} },
+      manifest: { version: "1.0.4" },
+      settings,
+      lexurgy: {
+        restart,
+        getEnvironment: vi.fn(async () => ({ notes: [] })),
+        testConnection: vi.fn(),
+      },
+      fontManager: {
+        attachDocument: vi.fn(),
+        onChange: vi.fn(() => () => {}),
+        list: () => [],
+        sampleFor: () => "sample",
+      },
+      saveSettings,
+      refreshFonts: vi.fn(async () => {}),
+    };
+
+    const tab = new LangscapeSettingTab(plugin);
+    const defs = tab.getSettingDefinitions();
+    expect(defs.some((item) => "type" in item && item.type === "group" && item.heading === "Fonts")).toBe(true);
+    expect(defs.some((item) => "type" in item && item.type === "group" && item.heading === "Lexurgy")).toBe(true);
+    expect(tab.getControlValue("javaPath")).toBe("/usr/bin/java");
+
+    await tab.setControlValue("lexurgyPath", "  /opt/lexurgy  ");
+    expect(settings.lexurgyPath).toBe("/opt/lexurgy");
+    expect(saveSettings).toHaveBeenCalledTimes(1);
+    expect(restart).toHaveBeenCalledTimes(1);
+  });
 });

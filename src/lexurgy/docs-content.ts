@@ -1,4 +1,4 @@
-import { parse, type DefaultTreeAdapterTypes } from "parse5";
+import { html, parse, type DefaultTreeAdapterTypes } from "parse5";
 
 export const LEXURGY_DOCS_URL = "https://www.lexurgy.com/sc/docs";
 
@@ -43,8 +43,8 @@ function readExamples(mdx: string): DocsExample[] {
       (token) => token === "\\`" || token === "\\$" ? token[1]
         : token.startsWith("\\") ? token : JSON.stringify(token).slice(1, -1)
     )}"`;
-    const rules: unknown = JSON.parse(literal);
-    const words: unknown = JSON.parse(`${inputs[1].replace(/,\s*$/, "")}]`);
+    const rules = JSON.parse(literal) as unknown;
+    const words = JSON.parse(`${inputs[1].replace(/,\s*$/, "")}]`) as unknown;
     if (typeof rules !== "string" || !Array.isArray(words) || !words.every((word): word is string => typeof word === "string")) {
       throw new Error("Expected literal rules and input words");
     }
@@ -52,22 +52,24 @@ function readExamples(mdx: string): DocsExample[] {
   });
 }
 
-function renderExample(doc: Document, example: DocsExample): HTMLElement {
-  const block = doc.createElement("div");
-  block.className = "langscape-docs-example";
+function renderExample(parent: DocumentFragment | HTMLElement, example: DocsExample): void {
+  const block = parent.createDiv({ cls: "langscape-docs-example" });
   for (const [label, text] of [["Sound changes", example.changes], ["Input words", example.inputs.join("\n")]]) {
-    const title = block.appendChild(doc.createElement("strong"));
-    title.textContent = label;
-    const code = block.appendChild(doc.createElement("pre")).appendChild(doc.createElement("code"));
-    code.textContent = text;
+    block.createEl("strong", { text: label });
+    block.createEl("pre").createEl("code", { text });
   }
-  return block;
 }
 
-const contentTags = new Set<string>([
+const contentTagList = [
   "a", "blockquote", "br", "code", "div", "em", "h1", "h2", "h3", "h4", "h5", "h6",
   "hr", "i", "li", "ol", "p", "pre", "span", "strong", "table", "tbody", "td", "th", "thead", "tr", "ul",
-]);
+] as const;
+type ContentTag = (typeof contentTagList)[number];
+const contentTags = new Set<string>(contentTagList);
+
+function isContentTag(tag: string): tag is ContentTag {
+  return contentTags.has(tag);
+}
 
 type ParsedNode = DefaultTreeAdapterTypes.Node;
 type ParsedElement = DefaultTreeAdapterTypes.Element;
@@ -81,7 +83,7 @@ function* elements(start: ParsedNode): Generator<ParsedElement> {
   while (pending.length) {
     const node = pending.pop();
     if (!node) break;
-    if ("tagName" in node && node.namespaceURI === "http://www.w3.org/1999/xhtml") yield node;
+    if ("tagName" in node && node.namespaceURI === html.NS.HTML) yield node;
     if ("childNodes" in node) {
       for (let i = node.childNodes.length - 1; i >= 0; i--) pending.push(node.childNodes[i]);
     }
@@ -90,7 +92,7 @@ function* elements(start: ParsedNode): Generator<ParsedElement> {
 
 /** Extract the article and rebuild only passive content, with no upstream scripts, styles or embeds. */
 export async function loadDocsArticle(
-  doc: Document,
+  _doc: Document,
   page: DocsPage,
   read: (url: string) => Promise<string>,
 ): Promise<DocumentFragment> {
@@ -112,32 +114,30 @@ export async function loadDocsArticle(
     }
   }
 
-  const fragment = doc.createDocumentFragment();
+  const fragment = createFragment();
   let exampleIndex = 0;
-  const append = (source: ParsedNode, parent: Node): void => {
+  const append = (source: ParsedNode, parent: DocumentFragment | HTMLElement): void => {
     if ("value" in source && source.nodeName === "#text") {
-      parent.appendChild(doc.createTextNode(source.value));
+      parent.appendText(source.value);
       return;
     }
-    if (!("tagName" in source) || source.namespaceURI !== "http://www.w3.org/1999/xhtml" || !contentTags.has(source.tagName)) return;
+    if (!("tagName" in source) || source.namespaceURI !== html.NS.HTML || !isContentTag(source.tagName)) return;
     if (isCard(source)) {
       const example = examples[exampleIndex++];
-      if (example) parent.appendChild(renderExample(doc, example));
+      if (example) renderExample(parent, example);
       else if (exampleIndex === 1) {
-        const note = doc.createElement("p");
-        note.textContent = "Examples are unavailable in this tab. ";
-        const link = note.appendChild(doc.createElement("a"));
-        link.textContent = "View the interactive examples online";
-        link.href = url;
-        link.target = "_blank";
-        link.rel = "noopener noreferrer";
+        const note = parent.createEl("p", { text: "Examples are unavailable in this tab. " });
+        const link = note.createEl("a", {
+          text: "View the interactive examples online",
+          href: url,
+          attr: { target: "_blank", rel: "noopener noreferrer" },
+        });
         // Keep this on the official site, not in the current article again.
         link.dataset.lexurgyExternal = "true";
-        parent.appendChild(note);
       }
       return;
     }
-    const dest = doc.createElement(source.tagName);
+    const dest = parent.createEl(source.tagName);
     const id = attr(source, "id");
     if (/^h[1-6]$/.test(source.tagName) && id) dest.dataset.lexurgyAnchor = id;
     const href = attr(source, "href");
@@ -154,7 +154,6 @@ export async function loadDocsArticle(
       }
     }
     for (const child of Array.from(source.childNodes)) append(child, dest);
-    parent.appendChild(dest);
   };
   for (const child of Array.from(article.childNodes)) append(child, fragment);
   return fragment;

@@ -95,7 +95,7 @@ export class FontManager {
       this.records.find(
         (r) => r.displayName.toLowerCase() === needle || r.family.toLowerCase() === needle
       ) ??
-      this.records.find((r) => Boolean(r.nickname) && stripSpaces(r.nickname!) === compact) ??
+      this.records.find((r) => Boolean(r.nickname && stripSpaces(r.nickname) === compact)) ??
       this.records.find(
         (r) => stripSpaces(r.displayName) === compact || stripSpaces(r.family) === compact
       )
@@ -140,8 +140,11 @@ export class FontManager {
 
     const customByPath = new Map(
       settings.customFonts
-        .filter((config) => config.enabled && Boolean(config.path))
-        .map((config) => [config.path as string, config] as const)
+        .filter(
+          (config): config is CustomFontConfig & { path: string } =>
+            config.enabled && Boolean(config.path)
+        )
+        .map((config) => [config.path, config] as const)
     );
     const files = await listVaultFiles(this.app.vault, (file) => isFontFile(file.path));
     for (const file of files) {
@@ -344,12 +347,13 @@ export class FontManager {
         if (record.loadStatus !== "loaded") {
           record.loadStatus = "loading";
         }
+        const activeFace = face;
         const loadPromise = Promise.resolve()
-          .then(() => face!.load())
+          .then(() => activeFace.load())
           .then(() => {
             this.setRecordStatus(record, "loaded", undefined);
           })
-          .catch((err) => {
+          .catch((err: unknown) => {
             this.setRecordStatus(record, "error", formatFontError(err));
           });
         // Await local binary/vault font loads immediately so fonts are ready

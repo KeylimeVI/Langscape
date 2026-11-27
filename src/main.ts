@@ -151,7 +151,8 @@ export default class LangscapePlugin extends Plugin {
   }
 
   async loadSettings(): Promise<void> {
-    this.settings = mergeSettings(await this.loadData());
+    const raw = (await this.loadData()) as unknown;
+    this.settings = mergeSettings(raw);
   }
 
   async saveSettings(): Promise<void> {
@@ -358,7 +359,7 @@ export default class LangscapePlugin extends Plugin {
       id: "create-starter-vault",
       name: "Create starter vault",
       callback: () =>
-        void this.createStarterVault().catch((error) => {
+        void this.createStarterVault().catch((error: unknown) => {
           new Notice(
             `Could not create the starter vault: ${
               error instanceof Error ? error.message : String(error)
