@@ -101,7 +101,7 @@ function scanRules(source: string): { lines: Line[]; names: string[] } {
 function isDeclaration(code: string): boolean {
   // The same tokens may be rule names: e.g. `Feature:` or `Symbol RTL:`.
   return /^(?:Feature|feature)\s+(?:(?:\((?:Syllable|syllable)\)\s+)?\+?[A-Za-z0-9]+(?:,\s*\+?[A-Za-z0-9]+)*|.*\([^)]+\))$/.test(code) ||
-    /^(?:Symbol|symbol)\s+[^\s,.=>()*\[\]{}+?/\-_:~$@&]+(?:,\s*[^\s,.=>()*\[\]{}+?/\-_:~$@&]+)*(?:\s+\[[^\]]*\])?$/.test(code) ||
+    /^(?:Symbol|symbol)\s+[^\s,.=>()*[\]{}+?/\-_:~$@&]+(?:,\s*[^\s,.=>()*[\]{}+?/\-_:~$@&]+)*(?:\s+\[[^\]]*\])?$/.test(code) ||
     /^(?:Diacritic|diacritic)\s+[^:]+\[[^\]]*\](?:\s+\([^)]*\))*$/.test(code) && !code.includes("=>") ||
     /^(?:Class|class)\s+[A-Za-z0-9]+\s+\{/.test(code) ||
     /^(?:Element|element)\s+[A-Za-z0-9]+\s+.+/.test(code) && !code.includes("=>");

@@ -101,7 +101,7 @@ export class LexurgyDocsView extends ItemView {
         }
         if (requestId !== this.requestId) return;
         this.articles.set(page, article);
-        this.articleEl.replaceChildren(article.cloneNode(true));
+        this.articleEl.replaceChildren(this.articleEl.ownerDocument.importNode(article, true));
         this.renderedPage = page;
         this.updateSections();
       } catch {

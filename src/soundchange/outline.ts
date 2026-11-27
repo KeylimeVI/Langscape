@@ -19,7 +19,7 @@ export interface LexurgyOutline {
 
 const DECLARATIONS =
   /^(Feature|Symbol|Class|Element|Romanizer|Syllable|Stress|Propagate|Define|Sound Changes)\b/i;
-const RULE_HEADER = /^\s{0,3}([A-Za-z0-9_][A-Za-z0-9 _'’.\-]*?)\s*:\s*(?:#.*)?$/;
+const RULE_HEADER = /^\s{0,3}([A-Za-z0-9_][A-Za-z0-9 _'’.-]*?)\s*:\s*(?:#.*)?$/;
 const THEN_HEADER = /^\s+Then\s*:\s*(?:#.*)?$/i;
 
 /**

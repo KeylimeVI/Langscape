@@ -75,28 +75,30 @@ export function tokenizeLexurgyLine(
     state.decl = keyword.toLowerCase();
     i = statementStart + keyword.length;
     i = tokenizeDeclarationPrefix(line, i, limit, state, push);
-  } else if (BLOCK_TYPE.test(rest)) {
-    const match = BLOCK_TYPE.exec(rest)!;
-    const keyword = match[1];
-    push(statementStart, statementStart + keyword.length, "keyword");
-    i = statementStart + keyword.length;
-    while (i < limit && (line[i] === " " || line[i] === "\t")) i++;
-    if (line[i] === ":") {
-      push(i, i + 1, "punctuation");
-      i++;
-    }
   } else {
-    const header = RULE_HEADER.exec(rest);
-    if (header) {
-      const name = header[1];
-      push(statementStart, statementStart + name.length, "ruleName");
-      i = statementStart + name.length;
+    const blockMatch = BLOCK_TYPE.exec(rest);
+    if (blockMatch) {
+      const keyword = blockMatch[1];
+      push(statementStart, statementStart + keyword.length, "keyword");
+      i = statementStart + keyword.length;
       while (i < limit && (line[i] === " " || line[i] === "\t")) i++;
       if (line[i] === ":") {
         push(i, i + 1, "punctuation");
         i++;
       }
-      state.decl = undefined;
+    } else {
+      const header = RULE_HEADER.exec(rest);
+      if (header) {
+        const name = header[1];
+        push(statementStart, statementStart + name.length, "ruleName");
+        i = statementStart + name.length;
+        while (i < limit && (line[i] === " " || line[i] === "\t")) i++;
+        if (line[i] === ":") {
+          push(i, i + 1, "punctuation");
+          i++;
+        }
+        state.decl = undefined;
+      }
     }
   }
 

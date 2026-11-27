@@ -150,7 +150,8 @@ function parseNameTable(
     if (start < tableOffset || end > stringsEnd) continue;
 
     const text = decodeName(view, start, length, platform, encoding)
-      .replace(/\u0000/g, "")
+      .split("\u0000")
+      .join("")
       .trim();
     if (!text) continue;
     records.push({
@@ -420,5 +421,10 @@ export function humanizeFontFilename(filePath: string): string {
 }
 
 export function sanitizeFamilyName(name: string): string {
-  return name.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim();
+  let out = "";
+  for (let i = 0; i < name.length; i++) {
+    const code = name.charCodeAt(i);
+    out += code <= 0x1f || code === 0x7f ? " " : name[i];
+  }
+  return out.replace(/\s+/g, " ").trim();
 }

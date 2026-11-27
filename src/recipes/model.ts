@@ -18,7 +18,7 @@ export function readRecipe(source: string): Recipe {
   if (!json.trim()) return { ...EMPTY_RECIPE, changes: [] };
   let data: unknown;
   try {
-    data = JSON.parse(json);
+    data = JSON.parse(json) as unknown;
   } catch (error) {
     throw new Error(`Invalid recipe JSON: ${error instanceof Error ? error.message : String(error)}`);
   }

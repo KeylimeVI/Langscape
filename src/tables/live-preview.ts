@@ -119,14 +119,27 @@ interface PendingTableMenu {
 
 let pendingTableMenu: PendingTableMenu | null = null;
 
+function findMethodDescriptor<T extends object, K extends keyof T>(
+  target: T,
+  key: K
+): TypedPropertyDescriptor<T[K]> | undefined {
+  let current: object | null = target;
+  while (current) {
+    const desc = Object.getOwnPropertyDescriptor(current, key);
+    if (desc) return desc as TypedPropertyDescriptor<T[K]>;
+    current = Object.getPrototypeOf(current) as object | null;
+  }
+  return undefined;
+}
+
 /**
  * Obsidian renders table cells with its own menu and does not fire
  * `editor-menu` for them. Append Langscape's items to that native menu so
  * copy/paste and the rest of Obsidian's actions stay available.
  */
 export function installTableMenuPatch(): () => void {
-  const originalMouse = Menu.prototype.showAtMouseEvent;
-  const originalPosition = Menu.prototype.showAtPosition;
+  const originalMouse = findMethodDescriptor(Menu.prototype, "showAtMouseEvent")?.value;
+  const originalPosition = findMethodDescriptor(Menu.prototype, "showAtPosition")?.value;
 
   const consume = (menu: Menu): void => {
     const pending = pendingTableMenu;
@@ -139,22 +152,26 @@ export function installTableMenuPatch(): () => void {
     }
   };
 
-  Menu.prototype.showAtMouseEvent = function (this: Menu, event: MouseEvent): Menu {
-    consume(this);
-    return originalMouse.call(this, event);
-  };
-  Menu.prototype.showAtPosition = function (
-    this: Menu,
-    position: Parameters<Menu["showAtPosition"]>[0],
-    doc?: Document
-  ): Menu {
-    consume(this);
-    return originalPosition.call(this, position, doc);
-  };
+  if (originalMouse) {
+    Menu.prototype.showAtMouseEvent = function (this: Menu, event: MouseEvent): Menu {
+      consume(this);
+      return originalMouse.call(this, event);
+    };
+  }
+  if (originalPosition) {
+    Menu.prototype.showAtPosition = function (
+      this: Menu,
+      position: Parameters<Menu["showAtPosition"]>[0],
+      doc?: Document
+    ): Menu {
+      consume(this);
+      return originalPosition.call(this, position, doc);
+    };
+  }
 
   return () => {
-    Menu.prototype.showAtMouseEvent = originalMouse;
-    Menu.prototype.showAtPosition = originalPosition;
+    if (originalMouse) Menu.prototype.showAtMouseEvent = originalMouse;
+    if (originalPosition) Menu.prototype.showAtPosition = originalPosition;
   };
 }
 
@@ -245,7 +262,9 @@ export class MergedTableController {
 
   destroy(): void {
     this.destroyed = true;
-    if (this.scanFrame !== null) cancelAnimationFrame(this.scanFrame);
+    if (this.scanFrame !== null) {
+      (this.view.dom.ownerDocument.defaultView ?? window).cancelAnimationFrame(this.scanFrame);
+    }
     for (const remove of [...this.cleanup]) remove();
     this.cleanup.length = 0;
     this.selectionByLine.clear();
@@ -253,7 +272,8 @@ export class MergedTableController {
 
   private scheduleScan(): void {
     if (this.destroyed || this.scanFrame !== null) return;
-    this.scanFrame = requestAnimationFrame(() => {
+    const win = this.view.dom.ownerDocument.defaultView ?? window;
+    this.scanFrame = win.requestAnimationFrame(() => {
       this.scanFrame = null;
       this.scan();
     });

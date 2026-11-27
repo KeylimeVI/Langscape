@@ -185,12 +185,21 @@ async function writableNoteAt(app: App, path: string, disk?: RecipeDisk): Promis
   return null;
 }
 
+function hasIllegalFilenameChar(title: string): boolean {
+  if (/[<>:"/\\|?*]|\p{Surrogate}/u.test(title)) return true;
+  for (let i = 0; i < title.length; i++) {
+    const code = title.charCodeAt(i);
+    if (code <= 0x1f || code === 0x7f) return true;
+  }
+  return false;
+}
+
 function markdownFilename(title: string): string {
   // Reject illegal names instead of silently changing the Lexurgy result.
   const filename = title + ".md";
   const reason = !title.trim() ? "it is empty or whitespace only"
     : title.startsWith(".") ? "it begins with a dot, which Obsidian treats as hidden"
-    : /[<>:"/\\|?*\u0000-\u001f\u007f]|\p{Surrogate}/u.test(title) ? "it contains a character not allowed in filenames"
+    : hasIllegalFilenameChar(title) ? "it contains a character not allowed in filenames"
     : /^(?:CON|PRN|AUX|NUL|COM[1-9¹²³]|LPT[1-9¹²³]) *(?:\.|$)/i.test(title) ? "it is a reserved device name"
     : Buffer.byteLength(filename) > 255 ? "the filename exceeds 255 bytes"
     : "";

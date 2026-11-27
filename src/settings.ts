@@ -33,21 +33,41 @@ export const DEFAULT_SETTINGS: LangscapeSettings = {
   testWords: {},
 };
 
-export function mergeSettings(
-  loaded: Partial<LangscapeSettings> | null | undefined
-): LangscapeSettings {
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function stringMap(value: unknown): Record<string, string> {
+  if (!isRecord(value)) return {};
+  const result: Record<string, string> = {};
+  for (const [key, entry] of Object.entries(value)) {
+    if (typeof entry === "string") result[key] = entry;
+  }
+  return result;
+}
+
+export function mergeSettings(raw: unknown): LangscapeSettings {
+  const loaded = isRecord(raw) ? raw : undefined;
   return {
     ...DEFAULT_SETTINGS,
-    ...(loaded ?? {}),
+    javaPath: typeof loaded?.javaPath === "string" ? loaded.javaPath : DEFAULT_SETTINGS.javaPath,
+    lexurgyPath:
+      typeof loaded?.lexurgyPath === "string" ? loaded.lexurgyPath : DEFAULT_SETTINGS.lexurgyPath,
+    traceByDefault:
+      typeof loaded?.traceByDefault === "boolean"
+        ? loaded.traceByDefault
+        : DEFAULT_SETTINGS.traceByDefault,
     treeAlignment: loaded?.treeAlignment === "left" ? "left" : "center",
-    lexurgyPanelWidth: typeof loaded?.lexurgyPanelWidth === "number" && Number.isFinite(loaded.lexurgyPanelWidth)
-      ? Math.max(280, loaded.lexurgyPanelWidth) : DEFAULT_SETTINGS.lexurgyPanelWidth,
-    fontNicknames: { ...DEFAULT_SETTINGS.fontNicknames, ...(loaded?.fontNicknames ?? {}) },
-    fontAliases: { ...DEFAULT_SETTINGS.fontAliases, ...(loaded?.fontAliases ?? {}) },
-    testWords: { ...DEFAULT_SETTINGS.testWords, ...(loaded?.testWords ?? {}) },
+    lexurgyPanelWidth:
+      typeof loaded?.lexurgyPanelWidth === "number" && Number.isFinite(loaded.lexurgyPanelWidth)
+        ? Math.max(280, loaded.lexurgyPanelWidth)
+        : DEFAULT_SETTINGS.lexurgyPanelWidth,
+    fontNicknames: { ...DEFAULT_SETTINGS.fontNicknames, ...stringMap(loaded?.fontNicknames) },
+    fontAliases: { ...DEFAULT_SETTINGS.fontAliases, ...stringMap(loaded?.fontAliases) },
+    testWords: { ...DEFAULT_SETTINGS.testWords, ...stringMap(loaded?.testWords) },
     customFonts: Array.isArray(loaded?.customFonts)
       ? loaded.customFonts
-          .filter((font): font is CustomFontConfig => Boolean(font && typeof font === "object"))
+          .filter((font): font is Record<string, unknown> => isRecord(font))
           .map((font, index) => ({
             id: typeof font.id === "string" ? font.id : `font-${index}`,
             name: typeof font.name === "string" ? font.name : "",

@@ -342,11 +342,12 @@ export class SoundChangeTestPanel {
       return;
     }
     this.traceOutEl.removeClass("is-hidden");
-    if (!this.lastResult) {
+    const result = this.lastResult;
+    if (!result) {
       this.traceOutEl.addClass("is-hidden");
       return;
     }
-    if (!this.lastResult.traceLines.length) {
+    if (!result.traceLines.length) {
       this.traceOutEl.createDiv({
         cls: "langscape-muted",
         text: "No trace was collected for this run. Run again with “Trace applied rules” enabled.",
@@ -360,7 +361,7 @@ export class SoundChangeTestPanel {
 
     const traces = words.map((word) => ({
       word,
-      trace: traceStagesForWord(this.lastResult!.traceLines, word),
+      trace: traceStagesForWord(result.traceLines, word),
     }));
     if (!traces.some((entry) => entry.trace && entry.trace.stages.length > 0)) {
       this.traceOutEl.createDiv({
@@ -453,7 +454,7 @@ export class SoundChangeTestPanel {
       },
       { passive: false }
     );
-    requestAnimationFrame(updateScrollButtons);
+    (scroll.ownerDocument.defaultView ?? window).requestAnimationFrame(updateScrollButtons);
   }
 
   private showError(message: string, line?: number): void {
@@ -488,10 +489,7 @@ export class SoundChangeTestPanel {
 }
 
 function addOption(select: HTMLSelectElement, value: string, label: string): void {
-  const option = select.ownerDocument.createElement("option");
-  option.value = value;
-  option.textContent = label;
-  select.appendChild(option);
+  select.createEl("option", { value, text: label });
 }
 
 export function parseWords(text: string): string[] {

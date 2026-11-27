@@ -75,18 +75,21 @@ class SyntaxTreeWidget extends WidgetType {
         }
       },
       confirmDelete: this.app
-        ? async (node, count) => {
-            const label = node.label.trim() || "this node";
-            const descendants = count - 1;
-            return confirmAction(this.app!, {
-              title: "Delete subtree?",
-              body: `Delete “${label}” and its ${descendants} descendant${
-                descendants === 1 ? "" : "s"
-              }?`,
-              confirmText: "Delete",
-              warning: true,
-            });
-          }
+        ? (() => {
+            const app = this.app;
+            return async (node: SyntaxTreeNode, count: number) => {
+              const label = node.label.trim() || "this node";
+              const descendants = count - 1;
+              return confirmAction(app, {
+                title: "Delete subtree?",
+                body: `Delete “${label}” and its ${descendants} descendant${
+                  descendants === 1 ? "" : "s"
+                }?`,
+                confirmText: "Delete",
+                warning: true,
+              });
+            };
+          })()
         : undefined,
     });
     el.classList.add("langscape-tree-widget");

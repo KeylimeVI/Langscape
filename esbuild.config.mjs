@@ -42,6 +42,9 @@ const context = await esbuild.context({
   format: "cjs",
   target: "es2020",
   platform: "node",
+  // Obsidian loads plugins as CommonJS; lower guarded dynamic imports of Node
+  // built-ins to lazy require() calls instead of native ESM import().
+  supported: { "dynamic-import": false },
   logLevel: "info",
   sourcemap: prod ? false : "inline",
   treeShaking: true,

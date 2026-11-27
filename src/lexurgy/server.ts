@@ -1,6 +1,4 @@
-import { clearTimeout, setTimeout } from "node:timers";
-import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
-import { createInterface, type Interface } from "node:readline";
+import { Platform } from "obsidian";
 import type {
   ApplyRequest,
   ChangedResponse,
@@ -62,11 +60,35 @@ const JAVA_UTF8_OPTIONS = [
   "-Dstderr.encoding=UTF-8",
 ].join(" ");
 
+type TimerHandle = number;
+
+interface SpawnedProcess {
+  readonly killed: boolean;
+  readonly stdin: {
+    readonly writable: boolean;
+    write(chunk: string, callback?: (error: Error | null | undefined) => void): boolean;
+  };
+  readonly stdout: NodeJS.ReadableStream;
+  readonly stderr: {
+    setEncoding(encoding: BufferEncoding): void;
+    on(event: "data", listener: (chunk: string) => void): unknown;
+  };
+  once(event: "spawn", listener: () => void): unknown;
+  once(event: "error", listener: (error: Error) => void): unknown;
+  once(event: "exit", listener: (code: number | null, signal: NodeJS.Signals | null) => void): unknown;
+  kill(signal?: NodeJS.Signals | number): boolean;
+}
+
+interface LineReader {
+  on(event: "line", listener: (line: string) => void): unknown;
+  close(): void;
+}
+
 interface Pending {
   request: ServerRequest;
   resolve: (response: ServerResponse) => void;
   reject: (error: Error) => void;
-  timer: ReturnType<typeof setTimeout> | null;
+  timer: TimerHandle | null;
 }
 
 /**
@@ -77,8 +99,8 @@ interface Pending {
  * request IDs in the wire format.
  */
 export class LexurgyServer {
-  private child: ChildProcessWithoutNullStreams | null = null;
-  private reader: Interface | null = null;
+  private child: SpawnedProcess | null = null;
+  private reader: LineReader | null = null;
   private starting: Promise<void> | null = null;
   private pending: Pending | null = null;
   private queue: Pending[] = [];
@@ -99,10 +121,20 @@ export class LexurgyServer {
   async start(): Promise<void> {
     if (this.isRunning) return;
     if (this.starting) return this.starting;
+    if (!Platform.isDesktopApp) {
+      throw new LexurgyError("Lexurgy is only available on desktop.");
+    }
     this.stopped = false;
+    const [{ spawn }, { createInterface }] = await Promise.all([
+      import("node:child_process"),
+      import("node:readline"),
+    ]);
+    if (this.stopped) {
+      throw new LexurgyError("Lexurgy server was stopped.");
+    }
     this.starting = new Promise<void>((resolve, reject) => {
       let settled = false;
-      const startTimer = setTimeout(() => {
+      const startTimer = window.setTimeout(() => {
         if (settled) return;
         settled = true;
         this.killChild();
@@ -115,7 +147,7 @@ export class LexurgyServer {
         );
       }, this.options.startTimeoutMs ?? 20_000);
 
-      let child: ChildProcessWithoutNullStreams;
+      let child: SpawnedProcess;
       try {
         // Apply this to the child only, including installs launched through a CLI wrapper.
         const env = {
@@ -129,7 +161,7 @@ export class LexurgyServer {
           stdio: ["pipe", "pipe", "pipe"],
         });
       } catch (error) {
-        clearTimeout(startTimer);
+        window.clearTimeout(startTimer);
         settled = true;
         reject(toLexurgySpawnError(error, this.launch));
         return;
@@ -141,7 +173,7 @@ export class LexurgyServer {
       child.once("spawn", () => {
         if (settled) return;
         settled = true;
-        clearTimeout(startTimer);
+        window.clearTimeout(startTimer);
         this.starting = null;
         resolve();
       });
@@ -149,7 +181,7 @@ export class LexurgyServer {
       child.once("error", (error) => {
         if (!settled) {
           settled = true;
-          clearTimeout(startTimer);
+          window.clearTimeout(startTimer);
           this.starting = null;
           this.child = null;
           reject(toLexurgySpawnError(error, this.launch));
@@ -246,13 +278,16 @@ export class LexurgyServer {
     } else {
       child.kill("SIGTERM");
       // If the JVM ignores SIGTERM, don't leave it hanging around.
-      setTimeout(() => {
+      const killTimer: unknown = window.setTimeout(() => {
         try {
           if (!child.killed) child.kill("SIGKILL");
         } catch {
           /* already gone */
         }
-      }, 2000).unref?.();
+      }, 2000);
+      if (typeof killTimer === "object" && killTimer !== null && "unref" in killTimer && typeof killTimer.unref === "function") {
+        killTimer.unref();
+      }
     }
   }
 
@@ -289,7 +324,7 @@ export class LexurgyServer {
     }
 
     const timeout = this.options.requestTimeoutMs ?? 30_000;
-    next.timer = setTimeout(() => {
+    next.timer = window.setTimeout(() => {
       if (this.pending !== next) return;
       this.pending = null;
       next.reject(
@@ -306,7 +341,7 @@ export class LexurgyServer {
     this.child.stdin.write(encodeRequest(next.request), (error) => {
       if (!error) return;
       if (this.pending === next) this.pending = null;
-      if (next.timer) clearTimeout(next.timer);
+      if (next.timer) window.clearTimeout(next.timer);
       next.reject(new LexurgyError(`Could not write to Lexurgy: ${error.message}`));
       queueMicrotask(() => void this.pump());
     });
@@ -316,7 +351,7 @@ export class LexurgyServer {
     const current = this.pending;
     if (!current) return;
     this.pending = null;
-    if (current.timer) clearTimeout(current.timer);
+    if (current.timer) window.clearTimeout(current.timer);
 
     let response: ServerResponse;
     try {
@@ -343,7 +378,7 @@ export class LexurgyServer {
 
   private failAll(error: Error): void {
     if (this.pending) {
-      if (this.pending.timer) clearTimeout(this.pending.timer);
+      if (this.pending.timer) window.clearTimeout(this.pending.timer);
       this.pending.reject(error);
       this.pending = null;
     }
@@ -389,9 +424,16 @@ function normalizeChanged(response: ChangedResponse): LexurgyApplyResult {
   };
 }
 
+function getErrnoCode(error: unknown): string | undefined {
+  if (typeof error === "object" && error !== null && "code" in error) {
+    const code = (error as { code?: unknown }).code;
+    return typeof code === "string" ? code : undefined;
+  }
+  return undefined;
+}
+
 function toLexurgySpawnError(error: unknown, launch: LaunchSpec): LexurgyError {
-  const code = (error as NodeJS.ErrnoException | undefined)?.code;
-  if (code === "ENOENT") {
+  if (getErrnoCode(error) === "ENOENT") {
     return new LexurgyError(
       `Could not find "${launch.command}". Install Lexurgy or set the Java/Lexurgy paths in settings.`
     );

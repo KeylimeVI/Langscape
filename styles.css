@@ -162,10 +162,10 @@
   outline: none;
 }
 
-body.langscape-resizing,
-body.langscape-resizing * {
-  cursor: col-resize !important;
-  user-select: none !important;
+body.langscape-resizing.langscape-resizing.langscape-resizing,
+body.langscape-resizing.langscape-resizing.langscape-resizing * {
+  cursor: col-resize;
+  user-select: none;
 }
 
 .langscape-lsc-editor {
@@ -180,14 +180,14 @@ body.langscape-resizing * {
 
 .langscape-lsc-view .cm-editor.has-selection .cm-activeLine,
 .langscape-lsc-view .cm-editor.has-selection .cm-activeLineGutter {
-  background-color: transparent !important;
+  background-color: transparent;
 }
 
 .langscape-lsc-side {
   display: flex;
   flex-direction: column;
-  flex: 0 1 390px;
-  width: 390px;
+  flex: 0 1 var(--langscape-side-width, 390px);
+  width: var(--langscape-side-width, 390px);
   min-width: 300px;
   min-height: 0;
   overflow-y: auto;
@@ -606,8 +606,9 @@ body.langscape-resizing * {
   white-space: pre-wrap;
 }
 
-.is-hidden {
-  display: none !important;
+.langscape-lsc-view .is-hidden.is-hidden,
+.langscape-test-panel .is-hidden.is-hidden {
+  display: none;
 }
 
 /* ==========================================================================
@@ -736,15 +737,36 @@ body.langscape-resizing * {
   font-family: var(--langscape-font-family, var(--font-text)), var(--font-text);
 }
 
-.langscape-font,
-.langscape-font-preview,
-.langscape-font-setting-preview {
-  font-family: var(--langscape-font-family, var(--font-text)), var(--font-text) !important;
+body .langscape-font.langscape-font.langscape-font,
+.markdown-rendered .langscape-font.langscape-font,
+.markdown-source-view .langscape-font.langscape-font,
+body .langscape-font-preview.langscape-font-preview,
+body .langscape-font-setting-preview.langscape-font-setting-preview {
+  font-family: var(--langscape-font-family, var(--font-text)), var(--font-text);
 }
 
 /* ==========================================================================
    Settings
    ========================================================================== */
+
+.langscape-settings .setting-item.langscape-setting-block-row {
+  display: block;
+  padding-top: 8px;
+}
+
+.langscape-lexurgy-setting-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.langscape-lexurgy-setting-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
 
 .langscape-settings h3 {
   margin-top: 26px;
@@ -806,9 +828,9 @@ body.langscape-resizing * {
     flex-direction: column;
   }
 
-  .langscape-lsc-side {
-    flex: 1 1 55% !important;
-    width: 100% !important;
+  .langscape-lsc-main > .langscape-lsc-side {
+    flex: 1 1 55%;
+    width: 100%;
     min-width: 0;
     max-height: 58%;
     border-top: 1px solid var(--background-modifier-border);
@@ -839,9 +861,9 @@ body.langscape-resizing * {
     flex-direction: column;
   }
 
-  .langscape-lsc-side {
-    flex: 0 0 auto !important;
-    width: 100% !important;
+  .langscape-lsc-main > .langscape-lsc-side {
+    flex: 0 0 auto;
+    width: 100%;
     min-width: 0;
     max-height: 55%;
   }
@@ -946,12 +968,12 @@ body.langscape-resizing * {
   text-align: center;
 }
 
-.langscape-lsc-view .cm-selectionBackground,
-.langscape-lsc-view.cm-focused .cm-selectionBackground,
+.langscape-lsc-view .cm-editor > .cm-scroller > .cm-selectionLayer .cm-selectionBackground,
+.langscape-lsc-view .cm-editor.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground,
 .langscape-lsc-view .cm-content::selection,
 .langscape-lsc-view .cm-line::selection,
 .langscape-lsc-view ::selection {
-  background-color: color-mix(in srgb, var(--text-normal) 16%, var(--background-primary)) !important;
+  background-color: color-mix(in srgb, var(--text-normal) 16%, var(--background-primary));
 }
 
 /* Lexurgy syntax highlighting. Colours are deliberately muted so they stay
@@ -1032,24 +1054,24 @@ body.theme-light {
 
 /* Lint popovers need explicit Obsidian colours; the CodeMirror defaults are
    near-white on near-white in dark themes. */
-.cm-tooltip.cm-tooltip-lint,
-.langscape-lsc-view .cm-tooltip.cm-tooltip-lint {
-  background: var(--background-primary) !important;
-  color: var(--text-normal) !important;
+body .cm-tooltip.cm-tooltip-lint.cm-tooltip-lint,
+body .langscape-lsc-view .cm-tooltip.cm-tooltip-lint {
+  background: var(--background-primary);
+  color: var(--text-normal);
   border: 1px solid var(--background-modifier-border);
   border-radius: var(--radius-m);
   box-shadow: var(--shadow-s);
 }
 
-.cm-tooltip-lint .cm-diagnostic,
-.langscape-lsc-view .cm-tooltip-lint .cm-diagnostic {
-  color: var(--text-normal) !important;
+body .cm-tooltip-lint.cm-tooltip-lint .cm-diagnostic,
+body .langscape-lsc-view .cm-tooltip-lint .cm-diagnostic {
+  color: var(--text-normal);
   padding: 6px 8px;
 }
 
-.cm-tooltip-lint .cm-diagnosticText,
-.langscape-lsc-view .cm-tooltip-lint .cm-diagnosticText {
-  color: var(--text-normal) !important;
+body .cm-tooltip-lint.cm-tooltip-lint .cm-diagnosticText,
+body .langscape-lsc-view .cm-tooltip-lint .cm-diagnosticText {
+  color: var(--text-normal);
 }
 
 .cm-tooltip-lint .cm-diagnosticSource,
@@ -1083,8 +1105,8 @@ body.theme-light {
    custom-font span despite spellcheck="false". */
 .langscape-font::spelling-error,
 .langscape-font::grammar-error {
-  text-decoration: none !important;
-  background: transparent !important;
+  text-decoration: none;
+  background: transparent;
 }
 
 /* Syntax trees ------------------------------------------------------------ */
@@ -1347,22 +1369,14 @@ body.theme-light {
   height: 13px;
 }
 
-.langscape-tree-node:hover > .langscape-tree-label-row .langscape-tree-add,
-.langscape-tree-node:hover > .langscape-tree-label-row .langscape-tree-delete {
+/* Show controls only on the hovered label row or the innermost hovered node,
+   tracked via JS rather than CSS :has() to avoid broad selector invalidation. */
+.langscape-tree-node.is-tree-hovered > .langscape-tree-label-row .langscape-tree-add,
+.langscape-tree-node.is-tree-hovered > .langscape-tree-label-row .langscape-tree-delete,
+.langscape-tree-label-row:hover > .langscape-tree-add,
+.langscape-tree-label-row:hover > .langscape-tree-delete {
   opacity: 1;
   pointer-events: auto;
-}
-
-/* Only show controls on the node the pointer is actually over, not every
-   ancestor in the subtree. */
-.langscape-tree-node:has(.langscape-tree-node:hover)
-  > .langscape-tree-label-row
-  .langscape-tree-add,
-.langscape-tree-node:has(.langscape-tree-node:hover)
-  > .langscape-tree-label-row
-  .langscape-tree-delete {
-  opacity: 0;
-  pointer-events: none;
 }
 
 .langscape-tree-align {
@@ -1380,25 +1394,26 @@ body.theme-light {
   visibility: hidden;
 }
 
-body input.langscape-tree-edit,
-body input.langscape-tree-edit:focus {
-  position: fixed !important;
+body input[type="text"].langscape-tree-edit.langscape-tree-edit,
+body input[type="text"].langscape-tree-edit.langscape-tree-edit:hover,
+body input[type="text"].langscape-tree-edit.langscape-tree-edit:focus {
+  position: fixed;
   z-index: 9998;
   box-sizing: border-box;
   min-width: 52px;
   max-width: 22rem;
-  padding: 2px 6px !important;
-  border: 1px solid var(--text-accent) !important;
-  border-radius: 5px !important;
-  background: var(--background-primary) !important;
-  box-shadow: 0 2px 10px rgb(0 0 0 / 35%) !important;
+  padding: 2px 6px;
+  border: 1px solid var(--text-accent);
+  border-radius: 5px;
+  background: var(--background-primary);
+  box-shadow: 0 2px 10px rgb(0 0 0 / 35%);
   color: var(--text-normal);
   font-family: var(--font-monospace);
   font-size: 16px;
   font-weight: 500;
   line-height: 1.45;
   text-align: center;
-  outline: none !important;
+  outline: none;
   appearance: none;
   -webkit-appearance: none;
 }
@@ -1409,14 +1424,18 @@ body input.langscape-tree-edit:focus {
   margin: 0.1rem 0;
 }
 
-.cm-line .langscape-tree-source-hidden {
-  display: none !important;
+.cm-line .langscape-tree-source-hidden,
+.markdown-source-view .cm-line span.langscape-tree-source-hidden.langscape-tree-source-hidden {
+  display: none;
 }
 
 /* Merged Markdown table cells. Covered cells stay in the DOM so Obsidian's
    table editor keeps its source mapping, but they must not take up space. */
-.langscape-merged-table .langscape-table-covered {
-  display: none !important;
+body .langscape-merged-table td.langscape-table-covered,
+body .langscape-merged-table th.langscape-table-covered,
+.markdown-rendered .langscape-merged-table .langscape-table-covered,
+.markdown-source-view .langscape-merged-table .langscape-table-covered {
+  display: none;
 }
 
 table .langscape-table-selected {
@@ -1433,8 +1452,10 @@ table.langscape-table-selecting * {
 
 /* A rowspan cell is taller than its content. Keep the merged text in the
    vertical middle, and give the Live Preview wrapper the full click target. */
-.langscape-merged-table .langscape-table-anchor {
-  vertical-align: middle !important;
+body .langscape-merged-table td.langscape-table-anchor,
+body .langscape-merged-table th.langscape-table-anchor,
+.markdown-source-view .langscape-merged-table .langscape-table-anchor {
+  vertical-align: middle;
 }
 
 /* Obsidian hides this wrapper with an inline display:none while a cell is
@@ -1447,7 +1468,7 @@ table.langscape-table-selecting * {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  height: 100% !important;
+  height: 100%;
 }
 
 /* ==========================================================================

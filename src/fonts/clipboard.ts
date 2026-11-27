@@ -64,7 +64,7 @@ export function fontRecordForElement(
 ): FontRecord | undefined {
   for (let node = element; node; node = node.parentElement) {
     const win = node.ownerDocument.defaultView;
-    if (win && node instanceof win.HTMLElement) {
+    if (win && node.instanceOf(win.HTMLElement)) {
       if (node.hidden || node.style.display === "none" || node.style.visibility === "hidden") {
         return undefined;
       }
@@ -168,7 +168,7 @@ export function fontMarkupForSelection(
     if (element.matches(SKIP_SELECTOR)) return;
     const win = element.ownerDocument.defaultView;
     if (
-      win && element instanceof win.HTMLElement &&
+      win && element.instanceOf(win.HTMLElement) &&
       (element.hidden || element.style.display === "none" || element.style.visibility === "hidden")
     ) {
       return;

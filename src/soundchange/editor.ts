@@ -214,7 +214,7 @@ export class SoundChangeEditor {
   private validateDoc(doc: string): Promise<ValidationResult> {
     if (this.validationCache?.doc === doc) return this.validationCache.promise;
     const promise = this.options.validate(doc).catch(
-      (error): ValidationResult => ({
+      (error: unknown): ValidationResult => ({
         valid: false,
         error:
           error instanceof LexurgyError

@@ -152,7 +152,7 @@ export class SoundChangeView extends TextFileView {
       const bounded = Math.round(
         Math.max(minSide, Math.min(width, Math.max(minSide, main.clientWidth - minEditor)))
       );
-      side.setCssProps({ flex: `0 0 ${bounded}px`, width: `${bounded}px` });
+      side.setCssProps({ "--langscape-side-width": `${bounded}px` });
       handle.setAttribute("aria-valuenow", String(bounded));
       if (save && this.plugin.settings.lexurgyPanelWidth !== bounded) {
         this.plugin.settings.lexurgyPanelWidth = bounded;

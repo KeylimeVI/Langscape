@@ -1,5 +1,4 @@
-import * as path from "node:path";
-import { FileSystemAdapter } from "obsidian";
+import { FileSystemAdapter, Platform } from "obsidian";
 import type LangscapePlugin from "../main";
 import { detectLexurgyEnvironment, type LexurgyEnvironment } from "./locator";
 import { LexurgyServer, LexurgyError, type LexurgyApplyResult } from "./server";
@@ -24,13 +23,15 @@ export class LexurgyService {
     return Boolean(this.server?.isRunning);
   }
 
-  private get legacyInstallDir(): string | undefined {
+  private async getLegacyInstallDir(): Promise<string | undefined> {
+    if (!Platform.isDesktopApp) return undefined;
     const adapter = this.plugin.app.vault.adapter;
     if (!(adapter instanceof FileSystemAdapter)) return undefined;
     const pluginDir =
       this.plugin.manifest.dir ??
       `${this.plugin.app.vault.configDir}/plugins/${this.plugin.manifest.id}`;
-    return path.join(adapter.getBasePath(), pluginDir, "lexurgy");
+    const pathMod = await import("node:path");
+    return pathMod.join(adapter.getBasePath(), pluginDir, "lexurgy");
   }
 
   async getEnvironment(force = false): Promise<LexurgyEnvironment> {
@@ -41,10 +42,11 @@ export class LexurgyService {
     if (this.detecting) return this.detecting;
     this.detecting = (async () => {
       try {
+        const managedDir = await this.getLegacyInstallDir();
         const env = await detectLexurgyEnvironment({
           configuredPath: this.plugin.settings.lexurgyPath,
           javaPath: this.plugin.settings.javaPath,
-          managedDir: this.legacyInstallDir,
+          managedDir,
         });
         this.environment = env;
         this.environmentAt = Date.now();
