@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.5
+
+- Add declarative setting definitions (`getSettingDefinitions`) so Langscape settings appear in Obsidian's settings search.
+- Address Obsidian store review warnings: use Obsidian DOM helpers (`createEl`/`createDiv`/`createSpan`/`createSvg`/`createFragment`), remove `!important` and `:has()` from plugin styles, guard desktop-only `node:*` imports behind `Platform.isDesktopApp`, use cross-window `.instanceOf(...)` checks, and tighten TypeScript type narrowing.
+- Move the Remotion trailer project to a dedicated `trailer` branch.
+
 ## 1.0.4
 
 - Enable a mobile reading preview for vault fonts, syntax trees, and merged tables. The Lexurgy workbench and sound-change recipes remain desktop-only.
